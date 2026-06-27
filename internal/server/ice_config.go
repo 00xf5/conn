@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/pion/turn/v4"
 )
