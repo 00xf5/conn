@@ -1,0 +1,326 @@
+package server
+
+import (
+	"embed"
+	"encoding/json"
+	"io/fs"
+	"log"
+	"net/http"
+	"strings"
+	"time"
+
+	"connect/internal/auth"
+	"connect/internal/rendezvous"
+	"connect/internal/session"
+	"connect/internal/signaling"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+)
+
+//go:embed web/*
+var webFS embed.FS
+
+type Config struct {
+	Addr       string
+	PublicURL  string
+	PublicHost string
+	KeyPath    string
+	StaticRoot fs.FS
+	TLSCert    string
+	TLSKey     string
+	TURNPort   int
+	TURNSecret string
+	EnableTURN bool
+	ICE                 ICEConfig
+	OverrideICEServers  []ICEServer
+}
+
+type Server struct {
+	cfg        Config
+	sessions   *session.Store
+	registry   *rendezvous.Registry
+	hub        *signaling.Hub
+	keyPair    auth.KeyPair
+	upgrader   websocket.Upgrader
+	turnSecret string
+	turnSrv    interface{ Close() error }
+}
+
+func New(cfg Config) (*Server, error) {
+	if cfg.Addr == "" {
+		cfg.Addr = ":8787"
+	}
+	if cfg.PublicURL == "" {
+		cfg.PublicURL = "http://localhost" + cfg.Addr
+	}
+	if cfg.KeyPath == "" {
+		cfg.KeyPath = "data/server.key"
+	}
+	if cfg.TURNPort <= 0 {
+		cfg.TURNPort = 3478
+	}
+	if cfg.PublicHost == "" {
+		cfg.PublicHost = publicHostFromURL(cfg.PublicURL)
+	}
+	kp, err := auth.LoadOrCreateKeyPair(cfg.KeyPath)
+	if err != nil {
+		return nil, err
+	}
+	static, err := fs.Sub(webFS, "web")
+	if err != nil {
+		return nil, err
+	}
+	cfg.StaticRoot = static
+
+	s := &Server{
+		cfg:      cfg,
+		sessions: session.NewStore(),
+		registry: rendezvous.NewRegistry(),
+		hub:      signaling.NewHub(),
+		keyPair:  kp,
+		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+	}
+
+	if cfg.EnableTURN {
+		secretPath := cfg.TURNSecret
+		if secretPath == "" {
+			secretPath = "data/turn.secret"
+		}
+		secret, err := loadOrCreateTURNSecret(secretPath)
+		if err != nil {
+			return nil, err
+		}
+		s.turnSecret = secret
+		turnHost := cfg.PublicHost
+		if turnHost == "" || turnHost == "localhost" || turnHost == "127.0.0.1" {
+			turnHost = detectLANIP()
+		}
+		if turnHost != "" {
+			ts, err := startTURN(turnHost, cfg.TURNPort, secret)
+			if err != nil {
+				log.Printf("connectd: TURN disabled: %v", err)
+			} else {
+				s.turnSrv = ts
+				log.Printf("connectd: TURN/STUN on UDP :%d (relay via %s)", cfg.TURNPort, turnHost)
+			}
+		}
+	}
+
+	return s, nil
+}
+
+func (s *Server) PublicKey() string {
+	return s.keyPair.PublicKeyBase64()
+}
+
+func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/health", s.handleHealth)
+	mux.HandleFunc("/api/ice", s.handleICE)
+	mux.HandleFunc("/api/session", s.handleSession)
+	mux.HandleFunc("/api/agents", s.handleAgents)
+	mux.HandleFunc("/api/sessions", s.handleSessions)
+	mux.HandleFunc("/ws", s.handleWS)
+	mux.HandleFunc("/v/", s.handleViewer)
+	mux.Handle("/", http.FileServer(http.FS(s.cfg.StaticRoot)))
+	return mux
+}
+
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]any{
+		"ok":            true,
+		"publicKey":     s.PublicKey(),
+		"agents":        len(s.registry.List()),
+		"turnEmbedded":  s.turnSrv != nil,
+		"turnExternal":  s.cfg.ICE.ExternalTURNURL != "" && s.cfg.ICE.ExternalTURNSecret != "",
+		"iceServers":    len(s.ICEServers()),
+		"publicUrl":     s.cfg.PublicURL,
+	})
+}
+
+func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		var body struct {
+			DeviceID string `json:"deviceId"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body.DeviceID == "" {
+			agents := s.registry.List()
+			if len(agents) > 0 {
+				body.DeviceID = agents[0].DeviceID
+			}
+		}
+		sess, err := s.sessions.Create(body.DeviceID, 30*time.Minute)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]any{
+			"code":     sess.Code,
+			"deviceId": sess.DeviceID,
+			"viewer":   sess.ViewerURL(s.cfg.PublicURL),
+			"expires":  sess.ExpiresAt,
+		})
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.registry.List())
+}
+
+func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.sessions.List())
+}
+
+func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
+	role := signaling.Role(r.URL.Query().Get("role"))
+	sessionCode := r.URL.Query().Get("session")
+	deviceID := r.URL.Query().Get("deviceId")
+	hostname := r.URL.Query().Get("hostname")
+
+	if role != signaling.RoleAgent && role != signaling.RoleViewer {
+		http.Error(w, "role must be agent or viewer", http.StatusBadRequest)
+		return
+	}
+	if role == signaling.RoleAgent && deviceID == "" {
+		deviceID = uuid.NewString()
+	}
+	if role == signaling.RoleViewer && sessionCode == "" {
+		http.Error(w, "session required for viewer", http.StatusBadRequest)
+		return
+	}
+	sessionCode = strings.ToUpper(strings.TrimSpace(sessionCode))
+	if role == signaling.RoleViewer {
+		if _, ok := s.sessions.Get(sessionCode); !ok {
+			http.Error(w, "invalid or expired session", http.StatusNotFound)
+			return
+		}
+	}
+
+	conn, err := s.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+
+	peer := signaling.NewPeer(role, sessionCode, deviceID, conn)
+	go peer.WritePump()
+
+	if role == signaling.RoleAgent {
+		s.hub.RegisterAgent(deviceID, peer)
+		s.registry.Register(rendezvous.AgentInfo{
+			DeviceID: deviceID,
+			Hostname: hostname,
+		})
+		_ = peer.Send(signaling.Message{
+			Type:     "registered",
+			DeviceID: deviceID,
+			Payload: mustRaw(map[string]any{
+				"publicKey":  s.PublicKey(),
+				"iceServers": s.ICEServers(),
+			}),
+		})
+	} else {
+		other := s.hub.JoinSession(sessionCode, peer)
+		_ = peer.Send(signaling.Message{Type: "joined", Session: sessionCode})
+		if other != nil && other.Role == signaling.RoleAgent {
+			_ = other.Send(signaling.Message{Type: "peer-joined", From: role, Session: sessionCode})
+			_ = peer.Send(signaling.Message{Type: "peer-present", From: other.Role, Session: sessionCode})
+		} else if other != nil {
+			_ = other.Send(signaling.Message{Type: "peer-joined", From: role, Session: sessionCode})
+			_ = peer.Send(signaling.Message{Type: "peer-present", From: other.Role, Session: sessionCode})
+		}
+		s.notifyAgentIncomingViewer(sessionCode, peer)
+	}
+
+	s.readLoop(peer)
+}
+
+func (s *Server) notifyAgentIncomingViewer(sessionCode string, viewer *signaling.Peer) {
+	sess, ok := s.sessions.Get(sessionCode)
+	if !ok || sess.DeviceID == "" {
+		return
+	}
+	agentPeer := s.hub.AgentPeer(sess.DeviceID)
+	if agentPeer == nil {
+		_ = viewer.Send(signaling.Message{Type: "no-host", Session: sessionCode})
+		return
+	}
+	s.hub.JoinSession(sessionCode, agentPeer)
+	_ = agentPeer.Send(signaling.Message{
+		Type:    "incoming-viewer",
+		Session: sessionCode,
+		From:    signaling.RoleViewer,
+	})
+	_ = viewer.Send(signaling.Message{Type: "peer-present", From: signaling.RoleAgent, Session: sessionCode})
+}
+
+func (s *Server) handleViewer(w http.ResponseWriter, r *http.Request) {
+	data, err := fs.ReadFile(s.cfg.StaticRoot, "viewer/index.html")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(data)
+}
+
+func (s *Server) readLoop(peer *signaling.Peer) {
+	defer func() {
+		s.hub.Unregister(peer)
+		if peer.Role == signaling.RoleAgent {
+			s.registry.Remove(peer.DeviceID)
+		}
+		_ = peer.Conn.Close()
+	}()
+
+	for {
+		_, raw, err := peer.Conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		var msg signaling.Message
+		if err := json.Unmarshal(raw, &msg); err != nil {
+			continue
+		}
+		msg.From = peer.Role
+		if msg.Session == "" {
+			msg.Session = peer.Session
+		}
+		switch msg.Type {
+		case "heartbeat":
+			if peer.Role == signaling.RoleAgent {
+				s.registry.Heartbeat(peer.DeviceID)
+			}
+		case "offer", "answer", "ice", "stats":
+			if msg.Session != "" {
+				out, _ := json.Marshal(msg)
+				s.hub.Relay(msg.Session, peer.Role, out)
+			}
+		case "request-host":
+			if peer.Role == signaling.RoleViewer && msg.Session != "" {
+				s.notifyAgentIncomingViewer(strings.ToUpper(strings.TrimSpace(msg.Session)), peer)
+			}
+		default:
+			log.Printf("signaling: unknown type %q from %s", msg.Type, peer.Role)
+		}
+	}
+}
+
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+func mustRaw(v any) json.RawMessage {
+	b, _ := json.Marshal(v)
+	return b
+}
+
+// ViewerPath returns /v/{code} path helper for redirects.
+func ViewerPath(code string) string {
+	return "/v/" + strings.ToUpper(code)
+}

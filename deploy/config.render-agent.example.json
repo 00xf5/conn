@@ -1,0 +1,10 @@
+{
+  "serverUrl": "wss://YOUR-SERVICE.onrender.com/ws",
+  "width": 854,
+  "height": 480,
+  "fps": 20,
+  "bitrate": 2000,
+  "gop": 40,
+  "keyIntMin": 20,
+  "insecureTls": false
+}

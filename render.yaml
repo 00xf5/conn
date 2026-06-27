@@ -1,0 +1,24 @@
+# Render blueprint — connectd (signaling + web UI) only.
+# Agent (connect-agent) runs on the Windows host; point it at wss://YOUR-SERVICE.onrender.com/ws
+#
+# After connect: set CONNECT_PUBLIC_URL in the dashboard if RENDER_EXTERNAL_URL is not injected,
+# or rely on RENDER_EXTERNAL_URL (connectd reads it automatically).
+
+services:
+  - type: web
+    name: connectd
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: CONNECT_NO_TLS
+        value: "true"
+      - key: CONNECT_NO_TURN
+        value: "true"
+      - key: CONNECT_STUN_URLS
+        value: stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302
+      # Optional — required for cellular / strict NAT viewers (to-be-implemented: coturn VPS):
+      # - key: CONNECT_TURN_URL
+      #   sync: false
+      # - key: CONNECT_TURN_SECRET
+      #   sync: false

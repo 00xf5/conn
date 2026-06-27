@@ -1,0 +1,11 @@
+*.exe
+.git
+.cursor
+data/
+agent-err.log
+**/experimental/
+deploy/
+docs/
+cmd/connect-agent/
+internal/captureenc/
+internal/agent/

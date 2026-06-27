@@ -1,0 +1,5 @@
+data/
+*.exe
+*.dll
+*.obj
+*.lib

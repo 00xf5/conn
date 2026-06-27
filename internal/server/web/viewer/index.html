@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Connect Viewer</title>
+  <link rel="stylesheet" href="/viewer/viewer.css" />
+  <link rel="stylesheet" href="/viewer/taskmgr.css" />
+  <link rel="stylesheet" href="/viewer/control.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="toolbar">
+      <span class="brand">Connect</span>
+      <span id="status" class="status">connecting…</span>
+      <div class="spacer"></div>
+      <button id="btn-fit" type="button" class="active">Fit</button>
+      <button id="btn-fill" type="button">Fill</button>
+      <button id="btn-full" type="button">Fullscreen</button>
+    </header>
+    <main id="stage">
+      <div id="layout">
+        <div id="video-pane">
+          <video id="video" autoplay playsinline muted></video>
+          <div id="overlay" tabindex="0"></div>
+        </div>
+        <aside id="host-panel" class="tm-shell">
+          <div class="tm-titlebar">
+            <span class="tm-title" id="panel-title">Task Manager</span>
+            <span class="tm-host" id="host-name">—</span>
+          </div>
+          <div class="tm-body">
+            <nav class="tm-nav">
+              <button type="button" class="tm-nav-item active" data-view="performance">
+                <span class="tm-nav-icon">▦</span>
+                <span>Performance</span>
+              </button>
+              <button type="button" class="tm-nav-item" data-view="processes">
+                <span class="tm-nav-icon">☰</span>
+                <span>Processes</span>
+              </button>
+              <button type="button" class="tm-nav-item" data-view="control">
+                <span class="tm-nav-icon">⛭</span>
+                <span>Control</span>
+              </button>
+            </nav>
+            <div class="tm-main">
+              <div id="view-performance" class="tm-view active">
+                <div class="tm-perf-layout">
+                  <ul class="tm-perf-list">
+                    <li class="tm-perf-item active" data-metric="cpu">
+                      <span class="tm-perf-name">CPU</span>
+                      <canvas class="tm-spark" id="spark-cpu" width="48" height="32"></canvas>
+                      <span class="tm-perf-pct" id="side-cpu">0%</span>
+                    </li>
+                    <li class="tm-perf-item" data-metric="memory">
+                      <span class="tm-perf-name">Memory</span>
+                      <canvas class="tm-spark" id="spark-mem" width="48" height="32"></canvas>
+                      <span class="tm-perf-pct" id="side-mem">0%</span>
+                    </li>
+                    <li class="tm-perf-item" data-metric="disk">
+                      <span class="tm-perf-name">Disk 0 (C:)</span>
+                      <canvas class="tm-spark" id="spark-disk" width="48" height="32"></canvas>
+                      <span class="tm-perf-pct" id="side-disk">0%</span>
+                    </li>
+                    <li class="tm-perf-item" data-metric="ethernet">
+                      <span class="tm-perf-name">Ethernet</span>
+                      <canvas class="tm-spark" id="spark-net" width="48" height="32"></canvas>
+                      <span class="tm-perf-pct" id="side-net">—</span>
+                    </li>
+                  </ul>
+                  <div class="tm-perf-detail">
+                    <h3 id="perf-title">CPU</h3>
+                    <div class="tm-graph-wrap">
+                      <canvas id="perf-graph" width="640" height="180"></canvas>
+                    </div>
+                    <div class="tm-stat-grid" id="perf-stats"></div>
+                  </div>
+                </div>
+              </div>
+              <div id="view-processes" class="tm-view">
+                <div class="tm-proc-toolbar">
+                  <input type="text" id="proc-filter" class="tm-search" placeholder="Type a name, publisher, or PID" />
+                  <span class="tm-proc-count" id="proc-count">0 processes</span>
+                </div>
+                <div class="tm-table-wrap">
+                  <table class="tm-table">
+                    <thead>
+                      <tr>
+                        <th data-sort="name">Name</th>
+                        <th data-sort="cpu" class="num">CPU</th>
+                        <th data-sort="mem" class="num">Memory</th>
+                        <th data-sort="pid" class="num">PID</th>
+                      </tr>
+                    </thead>
+                    <tbody id="proc-body"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div id="view-control" class="tm-view">
+                <div class="cp-scroll">
+                  <section class="cp-section">
+                    <h3 class="cp-heading">Session</h3>
+                    <div class="cp-actions">
+                      <button type="button" class="cp-btn" data-act="ctrl_alt_del">Ctrl+Alt+Del</button>
+                      <button type="button" class="cp-btn" data-act="lock">Lock screen</button>
+                      <button type="button" class="cp-btn" data-act="win_d">Show desktop</button>
+                      <button type="button" class="cp-btn warn" data-act="reboot">Restart PC</button>
+                      <button type="button" class="cp-btn danger" data-act="shutdown">Shut down</button>
+                    </div>
+                  </section>
+                  <section class="cp-section">
+                    <h3 class="cp-heading">Clipboard</h3>
+                    <textarea id="cp-clipboard" class="cp-text" rows="3" placeholder="Text to copy to host clipboard…"></textarea>
+                    <button type="button" class="cp-btn primary" id="cp-send-clip">Send to host</button>
+                  </section>
+                  <section class="cp-section">
+                    <h3 class="cp-heading">Files</h3>
+                    <label class="cp-drop" id="cp-drop">
+                      <input type="file" id="cp-file-input" hidden />
+                      <span>Drop file or click to upload to host Downloads\Connect</span>
+                    </label>
+                    <div class="cp-file-toolbar">
+                      <button type="button" class="cp-btn sm" id="cp-refresh-files">Refresh list</button>
+                      <span id="cp-upload-status" class="cp-muted"></span>
+                    </div>
+                    <ul id="cp-file-list" class="cp-file-list"></ul>
+                  </section>
+                  <section class="cp-section">
+                    <h3 class="cp-heading">Display &amp; stream</h3>
+                    <div class="cp-field">
+                      <label for="cp-bitrate">Bitrate <span id="cp-bitrate-val">2500</span> kbps</label>
+                      <input type="range" id="cp-bitrate" min="800" max="8000" step="200" value="2500" />
+                    </div>
+                  </section>
+                  <section class="cp-section">
+                    <h3 class="cp-heading">Run on host</h3>
+                    <input type="url" id="cp-url" class="cp-input" placeholder="https://…" />
+                    <button type="button" class="cp-btn" id="cp-open-url">Open URL</button>
+                    <input type="text" id="cp-cmd" class="cp-input" placeholder="Command (e.g. notepad)" />
+                    <button type="button" class="cp-btn" id="cp-run-cmd">Run command</button>
+                  </section>
+                  <div id="cp-toast" class="cp-toast"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+    <footer id="stats" class="mobile-stats"></footer>
+  </div>
+  <script src="/viewer/modules/util.js"></script>
+  <script src="/viewer/modules/charts.js"></script>
+  <script src="/viewer/modules/input.js"></script>
+  <script src="/viewer/modules/layout.js"></script>
+  <script src="/viewer/modules/taskmgr.js"></script>
+  <script src="/viewer/modules/control.js"></script>
+  <script src="/viewer/modules/webrtc.js"></script>
+  <script src="/viewer/viewer.js"></script>
+  <script>
+    ConnectViewer.init({ sessionCode: location.pathname.split('/').pop() });
+  </script>
+</body>
+</html>

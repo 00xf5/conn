@@ -1,0 +1,22 @@
+2026/06/23 19:45:32 connect-agent starting (device=79c1935f-4892-4c2f-b188-d368d191ba00)
+2026/06/23 19:45:33 agent: connected as 79c1935f-4892-4c2f-b188-d368d191ba00 (shivudu)
+2026/06/23 19:45:33 agent: registered with server
+2026/06/23 19:49:57 agent: session LD7KQ8 requested
+2026/06/23 19:49:57 agent: dxgi capture 1366x768 -> ffmpeg qsv
+2026/06/23 19:49:57 agent: using GPU capture encoder dxgi-qsv-h264
+2026/06/23 19:49:57 agent: encoder dxgi-qsv-h264
+2026/06/23 19:49:57 agent: capture size 1366x768
+2026/06/23 19:49:57 agent: WebRTC offer sent for session LD7KQ8
+2026/06/23 19:49:57 agent: remote answer applied
+2026/06/23 19:49:57 agent: WebRTC state connecting (session LD7KQ8)
+2026/06/23 19:49:57 agent: video pump started (session LD7KQ8)
+2026/06/23 19:49:57 agent: WebRTC state connected (session LD7KQ8)
+2026/06/23 19:50:01 agent: sent 1 video samples (key=true, 106926 bytes)
+2026/06/23 19:50:01 agent: sent 2 video samples (key=true, 129996 bytes)
+2026/06/23 19:50:13 agent: sent 3 video samples (key=true, 166270 bytes)
+2026/06/23 19:51:57 agent: sent 60 video samples (key=true, 107314 bytes)
+2026/06/23 19:53:55 agent: sent 120 video samples (key=true, 224459 bytes)
+2026/06/23 19:55:55 agent: sent 180 video samples (key=true, 203103 bytes)
+2026/06/23 19:57:55 agent: sent 240 video samples (key=true, 220252 bytes)
+2026/06/23 19:59:55 agent: sent 300 video samples (key=true, 219175 bytes)
+2026/06/23 20:01:55 agent: sent 360 video samples (key=true, 170598 bytes)
