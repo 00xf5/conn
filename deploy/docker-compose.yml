@@ -1,0 +1,56 @@
+# VPS stack: Caddy (HTTPS/WSS) + connectd (signaling) + coturn (TURN relay).
+# Run on the VPS: ./setup-vps.sh
+
+services:
+  connectd:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: "8787"
+      CONNECT_NO_TLS: "1"
+      CONNECT_NO_TURN: "1"
+      CONNECT_PUBLIC_URL: "https://${DOMAIN}"
+      CONNECT_STUN_URLS: "stun:${DOMAIN}:3478"
+      CONNECT_TURN_URL: "turn:${DOMAIN}:3478?transport=udp"
+      CONNECT_TURN_SECRET: "${TURN_SECRET}"
+    volumes:
+      - connectd_data:/data
+    expose:
+      - "8787"
+    networks:
+      - connect
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: "${DOMAIN}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - connectd
+    networks:
+      - connect
+
+  coturn:
+    image: coturn/coturn:4.6.2
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./coturn.conf:/etc/coturn/turnserver.conf:ro
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+
+networks:
+  connect:
+
+volumes:
+  connectd_data:
+  caddy_data:
+  caddy_config:

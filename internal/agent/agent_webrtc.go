@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"connect/internal/captureenc"
+
 	"github.com/pion/webrtc/v4"
 )
 
@@ -57,6 +59,21 @@ func (a *Agent) startSession(sessionCode string) {
 		log.Printf("agent: capture size %dx%d", w, h)
 	}
 
+	prof := ProfileFromConfig(a.cfg)
+	requestEncoderKeyframe(enc)
+
+	firstKF, err := readLiveKeyframe(enc, captureenc.MinKeyframeBytes, keyframeWaitTimeout(prof))
+	if err != nil {
+		log.Printf("agent: no keyframe for SDP: %v", err)
+		_ = enc.Close()
+		a.mu.Lock()
+		a.activeSess = ""
+		a.mu.Unlock()
+		return
+	}
+	enc = &primedEncoder{inner: enc, first: firstKF}
+	log.Printf("agent: H.264 profile-level-id=%s", spsProfileLevelID(firstKF.Data))
+
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
 		ICEServers: a.iceConfig(),
 	})
@@ -69,17 +86,23 @@ func (a *Agent) startSession(sessionCode string) {
 		return
 	}
 
-	vtrack, err := webrtc.NewTrackLocalStaticSample(h264Capability, "video", "connect")
+	vtrack, err := webrtc.NewTrackLocalStaticSample(h264CodecCapabilityFromAnnexB(firstKF.Data), "video", "connect")
 	if err != nil {
 		log.Printf("agent: video track failed: %v", err)
 		_ = enc.Close()
 		_ = pc.Close()
+		a.mu.Lock()
+		a.activeSess = ""
+		a.mu.Unlock()
 		return
 	}
 	if _, err = pc.AddTrack(vtrack); err != nil {
 		log.Printf("agent: add track failed: %v", err)
 		_ = enc.Close()
 		_ = pc.Close()
+		a.mu.Lock()
+		a.activeSess = ""
+		a.mu.Unlock()
 		return
 	}
 
@@ -124,15 +147,21 @@ func (a *Agent) startSession(sessionCode string) {
 	offer, err := pc.CreateOffer(nil)
 	if err != nil {
 		log.Printf("agent: create offer failed: %v", err)
+		a.mu.Lock()
+		a.closePeerLocked()
+		a.mu.Unlock()
+		go a.startWarmEncoder()
 		return
 	}
 	if err = pc.SetLocalDescription(offer); err != nil {
 		log.Printf("agent: set local description failed: %v", err)
+		a.mu.Lock()
+		a.closePeerLocked()
+		a.mu.Unlock()
+		go a.startWarmEncoder()
 		return
 	}
 	payload, _ := json.Marshal(offer)
 	_ = a.send(signalingEnvelope{Type: "offer", Session: sessionCode, Payload: payload})
 	log.Printf("agent: WebRTC offer sent for session %s", sessionCode)
-	a.openVideoGate()
-	a.setState("streaming", sessionCode)
 }

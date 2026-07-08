@@ -59,6 +59,7 @@ Connect.input = (function () {
         queueMove(encMouseMove(x, y));
       });
       overlay.addEventListener('mousedown', (e) => {
+        if (video.paused) video.play().catch(() => {});
         const [x, y] = mapPointer(e.clientX, e.clientY);
         sendBinary(encMouseMove(x, y));
         sendBinary(encMouseBtn(true, e.button, x, y));

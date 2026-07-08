@@ -88,7 +88,10 @@ func (a *Agent) connectOnce() error {
 		case <-a.closed:
 			return nil
 		case <-ticker.C:
-			_ = a.send(signalingEnvelope{Type: "heartbeat"})
+			if err := a.send(signalingEnvelope{Type: "heartbeat"}); err != nil {
+				log.Printf("agent: heartbeat failed: %v", err)
+				return fmt.Errorf("heartbeat failed: %w", err)
+			}
 		}
 	}
 }

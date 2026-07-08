@@ -12,6 +12,10 @@ typedef struct {
     mfxSession session;
     mfxVideoParam param;
     mfxBitstream bitstream;
+    mfxExtCodingOption ext_copt;
+    mfxExtCodingOption2 ext_copt2;
+    mfxExtCodingOption3 ext_copt3;
+    mfxExtBuffer* ext_params[3];
     int width;
     int height;
     int fps;
@@ -19,6 +23,7 @@ typedef struct {
     int frame_index;
     int force_idr;
     int priming;
+    int encoder_inited;
     char name[64];
     char last_error[128];
 

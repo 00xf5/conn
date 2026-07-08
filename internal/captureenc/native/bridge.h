@@ -30,6 +30,8 @@ void captureenc_release_frame(CaptureEncHandle handle, CaptureEncFrame* frame);
 
 int captureenc_set_bitrate(CaptureEncHandle handle, int kbps);
 
+int captureenc_request_keyframe(CaptureEncHandle handle);
+
 const char* captureenc_encoder_name(CaptureEncHandle handle);
 
 void captureenc_capture_size(CaptureEncHandle handle, int* width, int* height);

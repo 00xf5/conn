@@ -3,11 +3,7 @@
 package captureenc
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/native
-#cgo LDFLAGS: -ld3d11 -ldxgi -luuid -lole32
-
-#include "capture_only.c"
-#include "dxgi_capture.c"
+#include "native/capture_only.h"
 */
 import "C"
 import (

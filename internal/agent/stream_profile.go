@@ -1,6 +1,10 @@
 package agent
 
-import "time"
+import (
+	"time"
+
+	"connect/internal/captureenc"
+)
 
 // StreamProfile holds all video/stream tunables. Defaults are the stable baseline;
 // override via config.json or CLI flags — not by editing encoder internals.
@@ -71,7 +75,12 @@ func ProfileFromConfig(cfg Config) StreamProfile {
 	if cfg.KeyIntMin > 0 {
 		p.KeyIntMin = cfg.KeyIntMin
 	}
+	p.Width, p.Height = captureenc.AlignEncodeDimensions(p.Width, p.Height)
 	return p
+}
+
+func alignStreamDimensions(w, h int) (int, int) {
+	return captureenc.AlignEncodeDimensions(w, h)
 }
 
 // NormalizeConfig fills zero fields from DefaultStreamProfile.

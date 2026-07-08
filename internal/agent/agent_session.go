@@ -5,8 +5,10 @@ import (
 	"io"
 	"log"
 	"runtime"
+	"sync"
 	"time"
 
+	"connect/internal/captureenc"
 	"connect/internal/inputproto"
 
 	"github.com/pion/webrtc/v4"
@@ -64,12 +66,18 @@ func (a *Agent) handleStatsJSON(data []byte) {
 	var stats struct {
 		PacketLoss float64 `json:"packetLoss"`
 		RTT        float64 `json:"rtt"`
+		Mobile     bool    `json:"mobile"`
 	}
 	if err := json.Unmarshal(data, &stats); err != nil {
 		return
 	}
 	a.mu.Lock()
 	enc := a.enc
+	if _, native := enc.(*hostPipelineEncoder); native {
+		// Native HW pipeline: bitrate tweaks on every stats tick stall encode.
+		a.mu.Unlock()
+		return
+	}
 	a.mu.Unlock()
 	if enc == nil {
 		return
@@ -82,6 +90,13 @@ func (a *Agent) handleStatsJSON(data []byte) {
 	}
 	kbps = ProfileFromConfig(a.cfg).ClampBitrate(kbps)
 	_ = enc.SetBitrate(kbps)
+	a.mu.Lock()
+	sess := a.activeSess
+	a.mu.Unlock()
+	if sess != "" && (stats.PacketLoss > 0.02 || stats.RTT > 200 || stats.Mobile) {
+		log.Printf("agent: viewer stats session=%s mobile=%t rtt=%.0fms loss=%.1f%%",
+			sess, stats.Mobile, stats.RTT, stats.PacketLoss*100)
+	}
 }
 
 func (a *Agent) handleInput(data []byte) {
@@ -112,18 +127,30 @@ func (a *Agent) pumpVideoTrack(track *webrtc.TrackLocalStaticSample, sessionCode
 	case <-gate:
 	}
 	prof := ProfileFromConfig(a.cfg)
-	metrics := newSessionPerf(sessionCode)
+	pipeline := ""
+	a.mu.Lock()
+	if a.enc != nil {
+		pipeline = a.enc.Name()
+	}
+	a.mu.Unlock()
+	metrics := newSessionPerf(sessionCode, pipeline)
 	log.Printf("agent: video pump started (session %s, %dx%d @ %dfps)", sessionCode, prof.Width, prof.Height, prof.FPS)
 
 	frameDur := prof.FrameDuration()
-	latest := make(chan videoFrame, 1)
-	go a.ingestVideoFrames(sessionCode, gen, latest)
+	slot := &latestVideoFrame{}
+	go a.fillLatestVideoFrame(sessionCode, gen, slot, metrics)
 
+	ticker := time.NewTicker(frameDur)
+	defer ticker.Stop()
 	stall := time.NewTimer(prof.StallTimeout)
 	defer stall.Stop()
 
 	var sent int
-	lastSend := time.Now()
+	var stalled bool
+	sampleTS := time.Now()
+	defer func() {
+		metrics.logSummary(stalled)
+	}()
 
 	for {
 		if !a.sessionAlive(sessionCode, gen) {
@@ -133,10 +160,18 @@ func (a *Agent) pumpVideoTrack(track *webrtc.TrackLocalStaticSample, sessionCode
 		case <-a.closed:
 			return
 		case <-stall.C:
+			if !a.sessionAlive(sessionCode, gen) {
+				return
+			}
+			stalled = true
 			log.Printf("agent: video stalled (session %s)", sessionCode)
 			a.endSession(sessionCode, gen)
 			return
-		case frame := <-latest:
+		case <-ticker.C:
+			frame, ok := slot.take()
+			if !ok || len(frame.Data) == 0 {
+				continue
+			}
 			if !stall.Stop() {
 				select {
 				case <-stall.C:
@@ -145,24 +180,15 @@ func (a *Agent) pumpVideoTrack(track *webrtc.TrackLocalStaticSample, sessionCode
 			}
 			stall.Reset(prof.StallTimeout)
 
-			if !a.sessionAlive(sessionCode, gen) {
-				return
-			}
-			if len(frame.Data) == 0 {
-				continue
-			}
-
-			if wait := time.Until(lastSend.Add(frameDur)); wait > 0 {
-				time.Sleep(wait)
-			}
 			if err := track.WriteSample(media.Sample{
-				Data:     frame.Data,
-				Duration: frameDur,
+				Data:      frame.Data,
+				Duration:  frameDur,
+				Timestamp: sampleTS,
 			}); err != nil {
 				log.Printf("agent: write sample: %v", err)
 				return
 			}
-			lastSend = time.Now()
+			sampleTS = sampleTS.Add(frameDur)
 			sent++
 			metrics.noteSent()
 			if sent <= 3 || sent%120 == 0 {
@@ -172,18 +198,28 @@ func (a *Agent) pumpVideoTrack(track *webrtc.TrackLocalStaticSample, sessionCode
 	}
 }
 
-func (a *Agent) endSession(sessionCode string, gen uint64) {
-	a.mu.Lock()
-	if a.activeSess != sessionCode || a.sessGen != gen {
-		a.mu.Unlock()
-		return
-	}
-	a.closePeerLocked()
-	a.mu.Unlock()
-	go a.startWarmEncoder()
+// latestVideoFrame holds the most recent encoded frame for the ticker pump.
+type latestVideoFrame struct {
+	mu    sync.Mutex
+	frame videoFrame
+	ok    bool
 }
 
-func (a *Agent) ingestVideoFrames(sessionCode string, gen uint64, out chan videoFrame) {
+func (s *latestVideoFrame) store(frame videoFrame) {
+	s.mu.Lock()
+	s.frame = frame
+	s.ok = true
+	s.mu.Unlock()
+}
+
+func (s *latestVideoFrame) take() (videoFrame, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.frame, s.ok
+}
+
+func (a *Agent) fillLatestVideoFrame(sessionCode string, gen uint64, slot *latestVideoFrame, metrics *sessionPerf) {
+	gotKeyframe := false
 	for {
 		if !a.sessionAlive(sessionCode, gen) {
 			return
@@ -208,23 +244,34 @@ func (a *Agent) ingestVideoFrames(sessionCode string, gen uint64, out chan video
 			return
 		}
 		if len(frame.Data) == 0 {
-			time.Sleep(2 * time.Millisecond)
 			continue
 		}
-
-		select {
-		case out <- frame:
-		default:
-			select {
-			case <-out:
-			default:
-			}
-			select {
-			case out <- frame:
-			default:
-			}
+		if !acceptVideoFrame(frame) {
+			metrics.noteRejected()
+			continue
 		}
+		if !gotKeyframe {
+			if !frame.KeyFrame || len(frame.Data) < captureenc.MinKeyframeBytes ||
+				!captureenc.ContainsNALType(frame.Data, 5) {
+				metrics.noteSkippedNonKey()
+				continue
+			}
+			gotKeyframe = true
+			log.Printf("agent: session %s live keyframe ready (%d bytes)", sessionCode, len(frame.Data))
+		}
+		slot.store(frame)
 	}
+}
+
+func (a *Agent) endSession(sessionCode string, gen uint64) {
+	a.mu.Lock()
+	if a.activeSess != sessionCode || a.sessGen != gen {
+		a.mu.Unlock()
+		return
+	}
+	a.closePeerLocked()
+	a.mu.Unlock()
+	go a.startWarmEncoder()
 }
 
 func (a *Agent) openVideoGate() {
@@ -261,6 +308,12 @@ func (a *Agent) handleAnswer(payload json.RawMessage) {
 	a.flushPendingICE(pc)
 	log.Printf("agent: remote answer applied")
 	a.openVideoGate()
+	a.mu.Lock()
+	sess := a.activeSess
+	a.mu.Unlock()
+	if sess != "" {
+		a.setState("streaming", sess)
+	}
 }
 
 func (a *Agent) handleICE(payload json.RawMessage) {

@@ -152,7 +152,12 @@ func main() {
 	log.Printf("dashboard: %s/dashboard/", *publicURL)
 	log.Printf("viewer example: %s/v/{code}", *publicURL)
 	if *noTurn {
-		log.Printf("connectd: embedded TURN disabled (use CONNECT_TURN_URL + CONNECT_TURN_SECRET for relay)")
+		log.Printf("connectd: embedded TURN disabled")
+	}
+	if iceCfg.ExternalTURNURL != "" {
+		log.Printf("connectd: external TURN %s (STUN: %v)", iceCfg.ExternalTURNURL, iceCfg.DefaultSTUN)
+	} else if len(overrideICE) == 0 {
+		log.Printf("connectd: no external TURN — LAN/direct only unless viewers share network with host")
 	}
 
 	var ln net.Listener

@@ -1,11 +1,12 @@
 package agent
 
 import (
+	"fmt"
 	"log"
 	"os"
 )
 
-// videoFrame is one encoded video unit for WebRTC.
+// videoFrame is one encoded video unit for any transport (WebRTC, native viewer, relay).
 type videoFrame struct {
 	Data      []byte
 	KeyFrame  bool
@@ -20,40 +21,45 @@ type videoEncoder interface {
 	CaptureSize() (width, height int)
 }
 
-// openVideoEncoder opens the default gdigrab + ffmpeg pipeline on Windows.
-// Set CONNECT_ENCODER_DXGI=1 for DXGI capture + live codec probe instead.
-func openVideoEncoder(cfg Config) (videoEncoder, error) {
-	codec := sessionCodec(cfg)
-	if os.Getenv("CONNECT_ENCODER_DXGI") == "1" {
-		codec = resolveEncoderCodec(cfg)
-		enc, err := newDXGIFFmpegEncoder(cfg, codec)
-		if err != nil {
-			log.Printf("agent: dxgi encoder failed (%v); falling back to gdigrab", err)
-		} else {
-			log.Printf("agent: pipeline %s", enc.Name())
-			return enc, nil
+func requestEncoderKeyframe(enc videoEncoder) {
+	type keyframer interface {
+		RequestKeyframe() error
+	}
+	if kf, ok := enc.(keyframer); ok {
+		if err := kf.RequestKeyframe(); err != nil {
+			log.Printf("agent: request keyframe: %v", err)
 		}
 	}
-	enc, err := newGdiGrabFFmpegEncoder(cfg, codec)
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("agent: pipeline %s", enc.Name())
-	return enc, nil
 }
 
-// sessionCodec picks ffmpeg encoder without opening DXGI (for gdigrab path).
-func sessionCodec(cfg Config) EncoderCodec {
-	if v := os.Getenv("CONNECT_ENCODER_CODEC"); v != "" {
-		c := EncoderCodec(v)
-		for _, ok := range probeOrder {
-			if ok == c {
-				return c
-			}
+// openVideoEncoder prefers in-process DXGI + hardware H.264 (QSV/NVENC/MF).
+// Falls back to DXGI/gdigrab + ffmpeg libx264 when native init fails.
+// CONNECT_ENCODER_FFMPEG=1 forces the ffmpeg subprocess path.
+func openVideoEncoder(cfg Config) (videoEncoder, error) {
+	if os.Getenv("CONNECT_ENCODER_FFMPEG") != "1" {
+		if enc, err := openHostPipelineEncoder(cfg); err == nil {
+			log.Printf("agent: pipeline capture=dxgi codec=%s", enc.Name())
+			return enc, nil
+		} else {
+			log.Printf("agent: native encode unavailable (%v); trying ffmpeg", err)
 		}
 	}
-	if c, ok := loadCachedEncoderCodec(); ok {
-		return c
+
+	codec := CodecX264
+	forceGdi := os.Getenv("CONNECT_ENCODER_GDIGRAB") == "1"
+	if !forceGdi {
+		enc, err := newDXGIFFmpegEncoder(cfg, codec)
+		if err == nil {
+			log.Printf("agent: pipeline capture=dxgi codec=%s", codec)
+			return enc, nil
+		}
+		log.Printf("agent: dxgi ffmpeg failed (%v); trying gdigrab", err)
 	}
-	return CodecQSV
+
+	enc, err := newGdiGrabFFmpegEncoder(cfg, codec)
+	if err != nil {
+		return nil, fmt.Errorf("video encoder: %w", err)
+	}
+	log.Printf("agent: pipeline capture=gdigrab codec=%s", codec)
+	return enc, nil
 }

@@ -1,0 +1,10 @@
+{
+  "serverUrl": "wss://remote.example.com/ws",
+  "insecureTls": false,
+  "width": 854,
+  "height": 480,
+  "fps": 20,
+  "bitrate": 2000,
+  "gop": 40,
+  "keyIntMin": 20
+}

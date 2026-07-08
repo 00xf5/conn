@@ -131,6 +131,8 @@ if ($Restart) {
   Assert-ConnectStopped
 }
 
+Remove-Item Env:CONNECT_ENCODER_GDIGRAB -ErrorAction SilentlyContinue
+
 if ($Firewall) {
   try { Ensure-Firewall } catch { Write-Host "  Firewall needs Administrator - phones may not reach this PC" }
 }

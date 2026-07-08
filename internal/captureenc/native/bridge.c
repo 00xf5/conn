@@ -3,6 +3,7 @@
 #include "dxgi_capture.h"
 #include "nvenc_dyn.h"
 #include "qsv_encode.h"
+#include "mf_h264_encode.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -11,7 +12,8 @@
 typedef enum {
     ENC_BACKEND_NONE = 0,
     ENC_BACKEND_NVENC = 1,
-    ENC_BACKEND_QSV = 2,
+    ENC_BACKEND_MF = 2,
+    ENC_BACKEND_QSV = 3,
 } EncBackend;
 
 typedef struct {
@@ -19,6 +21,7 @@ typedef struct {
     DxgiCapture dxgi;
     NvencEncoder nvenc;
     QsvEncoder qsv;
+    MfH264Enc* mf;
     EncBackend backend;
     char encoder_name[64];
     uint64_t qpc_freq;
@@ -36,7 +39,24 @@ static void update_pacing(CaptureEncState* st) {
 static void shutdown_encoders(CaptureEncState* st) {
     nvenc_shutdown(&st->nvenc);
     qsv_shutdown(&st->qsv);
+    if (st->mf) {
+        mf_h264_enc_shutdown(st->mf);
+        st->mf = NULL;
+    }
     st->backend = ENC_BACKEND_NONE;
+}
+
+static int nvenc_dll_present(void) {
+    HMODULE m = GetModuleHandleA("nvEncodeAPI64.dll");
+    if (!m) {
+        m = LoadLibraryA("nvEncodeAPI64.dll");
+        if (m) {
+            FreeLibrary(m);
+            return 1;
+        }
+        return 0;
+    }
+    return 1;
 }
 
 static int reinit(CaptureEncState* st) {
@@ -47,7 +67,8 @@ static int reinit(CaptureEncState* st) {
         return -20;
     }
 
-    if (nvenc_init(&st->nvenc, st->dxgi.device, st->dxgi.width, st->dxgi.height, st->cfg.fps, st->cfg.bitrate_kbps) == 0 &&
+    if (nvenc_dll_present() &&
+        nvenc_init(&st->nvenc, st->dxgi.device, st->dxgi.width, st->dxgi.height, st->cfg.fps, st->cfg.bitrate_kbps) == 0 &&
         nvenc_register_texture(&st->nvenc, st->dxgi.nv12) == 0) {
         st->backend = ENC_BACKEND_NVENC;
         snprintf(st->encoder_name, sizeof(st->encoder_name), "%s", st->nvenc.name);
@@ -55,16 +76,31 @@ static int reinit(CaptureEncState* st) {
     } else {
         nvenc_shutdown(&st->nvenc);
         int qrc = qsv_init(&st->qsv, st->dxgi.device, st->dxgi.width, st->dxgi.height, st->cfg.fps, st->cfg.bitrate_kbps);
-        if (qrc != 0) {
+        if (qrc == 0) {
+            st->backend = ENC_BACKEND_QSV;
+            snprintf(st->encoder_name, sizeof(st->encoder_name), "%s", st->qsv.name);
+            st->qsv.force_idr = 1;
+        } else {
             fprintf(stderr, "connect: qsv_init=%d (%s)\n", qrc, qsv_last_error(&st->qsv));
             fflush(stderr);
             qsv_shutdown(&st->qsv);
-            dxgi_capture_shutdown(&st->dxgi);
-            return qrc;
+            char mf_name[64] = {0};
+            int mrc = mf_h264_enc_init(&st->mf, st->dxgi.width, st->dxgi.height, st->cfg.fps, st->cfg.bitrate_kbps,
+                                       mf_name, (int)sizeof(mf_name));
+            if (mrc == 0) {
+                st->backend = ENC_BACKEND_MF;
+                snprintf(st->encoder_name, sizeof(st->encoder_name), "%s", mf_name);
+            } else {
+                fprintf(stderr, "connect: mf_h264_enc_init=%d\n", mrc);
+                fflush(stderr);
+                if (st->mf) {
+                    mf_h264_enc_shutdown(st->mf);
+                    st->mf = NULL;
+                }
+                dxgi_capture_shutdown(&st->dxgi);
+                return qrc != 0 ? qrc : mrc;
+            }
         }
-        st->backend = ENC_BACKEND_QSV;
-        snprintf(st->encoder_name, sizeof(st->encoder_name), "%s", st->qsv.name);
-        st->qsv.force_idr = 1;
     }
 
     st->need_reinit = 0;
@@ -111,6 +147,56 @@ int captureenc_read_frame(CaptureEncHandle handle, CaptureEncFrame* out) {
         return 1;
     }
 
+    uint8_t* data = NULL;
+    int size = 0;
+    int keyframe = 0;
+    int rc = -42;
+
+    if (st->backend == ENC_BACKEND_QSV) {
+        /* QSV may return MORE_DATA for several feeds before producing a bitstream. */
+        for (int feed = 0; feed < 16; feed++) {
+            ID3D11Texture2D* bgra = NULL;
+            int acq = dxgi_capture_acquire(&st->dxgi, &bgra);
+            if (acq == 1) {
+                return 1;
+            }
+            if (acq == -2) {
+                st->need_reinit = 1;
+                return 1;
+            }
+            if (acq != 0) {
+                return -40;
+            }
+            if (dxgi_capture_convert_nv12(&st->dxgi, bgra) != 0) {
+                dxgi_capture_release(&st->dxgi);
+                return -41;
+            }
+            dxgi_capture_release(&st->dxgi);
+            if (dxgi_capture_map_nv12(&st->dxgi) != 0) {
+                return -43;
+            }
+            int pitch = 0;
+            const uint8_t* nv12 = dxgi_capture_nv12_bytes(&st->dxgi, &pitch);
+            int force = (st->qsv.frame_index == 0) ? 1 : 0;
+            rc = qsv_encode(&st->qsv, nv12, (int)st->dxgi.nv12_cpu_size, pitch, force, &data, &size, &keyframe);
+            if (rc == 0 && size > 0 && data) {
+                goto got_frame;
+            }
+            if (data) {
+                free(data);
+                data = NULL;
+            }
+            if (rc == 1) {
+                continue;
+            }
+            if (rc == -2 || rc == -3) {
+                return 1;
+            }
+            break;
+        }
+        return 1;
+    }
+
     ID3D11Texture2D* bgra = NULL;
     int acq = dxgi_capture_acquire(&st->dxgi, &bgra);
     if (acq == 1) {
@@ -130,28 +216,35 @@ int captureenc_read_frame(CaptureEncHandle handle, CaptureEncFrame* out) {
     }
     dxgi_capture_release(&st->dxgi);
 
-    uint8_t* data = NULL;
-    int size = 0;
-    int keyframe = 0;
-    int rc = -42;
-
     if (st->backend == ENC_BACKEND_NVENC) {
         int force = (st->nvenc.frame_index == 0) ? 1 : 0;
         rc = nvenc_encode(&st->nvenc, force, &data, &size, &keyframe);
-    } else if (st->backend == ENC_BACKEND_QSV) {
+    } else if (st->backend == ENC_BACKEND_MF) {
         if (dxgi_capture_map_nv12(&st->dxgi) != 0) {
             return -43;
         }
         int pitch = 0;
         const uint8_t* nv12 = dxgi_capture_nv12_bytes(&st->dxgi, &pitch);
-        int force = (st->qsv.frame_index == 0) ? 1 : 0;
-        rc = qsv_encode(&st->qsv, nv12, (int)st->dxgi.nv12_cpu_size, pitch, force, &data, &size, &keyframe);
+        MfH264Packet pkt;
+        rc = mf_h264_enc_encode(st->mf, nv12, pitch, st->dxgi.width, st->dxgi.height, &pkt);
+        if (rc == 0) {
+            data = pkt.data;
+            size = pkt.size;
+            keyframe = pkt.keyframe;
+        }
     }
 
+got_frame:
     if (rc == 1) {
         return 1;
     }
     if (rc != 0) {
+        if (rc == -2 || rc == -3 || rc == -40 || rc == -41 || rc == -43) {
+            fprintf(stderr, "connect: encode drop rc=%d (%s)\n", rc,
+                    st->backend == ENC_BACKEND_QSV ? qsv_last_error(&st->qsv) : "mf");
+            fflush(stderr);
+            return 1;
+        }
         return rc;
     }
     if (size <= 0 || !data) {
@@ -185,8 +278,27 @@ int captureenc_set_bitrate(CaptureEncHandle handle, int kbps) {
     if (st->backend == ENC_BACKEND_NVENC) {
         return nvenc_set_bitrate(&st->nvenc, kbps);
     }
+    if (st->backend == ENC_BACKEND_MF) {
+        return mf_h264_enc_set_bitrate(st->mf, kbps);
+    }
     if (st->backend == ENC_BACKEND_QSV) {
         return qsv_set_bitrate(&st->qsv, kbps);
+    }
+    return 0;
+}
+
+int captureenc_request_keyframe(CaptureEncHandle handle) {
+    if (!handle) {
+        return -1;
+    }
+    CaptureEncState* st = (CaptureEncState*)handle;
+    if (st->backend == ENC_BACKEND_NVENC) {
+        st->nvenc.force_idr = 1;
+        return 0;
+    }
+    if (st->backend == ENC_BACKEND_QSV) {
+        st->qsv.force_idr = 1;
+        return 0;
     }
     return 0;
 }

@@ -7,13 +7,13 @@ Self-hosted remote desktop: **Go signaling server**, **Windows host agent**, **b
 | Binary | Role |
 |--------|------|
 | `connectd` | Registry, WebSocket signaling, dashboard + viewer, optional TLS + embedded TURN (LAN) |
-| `connect-agent` | Host: **gdigrab** (default) or DXGI capture → ffmpeg H.264 → WebRTC, input injection |
+| `connect-agent` | Host: **DXGI** (default) or gdigrab fallback → ffmpeg H.264 → WebRTC, input injection |
 
 ## Quick start (developers)
 
 ```powershell
 winget install Gyan.FFmpeg
-winget install -e BrechtSanders.WinLibs.POSIX.UCRT   # gcc — only if using DXGI path
+winget install -e BrechtSanders.WinLibs.POSIX.UCRT   # gcc — required for DXGI default path
 
 cd C:\Users\shiver\Desktop\connect
 $env:CONNECT_ALLOW_SYSTEM_FFMPEG = "1"
@@ -21,10 +21,10 @@ $env:CONNECT_ALLOW_SYSTEM_FFMPEG = "1"
 .\deploy\start.ps1
 ```
 
-Optional faster capture (requires CGO build):
+Fallback capture (no CGO / DXGI unavailable):
 
 ```powershell
-$env:CONNECT_ENCODER_DXGI = "1"
+$env:CONNECT_ENCODER_GDIGRAB = "1"
 .\deploy\start.ps1 -Restart
 ```
 
@@ -62,18 +62,18 @@ Stream settings: `%LOCALAPPDATA%\Connect\config.json` (see `deploy/config.exampl
 ## Default video path (code)
 
 ```
-gdigrab → ffmpeg H.264 (cache or h264_qsv) → WebRTC → browser
-```
-
-Optional (`CONNECT_ENCODER_DXGI=1`):
-
-```
 DXGI → NV12 → ffmpeg H.264 (live-probed) → WebRTC → browser
+```
+
+Fallback when DXGI fails (or `CONNECT_ENCODER_GDIGRAB=1`):
+
+```
+gdigrab → ffmpeg H.264 (live-probed) → WebRTC → browser
 ```
 
 Defaults: **854×480 @ 20fps, 2 Mbps**. Tune via `config.json` — not by editing encoder internals.
 
-See **`docs/STABLE.md`** for frozen rules, **`docs/PHASE-A.md`** for the local perf gate, **`docs/DEPLOY-RENDER.md`** for cloud deploy.
+See **`docs/STABLE.md`** for frozen rules, **`docs/RELEASE-GATE.md`** for must-pass gates, **`docs/PHASE-A.md`** for the local perf workflow, **`docs/DEPLOY-RENDER.md`** for cloud deploy.
 
 After a viewer session: `.\deploy\check-phase-a.ps1`
 
@@ -102,24 +102,35 @@ connect-agent ──WSS──► connectd ◄── session code ── browser
 ## Project layout
 
 ```
-cmd/connectd/           server (Render deploy target)
+cmd/connectd/           signaling server (VPS Docker or LAN)
 cmd/connect-agent/      host agent (tray)
 internal/agent/         WebRTC, encoders, stream profile
-internal/captureenc/    DXGI capture (optional agent path)
+internal/captureenc/    DXGI + in-process HW encode
 internal/server/        HTTP, signaling, embedded web
-deploy/start.ps1        local dev script
-deploy/config.example.json
-docs/STABLE.md          baseline + roadmap
-docs/DEPLOY-RENDER.md   Render deploy
+deploy/start.ps1        local LAN dev
+deploy/setup-vps.sh     VPS: connectd + coturn + Caddy
+deploy/start-vps-agent.ps1   point agent at VPS
+docs/DEPLOY-VPS.md      production deploy (recommended)
+docs/DEPLOY-RENDER.md   legacy signaling-only smoke test
 Dockerfile              connectd container
-render.yaml             Render blueprint
 ```
 
-## To-be-implemented
+## Internet / cellular (Phase C)
 
-- Auth on dashboard / WebSocket (Ed25519 key generated but not verified)
-- External TURN ops for cellular (env hooks exist: `CONNECT_TURN_URL`, `CONNECT_TURN_SECRET`)
-- Runtime bitrate changes (`SetBitrate` is currently a no-op)
+After Phase A + B pass locally, deploy on a VPS:
+
+```bash
+# VPS
+cd deploy && cp .env.example .env && ./setup-vps.sh
+```
+
+```powershell
+# Windows host
+.\deploy\start-vps-agent.ps1 -Server "wss://remote.example.com/ws"
+.\deploy\check-vps.ps1 -Domain remote.example.com
+```
+
+See **[docs/DEPLOY-VPS.md](docs/DEPLOY-VPS.md)** — coturn TURN relay for cellular viewers.
 
 ## Experimental native encoder
 

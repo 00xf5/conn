@@ -1,4 +1,6 @@
-# connectd only — deploy to Render (agent stays on Windows host).
+# connectd — signaling + dashboard (agent stays on Windows host).
+# VPS: docker compose in deploy/ (Caddy TLS + external coturn).
+# LAN dev: run connectd.exe directly with embedded TURN.
 FROM golang:1.22-alpine AS build
 RUN apk add --no-cache ca-certificates git
 WORKDIR /src
@@ -14,4 +16,4 @@ COPY --from=build /connectd /connectd
 ENV PORT=8787
 EXPOSE 8787
 ENTRYPOINT ["/connectd"]
-CMD ["-no-tls", "-no-turn"]
+CMD ["-no-tls", "-no-turn", "-key", "/data/server.key"]

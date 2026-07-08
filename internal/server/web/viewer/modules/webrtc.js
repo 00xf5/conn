@@ -100,6 +100,12 @@ Connect.webrtc = {
 
     let statsTimer = null;
 
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && video && video.srcObject) {
+        video.play().catch(() => {});
+      }
+    });
+
     async function handleOffer(offer) {
       if (statsTimer) {
         clearInterval(statsTimer);
@@ -183,6 +189,11 @@ Connect.webrtc = {
           }
         });
         taskmgr.renderConnStats(rtt, loss, frames);
+        if (frames === 0 && pc.connectionState === 'connected') {
+          status.textContent = 'connected — waiting for video decode…';
+        } else if (frames > 0 && status.textContent.includes('waiting for video')) {
+          status.textContent = 'streaming';
+        }
         if (dc && dc.readyState === 'open') {
           dc.send(JSON.stringify({ type: 'viewer', packetLoss: loss, rtt: rtt * 1000, mobile: isMobile }));
         }

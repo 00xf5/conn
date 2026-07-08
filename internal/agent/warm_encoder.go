@@ -2,9 +2,10 @@ package agent
 
 import (
 	"log"
-	"os"
 	"sync"
 	"time"
+
+	"connect/internal/captureenc"
 )
 
 // primedEncoder returns a stashed IDR first, then reads from the inner encoder.
@@ -30,7 +31,17 @@ func (p *primedEncoder) ReadFrame() (videoFrame, error) {
 func (p *primedEncoder) SetBitrate(kbps int) error  { return p.inner.SetBitrate(kbps) }
 func (p *primedEncoder) Close() error               { return p.inner.Close() }
 func (p *primedEncoder) Name() string               { return p.inner.Name() }
-func (p *primedEncoder) CaptureSize() (int, int)    { return p.inner.CaptureSize() }
+func (p *primedEncoder) CaptureSize() (int, int) { return p.inner.CaptureSize() }
+
+// discardCachedKeyframe drops any stashed IDR and returns the live encoder.
+// A primed keyframe goes stale within seconds; sending it at session start
+// leaves the browser with an IDR that does not match following P-frames.
+func (p *primedEncoder) discardCachedKeyframe() videoEncoder {
+	p.mu.Lock()
+	p.sent = true
+	p.mu.Unlock()
+	return p.inner
+}
 
 func primeEncoder(enc videoEncoder, cfg Config) videoEncoder {
 	prof := ProfileFromConfig(cfg)
@@ -44,7 +55,7 @@ func primeEncoder(enc videoEncoder, cfg Config) videoEncoder {
 			time.Sleep(5 * time.Millisecond)
 			continue
 		}
-		if f.KeyFrame {
+		if f.KeyFrame && len(f.Data) >= captureenc.MinKeyframeBytes && captureenc.ContainsNALType(f.Data, 5) {
 			log.Printf("agent: encoder primed with keyframe (%d bytes)", len(f.Data))
 			return &primedEncoder{inner: enc, first: f}
 		}
@@ -53,9 +64,6 @@ func primeEncoder(enc videoEncoder, cfg Config) videoEncoder {
 }
 
 func (a *Agent) preloadEncoder() {
-	if os.Getenv("CONNECT_ENCODER_DXGI") == "1" {
-		_ = resolveEncoderCodec(a.cfg)
-	}
 	a.startWarmEncoder()
 }
 
@@ -133,9 +141,13 @@ func (a *Agent) takeWarmEncoder() videoEncoder {
 	enc := a.warmEnc
 	a.warmEnc = nil
 	a.warmMu.Unlock()
-	if enc != nil {
-		log.Printf("agent: using pre-warmed encoder (%s)", enc.Name())
+	if enc == nil {
+		return nil
 	}
+	if pe, ok := enc.(*primedEncoder); ok {
+		enc = pe.discardCachedKeyframe()
+	}
+	log.Printf("agent: using pre-warmed encoder (%s)", enc.Name())
 	return enc
 }
 

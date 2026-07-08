@@ -97,7 +97,7 @@ func newDXGIFFmpegEncoder(cfg Config, codec EncoderCodec) (*dxgiFFmpegEncoder, e
 	e := &dxgiFFmpegEncoder{
 		cap: cap, ffmpeg: ff, codec: codec, fps: fps,
 		streamW: streamW, streamH: streamH,
-		stdinCh: make(chan []byte, 32),
+		stdinCh: make(chan []byte, 64),
 	}
 	go e.pumpCapture()
 	go e.pumpWriter(stdin)
@@ -155,15 +155,9 @@ func (d *dxgiFFmpegEncoder) pumpCapture() {
 		data := frame.Data
 		select {
 		case d.stdinCh <- data:
-		default:
-			select {
-			case <-d.stdinCh:
-			default:
-			}
-			select {
-			case d.stdinCh <- data:
-			default:
-			}
+		case <-time.After(100 * time.Millisecond):
+			// ffmpeg encode backed up — drop this capture frame rather than desync the pipe
+			continue
 		}
 
 		next = next.Add(interval)
