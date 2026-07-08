@@ -44,5 +44,5 @@ if ($failed.Count -gt 0) {
   Write-Host "VPS check FAILED ($($failed.Count) issues)"
   exit 1
 }
-Write-Host "VPS check PASSED — point agent: .\deploy\start-vps-agent.ps1 -Server wss://$Domain/ws"
+Write-Host "VPS check PASSED - point agent: .\deploy\start-vps-agent.ps1 -Server wss://$Domain/ws"
 exit 0
