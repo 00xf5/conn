@@ -19,7 +19,7 @@ $configDir = Join-Path $env:LOCALAPPDATA "Connect"
 New-Item -ItemType Directory -Force -Path $configDir | Out-Null
 $configPath = Join-Path $configDir "config.json"
 
-@{
+$configJson = @{
   serverUrl   = $Server
   insecureTls = $false
   width       = 854
@@ -28,7 +28,9 @@ $configPath = Join-Path $configDir "config.json"
   bitrate     = 2000
   gop         = 40
   keyIntMin   = 20
-} | ConvertTo-Json | Set-Content $configPath -Encoding utf8
+} | ConvertTo-Json
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($configPath, $configJson, $utf8NoBom)
 
 Write-Host "Config written: $configPath"
 Write-Host "Server: $Server"

@@ -70,22 +70,3 @@ func (g *guardedEncoder) CaptureSize() (int, int) {
 	}
 	return inner.CaptureSize()
 }
-
-func recoverVideoEncoder(enc videoEncoder) {
-	if enc == nil {
-		return
-	}
-	type recoverer interface {
-		recoverPipeline()
-	}
-	if r, ok := enc.(recoverer); ok {
-		r.recoverPipeline()
-	}
-}
-
-func (g *guardedEncoder) tryRecover() {
-	g.mu.Lock()
-	inner := g.inner
-	g.mu.Unlock()
-	recoverVideoEncoder(inner)
-}

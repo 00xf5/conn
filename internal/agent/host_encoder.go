@@ -5,21 +5,13 @@ package agent
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"connect/internal/captureenc"
 )
 
-const (
-	hostEmptyPollInterval = 2 * time.Millisecond
-	hostRecoverAfter      = 60 // consecutive empty polls before native recover
-)
-
 // hostPipelineEncoder wraps the canonical captureenc.HostPipeline as a videoEncoder.
 type hostPipelineEncoder struct {
-	pipe       *captureenc.HostPipeline
-	fps        int
-	emptyPolls int
+	pipe *captureenc.HostPipeline
 }
 
 func openHostPipelineEncoder(cfg Config) (*hostPipelineEncoder, error) {
@@ -37,58 +29,25 @@ func openHostPipelineEncoder(cfg Config) (*hostPipelineEncoder, error) {
 	}
 	cw, ch := pipe.CaptureSize()
 	log.Printf("agent: host pipeline dxgi %dx%d -> %s @ %dkbps", cw, ch, pipe.EncoderName(), prof.BitrateK)
-	return &hostPipelineEncoder{pipe: pipe, fps: prof.FPS}, nil
+	return &hostPipelineEncoder{pipe: pipe}, nil
 }
 
 func (h *hostPipelineEncoder) ReadFrame() (videoFrame, error) {
 	if h.pipe == nil {
 		return videoFrame{}, fmt.Errorf("encoder closed")
 	}
-
-	deadline := time.Now().Add(hostReadBudget())
-	for {
-		au, err := h.pipe.ReadAccessUnit()
-		if err != nil {
-			return videoFrame{}, err
-		}
-		if len(au.Data) > 0 {
-			h.emptyPolls = 0
-			return videoFrame{
-				Data:      au.Data,
-				KeyFrame:  au.KeyFrame,
-				Timestamp: au.Timestamp,
-			}, nil
-		}
-
-		h.emptyPolls++
-		if h.emptyPolls >= hostRecoverAfter {
-			h.recoverPipeline()
-		}
-
-		if time.Now().After(deadline) {
-			return videoFrame{}, fmt.Errorf("host pipeline: no valid frame within %s", hostReadBudget())
-		}
-		time.Sleep(hostEmptyPollInterval)
+	au, err := h.pipe.ReadAccessUnit()
+	if err != nil {
+		return videoFrame{}, err
 	}
-}
-
-func (h *hostPipelineEncoder) recoverPipeline() {
-	if h.pipe == nil {
-		return
+	if len(au.Data) == 0 {
+		return videoFrame{}, nil
 	}
-	log.Printf("agent: host pipeline recover (empty polls=%d)", h.emptyPolls)
-	_ = h.pipe.RequestKeyframe()
-	if err := h.pipe.Recover(); err != nil {
-		log.Printf("agent: host pipeline recover failed: %v", err)
-	} else {
-		log.Printf("agent: host pipeline recovered")
-	}
-	h.emptyPolls = 0
-}
-
-func hostReadBudget() time.Duration {
-	// One frame period plus slack for QSV priming / DXGI timeout.
-	return 150 * time.Millisecond
+	return videoFrame{
+		Data:      au.Data,
+		KeyFrame:  au.KeyFrame,
+		Timestamp: au.Timestamp,
+	}, nil
 }
 
 func (h *hostPipelineEncoder) SetBitrate(kbps int) error {

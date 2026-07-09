@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -28,6 +29,7 @@ func LoadConfigFile() (Config, bool) {
 		if err != nil {
 			continue
 		}
+		b = bytes.TrimPrefix(b, []byte{0xEF, 0xBB, 0xBF})
 		var fc fileConfig
 		if err := json.Unmarshal(b, &fc); err != nil {
 			continue

@@ -81,8 +81,9 @@ func (a *Agent) startSession(sessionCode string) {
 		a.mu.Unlock()
 		return
 	}
-	enc = &primedEncoder{inner: enc, first: firstKF}
 	log.Printf("agent: H.264 profile-level-id=%s", spsProfileLevelID(firstKF.Data))
+	// SDP consumed one IDR; start the wire stream from a fresh GOP.
+	requestEncoderKeyframe(enc)
 
 	log.Printf("agent: creating peer connection session=%s", sessionCode)
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
@@ -128,6 +129,8 @@ func (a *Agent) startSession(sessionCode string) {
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		log.Printf("agent: WebRTC state %s (session %s)", state, sessionCode)
 		switch state {
+		case webrtc.PeerConnectionStateConnected:
+			a.openVideoGate()
 		case webrtc.PeerConnectionStateFailed, webrtc.PeerConnectionStateClosed, webrtc.PeerConnectionStateDisconnected:
 			a.mu.Lock()
 			if a.activeSess == sessionCode {

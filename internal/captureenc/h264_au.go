@@ -7,7 +7,7 @@ import (
 // H.264 access-unit limits shared by every consumer (WebRTC, native viewer, relay).
 const (
 	MinKeyframeBytes = 500
-	MinDeltaBytes    = 200
+	MinDeltaBytes    = 800
 )
 
 // ValidateH264AccessUnit rejects truncated or structurally invalid access units.

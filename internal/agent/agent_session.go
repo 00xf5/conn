@@ -5,8 +5,6 @@ import (
 	"io"
 	"log"
 	"runtime"
-	"strings"
-	"sync"
 	"time"
 
 	"connect/internal/captureenc"
@@ -121,6 +119,10 @@ func (a *Agent) sessionAlive(sessionCode string, gen uint64) bool {
 	return a.activeSess == sessionCode && a.sessGen == gen
 }
 
+// minEarlyDeltaBytes rejects undersized P-frames right after the first IDR; mobile
+// decoders show green when the first delta AU is truncated or from a mismatched GOP.
+const minEarlyDeltaBytes = 3000
+
 func (a *Agent) pumpVideoTrack(track *webrtc.TrackLocalStaticSample, sessionCode string, gen uint64, gate <-chan struct{}) {
 	select {
 	case <-a.closed:
@@ -138,17 +140,14 @@ func (a *Agent) pumpVideoTrack(track *webrtc.TrackLocalStaticSample, sessionCode
 	log.Printf("agent: video pump started (session %s, %dx%d @ %dfps)", sessionCode, prof.Width, prof.Height, prof.FPS)
 
 	frameDur := prof.FrameDuration()
-	slot := &latestVideoFrame{}
-	go a.fillLatestVideoFrame(sessionCode, gen, slot, metrics, frameDur)
-
 	ticker := time.NewTicker(frameDur)
 	defer ticker.Stop()
 	stall := time.NewTimer(prof.StallTimeout)
 	defer stall.Stop()
 
 	var sent int
-	var lastSentTS uint64
 	var stalled bool
+	var gotKeyframe bool
 	sampleTS := time.Now()
 	defer func() {
 		metrics.logSummary(stalled)
@@ -170,13 +169,45 @@ func (a *Agent) pumpVideoTrack(track *webrtc.TrackLocalStaticSample, sessionCode
 			a.endSession(sessionCode, gen)
 			return
 		case <-ticker.C:
-			frame, ts, ok := slot.takeAfter(lastSentTS)
-			if !ok || len(frame.Data) == 0 {
+			a.mu.Lock()
+			enc := a.enc
+			a.mu.Unlock()
+			if enc == nil {
 				continue
 			}
-			if sent == 0 && !frame.KeyFrame {
+			frame, err := enc.ReadFrame()
+			if err != nil {
+				if err != io.EOF {
+					log.Printf("agent: frame read: %v", err)
+				} else {
+					log.Printf("agent: encoder EOF (session %s)", sessionCode)
+				}
+				a.endSession(sessionCode, gen)
+				return
+			}
+			if len(frame.Data) == 0 {
 				continue
 			}
+			if !acceptVideoFrame(frame) {
+				metrics.noteRejected()
+				continue
+			}
+			if !gotKeyframe {
+				if !frame.KeyFrame || len(frame.Data) < captureenc.MinKeyframeBytes ||
+					!captureenc.ContainsNALType(frame.Data, 5) {
+					metrics.noteSkippedNonKey()
+					continue
+				}
+				gotKeyframe = true
+				log.Printf("agent: session %s live keyframe ready (%d bytes)", sessionCode, len(frame.Data))
+			} else if sent < 5 && !frame.KeyFrame && len(frame.Data) < minEarlyDeltaBytes {
+				metrics.noteRejected()
+				continue
+			}
+			if sent > 0 && sent%40 == 0 {
+				requestEncoderKeyframe(enc)
+			}
+
 			if !stall.Stop() {
 				select {
 				case <-stall.C:
@@ -194,7 +225,6 @@ func (a *Agent) pumpVideoTrack(track *webrtc.TrackLocalStaticSample, sessionCode
 				return
 			}
 			sampleTS = sampleTS.Add(frameDur)
-			lastSentTS = ts
 			sent++
 			metrics.noteSent()
 			if sent <= 3 || sent%120 == 0 {
@@ -202,108 +232,6 @@ func (a *Agent) pumpVideoTrack(track *webrtc.TrackLocalStaticSample, sessionCode
 			}
 		}
 	}
-}
-
-// latestVideoFrame holds the most recent encoded frame for the ticker pump.
-type latestVideoFrame struct {
-	mu    sync.Mutex
-	frame videoFrame
-	seq   uint64
-	ok    bool
-}
-
-func (s *latestVideoFrame) store(frame videoFrame) {
-	s.mu.Lock()
-	s.seq++
-	frame.Timestamp = s.seq
-	s.frame = frame
-	s.ok = true
-	s.mu.Unlock()
-}
-
-func (s *latestVideoFrame) takeAfter(prev uint64) (videoFrame, uint64, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.ok || s.seq <= prev {
-		return videoFrame{}, prev, false
-	}
-	return s.frame, s.seq, true
-}
-
-func (a *Agent) fillLatestVideoFrame(sessionCode string, gen uint64, slot *latestVideoFrame, metrics *sessionPerf, frameDur time.Duration) {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("agent: fillLatestVideoFrame panic: %v", r)
-			a.endSession(sessionCode, gen)
-		}
-	}()
-
-	gotKeyframe := false
-	ticker := time.NewTicker(frameDur)
-	defer ticker.Stop()
-
-	for {
-		if !a.sessionAlive(sessionCode, gen) {
-			return
-		}
-
-		<-ticker.C
-		if !a.sessionAlive(sessionCode, gen) {
-			return
-		}
-
-		a.mu.Lock()
-		enc := a.enc
-		a.mu.Unlock()
-		if enc == nil {
-			continue
-		}
-
-		frame, err := enc.ReadFrame()
-		if err != nil {
-			if err != io.EOF && isTransientFrameRead(err) {
-				log.Printf("agent: frame read stall: %v (retrying)", err)
-				if tr, ok := enc.(interface{ tryRecover() }); ok {
-					tr.tryRecover()
-				} else {
-					recoverVideoEncoder(enc)
-				}
-				continue
-			}
-			if err != io.EOF {
-				log.Printf("agent: frame read: %v", err)
-			} else {
-				log.Printf("agent: encoder EOF (session %s)", sessionCode)
-			}
-			a.endSession(sessionCode, gen)
-			return
-		}
-		if len(frame.Data) == 0 {
-			continue
-		}
-		if !acceptVideoFrame(frame) {
-			metrics.noteRejected()
-			continue
-		}
-		if !gotKeyframe {
-			if !frame.KeyFrame || len(frame.Data) < captureenc.MinKeyframeBytes ||
-				!captureenc.ContainsNALType(frame.Data, 5) {
-				metrics.noteSkippedNonKey()
-				continue
-			}
-			gotKeyframe = true
-			log.Printf("agent: session %s live keyframe ready (%d bytes)", sessionCode, len(frame.Data))
-		}
-		slot.store(frame)
-	}
-}
-
-func isTransientFrameRead(err error) bool {
-	if err == nil {
-		return false
-	}
-	s := err.Error()
-	return strings.Contains(s, "no valid frame within")
 }
 
 func (a *Agent) endSession(sessionCode string, gen uint64) {
@@ -350,7 +278,6 @@ func (a *Agent) handleAnswer(payload json.RawMessage) {
 	}
 	a.flushPendingICE(pc)
 	log.Printf("agent: remote answer applied")
-	a.openVideoGate()
 	a.mu.Lock()
 	sess := a.activeSess
 	a.mu.Unlock()

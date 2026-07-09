@@ -240,9 +240,6 @@ int captureenc_read_frame(CaptureEncHandle handle, CaptureEncFrame* out) {
     }
 
     uint64_t now = platform_qpc_now();
-    if (st->last_frame_qpc != 0 && (now - st->last_frame_qpc) < st->frame_interval_qpc) {
-        return 1;
-    }
 
     int rc = -42;
 
