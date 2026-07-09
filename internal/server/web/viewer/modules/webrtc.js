@@ -212,14 +212,14 @@ Connect.webrtc = {
     ws.onopen = () => { status.textContent = 'signaling connected'; };
 
     ws.onerror = () => {
-      if (status.textContent === 'connecting…' || status.textContent === 'signaling connected') {
-        status.textContent = 'cannot connect — create a new code from dashboard';
+      if (/connecting|signaling connected/i.test(status.textContent)) {
+        status.textContent = 'cannot connect — return to Machines and Connect again';
       }
     };
 
     ws.onclose = (ev) => {
-      if (ev.code === 1006 || status.textContent === 'connecting…') {
-        status.textContent = 'session invalid or expired — create a new code';
+      if (ev.code === 1006 || /connecting/i.test(status.textContent)) {
+        status.textContent = 'session invalid or expired — Connect again from Machines';
       } else {
         status.textContent = 'disconnected — refresh page';
       }
@@ -227,7 +227,7 @@ Connect.webrtc = {
 
     setTimeout(() => {
       if (!pc && !status.textContent.startsWith('streaming')) {
-        status.textContent = 'no stream yet — refresh or create a new code from dashboard';
+        status.textContent = 'no stream yet — refresh or Connect again from Machines';
       }
     }, 25000);
 

@@ -1,29 +1,50 @@
 :root {
   color-scheme: dark;
-  --bg: #0f1117;
-  --panel: #1a1d27;
-  --text: #e8eaef;
-  --accent: #4f8cff;
-  --muted: #8b93a7;
-  --border: #2a3040;
+  --bg: #0b0e14;
+  --panel: #151a24;
+  --text: #e7ecf5;
+  --accent: #2f6fed;
+  --muted: #8b95a8;
+  --border: #2a3344;
+  --danger: #e25555;
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; }
 #app { display: flex; flex-direction: column; height: 100%; }
 
 .toolbar {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--border);
 }
-.brand { font-weight: 700; color: var(--accent); }
+.brand {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-weight: 700; color: var(--text); text-decoration: none; letter-spacing: -0.02em;
+}
+.brand-mark {
+  width: 18px; height: 18px; border-radius: 4px;
+  background: linear-gradient(145deg, #4d8cff, var(--accent) 55%, #1a4db8);
+  position: relative;
+}
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  background: #fff;
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
 .status { color: var(--muted); font-size: 0.9rem; }
 .spacer { flex: 1; }
 button {
-  background: #252a38; color: var(--text); border: 1px solid #3a4258;
-  border-radius: 6px; padding: 6px 10px; cursor: pointer;
+  background: #1b2230; color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 0.85rem;
 }
-button.active { border-color: var(--accent); color: var(--accent); }
+button.active { border-color: var(--accent); color: #c9dbff; background: rgba(47, 111, 237, 0.14); }
+.btn-leave {
+  background: transparent; color: #ffb4b4; border: 1px solid rgba(226, 85, 85, 0.45);
+  border-radius: 6px; padding: 6px 10px; text-decoration: none; font-size: 0.85rem; font-weight: 600;
+}
+.btn-leave:hover { background: rgba(226, 85, 85, 0.12); }
 
 #stage { flex: 1; min-height: 0; background: #000; overflow: hidden; }
 #layout { display: flex; width: 100%; height: 100%; align-items: stretch; }

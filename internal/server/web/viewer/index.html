@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>Connect Viewer</title>
+  <title>Connect — Session</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/viewer/viewer.css" />
   <link rel="stylesheet" href="/viewer/taskmgr.css" />
   <link rel="stylesheet" href="/viewer/control.css" />
@@ -11,12 +14,16 @@
 <body>
   <div id="app">
     <header class="toolbar">
-      <span class="brand">Connect</span>
-      <span id="status" class="status">connecting…</span>
+      <a class="brand" href="/dashboard/" title="Back to machines">
+        <span class="brand-mark" aria-hidden="true"></span>
+        Connect
+      </a>
+      <span id="status" class="status">Connecting…</span>
       <div class="spacer"></div>
       <button id="btn-fit" type="button" class="active">Fit</button>
       <button id="btn-fill" type="button">Fill</button>
       <button id="btn-full" type="button">Fullscreen</button>
+      <a class="btn-leave" href="/dashboard/">Leave</a>
     </header>
     <main id="stage">
       <div id="layout">
