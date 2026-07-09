@@ -1,0 +1,41 @@
+# Keep connect-agent alive: restart on crash or exit. Run in a dedicated PowerShell window.
+param(
+  [string]$Server = "wss://163-245-213-130.sslip.io/ws"
+)
+
+$ErrorActionPreference = "Stop"
+$Root = Split-Path $PSScriptRoot -Parent
+$Agent = Join-Path $Root "connect-agent.exe"
+if (-not (Test-Path $Agent)) {
+  throw "connect-agent.exe not found - run: .\deploy\start.ps1 -Build"
+}
+
+$configDir = Join-Path $env:LOCALAPPDATA "Connect"
+New-Item -ItemType Directory -Force -Path $configDir | Out-Null
+$configPath = Join-Path $configDir "config.json"
+
+@{
+  serverUrl   = $Server
+  insecureTls = $false
+  width       = 854
+  height      = 480
+  fps         = 20
+  bitrate     = 2000
+  gop         = 40
+  keyIntMin   = 20
+} | ConvertTo-Json | Set-Content $configPath -Encoding utf8
+
+Remove-Item Env:CONNECT_ENCODER_FFMPEG -ErrorAction SilentlyContinue
+Remove-Item Env:CONNECT_ENCODER_GDIGRAB -ErrorAction SilentlyContinue
+
+Write-Host "Watchdog: $Agent -> $Server"
+Write-Host "Log: $(Join-Path $configDir 'agent.log')"
+Write-Host "Press Ctrl+C to stop the watchdog (agent will keep running until next restart)."
+
+while ($true) {
+  $proc = Start-Process -FilePath $Agent -ArgumentList @("-server", $Server, "-console") -PassThru -NoNewWindow
+  Write-Host "$(Get-Date -Format o) agent started pid=$($proc.Id)"
+  Wait-Process -Id $proc.Id
+  Write-Host "$(Get-Date -Format o) agent exited pid=$($proc.Id); restart in 3s"
+  Start-Sleep -Seconds 3
+}

@@ -28,6 +28,8 @@ typedef struct {
     uint64_t last_frame_qpc;
     uint64_t frame_interval_qpc;
     int need_reinit;
+    int has_frame_cache;
+    int empty_reads;
 } CaptureEncState;
 
 static void update_pacing(CaptureEncState* st) {
@@ -104,6 +106,8 @@ static int reinit(CaptureEncState* st) {
     }
 
     st->need_reinit = 0;
+    st->has_frame_cache = 0;
+    st->empty_reads = 0;
     update_pacing(st);
     return 0;
 }
@@ -129,6 +133,99 @@ int captureenc_init(const CaptureEncConfig* cfg, CaptureEncHandle* out) {
     return 0;
 }
 
+static void captureenc_finish_frame(CaptureEncState* st, CaptureEncFrame* out, uint8_t* data, int size, int keyframe, uint64_t now) {
+    out->data = data;
+    out->size = size;
+    out->keyframe = keyframe;
+    out->timestamp_us = platform_qpc_to_us(now, st->qpc_freq);
+    st->last_frame_qpc = now;
+    st->empty_reads = 0;
+}
+
+static int captureenc_acquire_nv12(CaptureEncState* st) {
+    ID3D11Texture2D* bgra = NULL;
+    int acq = dxgi_capture_acquire(&st->dxgi, &bgra);
+    if (acq == 1) {
+        return st->has_frame_cache ? 0 : 1;
+    }
+    if (acq == -2) {
+        st->need_reinit = 1;
+        return 1;
+    }
+    if (acq != 0) {
+        return -40;
+    }
+    if (dxgi_capture_convert_nv12(&st->dxgi, bgra) != 0) {
+        dxgi_capture_release(&st->dxgi);
+        return -41;
+    }
+    dxgi_capture_release(&st->dxgi);
+    st->has_frame_cache = 1;
+    return 0;
+}
+
+static int captureenc_encode_qsv(CaptureEncState* st, uint64_t now, CaptureEncFrame* out) {
+    uint8_t* data = NULL;
+    int size = 0;
+    int keyframe = 0;
+
+    if (qsv_drain(&st->qsv, &data, &size, &keyframe) == 0 && size > 0 && data) {
+        captureenc_finish_frame(st, out, data, size, keyframe, now);
+        return 0;
+    }
+    if (data) {
+        free(data);
+        data = NULL;
+    }
+
+    int cap = captureenc_acquire_nv12(st);
+    if (cap == 1) {
+        return 1;
+    }
+    if (cap != 0) {
+        return cap;
+    }
+
+    if (dxgi_capture_map_nv12(&st->dxgi) != 0) {
+        return -43;
+    }
+    int pitch = 0;
+    const uint8_t* nv12 = dxgi_capture_nv12_bytes(&st->dxgi, &pitch);
+    int force = (st->qsv.frame_index == 0) ? 1 : 0;
+
+    for (int feed = 0; feed < 32; feed++) {
+        int rc = qsv_encode(&st->qsv, nv12, (int)st->dxgi.nv12_cpu_size, pitch, force, &data, &size, &keyframe);
+        force = 0;
+        if (rc == 0 && size > 0 && data) {
+            captureenc_finish_frame(st, out, data, size, keyframe, now);
+            return 0;
+        }
+        if (data) {
+            free(data);
+            data = NULL;
+        }
+        if (rc == 1) {
+            continue;
+        }
+        if (rc == -2 || rc == -3) {
+            return 1;
+        }
+        break;
+    }
+    return 1;
+}
+
+int captureenc_recover(CaptureEncHandle handle) {
+    if (!handle) {
+        return -1;
+    }
+    CaptureEncState* st = (CaptureEncState*)handle;
+    st->need_reinit = 1;
+    st->has_frame_cache = 0;
+    st->empty_reads = 0;
+    return reinit(st);
+}
+
 int captureenc_read_frame(CaptureEncHandle handle, CaptureEncFrame* out) {
     if (!handle || !out) {
         return -1;
@@ -147,74 +244,42 @@ int captureenc_read_frame(CaptureEncHandle handle, CaptureEncFrame* out) {
         return 1;
     }
 
-    uint8_t* data = NULL;
-    int size = 0;
-    int keyframe = 0;
     int rc = -42;
 
     if (st->backend == ENC_BACKEND_QSV) {
-        /* QSV may return MORE_DATA for several feeds before producing a bitstream. */
-        for (int feed = 0; feed < 16; feed++) {
-            ID3D11Texture2D* bgra = NULL;
-            int acq = dxgi_capture_acquire(&st->dxgi, &bgra);
-            if (acq == 1) {
-                return 1;
-            }
-            if (acq == -2) {
+        rc = captureenc_encode_qsv(st, now, out);
+        if (rc == 0) {
+            return 0;
+        }
+        if (rc == 1) {
+            st->empty_reads++;
+            if (st->empty_reads > st->cfg.fps * 3) {
                 st->need_reinit = 1;
-                return 1;
+                st->empty_reads = 0;
+                fprintf(stderr, "connect: pipeline recover after %d empty reads\n", st->cfg.fps * 3);
+                fflush(stderr);
             }
-            if (acq != 0) {
-                return -40;
-            }
-            if (dxgi_capture_convert_nv12(&st->dxgi, bgra) != 0) {
-                dxgi_capture_release(&st->dxgi);
-                return -41;
-            }
-            dxgi_capture_release(&st->dxgi);
-            if (dxgi_capture_map_nv12(&st->dxgi) != 0) {
-                return -43;
-            }
-            int pitch = 0;
-            const uint8_t* nv12 = dxgi_capture_nv12_bytes(&st->dxgi, &pitch);
-            int force = (st->qsv.frame_index == 0) ? 1 : 0;
-            rc = qsv_encode(&st->qsv, nv12, (int)st->dxgi.nv12_cpu_size, pitch, force, &data, &size, &keyframe);
-            if (rc == 0 && size > 0 && data) {
-                goto got_frame;
-            }
-            if (data) {
-                free(data);
-                data = NULL;
-            }
-            if (rc == 1) {
-                continue;
-            }
-            if (rc == -2 || rc == -3) {
-                return 1;
-            }
-            break;
+            return 1;
+        }
+        return rc;
+    }
+
+    uint8_t* data = NULL;
+    int size = 0;
+    int keyframe = 0;
+
+    int cap = captureenc_acquire_nv12(st);
+    if (cap == 1) {
+        st->empty_reads++;
+        if (st->empty_reads > st->cfg.fps * 3) {
+            st->need_reinit = 1;
+            st->empty_reads = 0;
         }
         return 1;
     }
-
-    ID3D11Texture2D* bgra = NULL;
-    int acq = dxgi_capture_acquire(&st->dxgi, &bgra);
-    if (acq == 1) {
-        return 1;
+    if (cap != 0) {
+        return cap;
     }
-    if (acq == -2) {
-        st->need_reinit = 1;
-        return 1;
-    }
-    if (acq != 0) {
-        return -40;
-    }
-
-    if (dxgi_capture_convert_nv12(&st->dxgi, bgra) != 0) {
-        dxgi_capture_release(&st->dxgi);
-        return -41;
-    }
-    dxgi_capture_release(&st->dxgi);
 
     if (st->backend == ENC_BACKEND_NVENC) {
         int force = (st->nvenc.frame_index == 0) ? 1 : 0;
@@ -232,10 +297,12 @@ int captureenc_read_frame(CaptureEncHandle handle, CaptureEncFrame* out) {
             size = pkt.size;
             keyframe = pkt.keyframe;
         }
+    } else {
+        return -42;
     }
 
-got_frame:
     if (rc == 1) {
+        st->empty_reads++;
         return 1;
     }
     if (rc != 0) {
@@ -249,14 +316,11 @@ got_frame:
     }
     if (size <= 0 || !data) {
         free(data);
+        st->empty_reads++;
         return 1;
     }
 
-    out->data = data;
-    out->size = size;
-    out->keyframe = keyframe;
-    out->timestamp_us = platform_qpc_to_us(now, st->qpc_freq);
-    st->last_frame_qpc = now;
+    captureenc_finish_frame(st, out, data, size, keyframe, now);
     return 0;
 }
 

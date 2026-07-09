@@ -207,7 +207,12 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	peer := signaling.NewPeer(role, sessionCode, deviceID, conn)
+	peer.Conn.SetReadDeadline(time.Now().Add(90 * time.Second))
+	peer.Conn.SetPongHandler(func(string) error {
+		return peer.Conn.SetReadDeadline(time.Now().Add(90 * time.Second))
+	})
 	go peer.WritePump()
+	go peer.PingPump()
 
 	if role == signaling.RoleAgent {
 		s.hub.RegisterAgent(deviceID, peer)

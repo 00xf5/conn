@@ -39,6 +39,7 @@ typedef struct {
 } QsvEncoder;
 
 int qsv_init(QsvEncoder* enc, struct ID3D11Device* d3d_device, int width, int height, int fps, int bitrate_kbps);
+int qsv_drain(QsvEncoder* enc, uint8_t** out_data, int* out_size, int* out_keyframe);
 int qsv_encode(QsvEncoder* enc, const uint8_t* nv12, int nv12_size, int pitch, int force_idr, uint8_t** out_data, int* out_size, int* out_keyframe);
 int qsv_set_bitrate(QsvEncoder* enc, int kbps);
 const char* qsv_last_error(QsvEncoder* enc);

@@ -15,6 +15,16 @@ func (a *Agent) startSession(sessionCode string) {
 	a.sessStart.Lock()
 	defer a.sessStart.Unlock()
 
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("agent: session panic: %v", r)
+			a.mu.Lock()
+			a.activeSess = ""
+			a.mu.Unlock()
+			go a.startWarmEncoder()
+		}
+	}()
+
 	sessionCode = strings.ToUpper(strings.TrimSpace(sessionCode))
 	t0 := time.Now()
 	log.Printf("agent: session %s requested", sessionCode)
@@ -74,6 +84,7 @@ func (a *Agent) startSession(sessionCode string) {
 	enc = &primedEncoder{inner: enc, first: firstKF}
 	log.Printf("agent: H.264 profile-level-id=%s", spsProfileLevelID(firstKF.Data))
 
+	log.Printf("agent: creating peer connection session=%s", sessionCode)
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
 		ICEServers: a.iceConfig(),
 	})
@@ -135,7 +146,7 @@ func (a *Agent) startSession(sessionCode string) {
 	}
 
 	a.mu.Lock()
-	a.enc = enc
+	a.enc = guardEncoder(enc)
 	a.pc = pc
 	a.vtrack = vtrack
 	a.videoGate = make(chan struct{})

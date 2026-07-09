@@ -358,6 +358,48 @@ static int qsv_try_init_encoder(QsvEncoder* enc) {
     return -6;
 }
 
+int qsv_drain(QsvEncoder* enc, uint8_t** out_data, int* out_size, int* out_keyframe) {
+    if (!enc || !enc->session || !out_data || !out_size || !out_keyframe) {
+        return -1;
+    }
+
+    mfxBitstream bs;
+    ZeroMemory(&bs, sizeof(bs));
+    bs.MaxLength = enc->bitstream.MaxLength;
+    bs.Data = enc->bitstream.Data;
+
+    mfxSyncPoint syncp = NULL;
+    mfxStatus sts = enc->MFXVideoENCODE_EncodeFrameAsync(enc->session, NULL, NULL, &bs, &syncp);
+    if (sts == MFX_ERR_MORE_DATA || sts == MFX_ERR_NONE) {
+        return 1;
+    }
+    if (sts < MFX_ERR_NONE) {
+        return 1;
+    }
+
+    if (syncp) {
+        mfxStatus sync_sts = enc->MFXVideoCORE_SyncOperation(enc->session, syncp, 60000);
+        if (sync_sts < MFX_ERR_NONE && sync_sts != MFX_ERR_ABORTED) {
+            return 1;
+        }
+    }
+    if (bs.DataLength == 0) {
+        return 1;
+    }
+
+    int raw_size = (int)bs.DataLength;
+    mfxU32 max_au = qsv_avg_frame_bytes(enc) * 32U;
+    uint8_t* annexb = bitstream_to_annexb(bs.Data + bs.DataOffset, raw_size, &raw_size, max_au);
+    if (!annexb) {
+        return 1;
+    }
+
+    *out_size = raw_size;
+    *out_data = annexb;
+    *out_keyframe = (bs.FrameType & MFX_FRAMETYPE_IDR) ? 1 : 0;
+    return 0;
+}
+
 int qsv_encode(QsvEncoder* enc, const uint8_t* nv12, int nv12_size, int pitch, int force_idr, uint8_t** out_data, int* out_size, int* out_keyframe) {
     if (!enc || !enc->session || !nv12 || !out_data || !out_size || !out_keyframe) return -1;
     if (pitch <= 0) return -1;

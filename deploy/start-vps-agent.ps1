@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path $PSScriptRoot -Parent
 $Agent = Join-Path $Root "connect-agent.exe"
 if (-not (Test-Path $Agent)) {
-  throw "connect-agent.exe not found — run: .\deploy\start.ps1 -Build"
+  throw "connect-agent.exe not found - run: .\deploy\start.ps1 -Build"
 }
 
 if ($Server -notmatch '^wss://') {

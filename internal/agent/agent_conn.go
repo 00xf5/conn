@@ -71,6 +71,11 @@ func (a *Agent) connectOnce() error {
 	log.Printf("agent: connected as %s (%s)", a.cfg.DeviceID, a.cfg.Hostname)
 	a.setState("online", "-")
 
+	conn.SetReadDeadline(time.Now().Add(90 * time.Second))
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(90 * time.Second))
+	})
+
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -92,6 +97,9 @@ func (a *Agent) connectOnce() error {
 				log.Printf("agent: heartbeat failed: %v", err)
 				return fmt.Errorf("heartbeat failed: %w", err)
 			}
+			// Outbound heartbeats keep the socket alive; extend read deadline so we
+			// do not drop when connectd has no inbound traffic between viewers.
+			_ = conn.SetReadDeadline(time.Now().Add(90 * time.Second))
 		}
 	}
 }
@@ -102,6 +110,7 @@ func (a *Agent) readLoop() {
 		if err != nil {
 			return
 		}
+		_ = a.conn.SetReadDeadline(time.Now().Add(90 * time.Second))
 		var msg signalingEnvelope
 		if err := json.Unmarshal(raw, &msg); err != nil {
 			continue
@@ -128,7 +137,15 @@ func (a *Agent) send(msg signalingEnvelope) error {
 	if err != nil {
 		return err
 	}
-	return a.conn.WriteMessage(websocket.TextMessage, raw)
+	a.mu.Lock()
+	conn := a.conn
+	a.mu.Unlock()
+	if conn == nil {
+		return fmt.Errorf("not connected")
+	}
+	a.connWriteMu.Lock()
+	defer a.connWriteMu.Unlock()
+	return conn.WriteMessage(websocket.TextMessage, raw)
 }
 
 func loadOrCreateDeviceID() string {

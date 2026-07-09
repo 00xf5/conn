@@ -9,9 +9,10 @@ import (
 )
 
 type Agent struct {
-	cfg        Config
-	conn       *websocket.Conn
-	mu         sync.Mutex
+	cfg         Config
+	conn        *websocket.Conn
+	connWriteMu sync.Mutex
+	mu          sync.Mutex
 	pc         *webrtc.PeerConnection
 	enc        videoEncoder
 	closed     chan struct{}

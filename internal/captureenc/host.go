@@ -139,7 +139,18 @@ func (p *HostPipeline) ReadAccessUnit() (AccessUnit, error) {
 	return AccessUnit{
 		Data:     data,
 		KeyFrame: key,
+		Timestamp: uint64(cFrame.timestamp_us),
 	}, nil
+}
+
+func (p *HostPipeline) Recover() error {
+	if p == nil || p.handle == nil {
+		return fmt.Errorf("host pipeline closed")
+	}
+	if rc := C.captureenc_recover(p.handle); rc != 0 {
+		return fmt.Errorf("host pipeline recover: %d", rc)
+	}
+	return nil
 }
 
 func (p *HostPipeline) SetBitrate(kbps int) error {
@@ -176,6 +187,7 @@ func (p *HostPipeline) Close() error {
 
 // AccessUnit is one validated H.264 access unit for any transport (WebRTC, file, relay).
 type AccessUnit struct {
-	Data     []byte
-	KeyFrame bool
+	Data      []byte
+	KeyFrame  bool
+	Timestamp uint64
 }

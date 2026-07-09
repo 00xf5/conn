@@ -38,4 +38,7 @@ void captureenc_capture_size(CaptureEncHandle handle, int* width, int* height);
 
 void captureenc_shutdown(CaptureEncHandle handle);
 
+// Force DXGI/encoder reinit (e.g. after prolonged stall).
+int captureenc_recover(CaptureEncHandle handle);
+
 #endif

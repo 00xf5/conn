@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -24,11 +25,12 @@ type Message struct {
 }
 
 type Peer struct {
-	Role     Role
-	Session  string
-	DeviceID string
-	Conn     *websocket.Conn
-	outbox   chan []byte
+	Role      Role
+	Session   string
+	DeviceID  string
+	Conn      *websocket.Conn
+	outbox    chan []byte
+	writeMu   sync.Mutex
 	closeOnce sync.Once
 }
 
@@ -169,7 +171,25 @@ func (h *Hub) Relay(sessionCode string, from Role, raw []byte) {
 
 func (p *Peer) WritePump() {
 	for msg := range p.outbox {
-		if err := p.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+		p.writeMu.Lock()
+		err := p.Conn.WriteMessage(websocket.TextMessage, msg)
+		p.writeMu.Unlock()
+		if err != nil {
+			return
+		}
+	}
+}
+
+// PingPump keeps NAT/proxy idle timeouts from dropping long-lived agent connections.
+func (p *Peer) PingPump() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		deadline := time.Now().Add(10 * time.Second)
+		p.writeMu.Lock()
+		err := p.Conn.WriteControl(websocket.PingMessage, nil, deadline)
+		p.writeMu.Unlock()
+		if err != nil {
 			return
 		}
 	}
