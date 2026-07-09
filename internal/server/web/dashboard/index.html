@@ -3,75 +3,88 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Connect — Machines</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <title>Connect — Host</title>
   <link rel="stylesheet" href="/dashboard/dashboard.css" />
 </head>
 <body>
-  <div class="app">
-    <aside class="rail">
-      <div class="rail-brand">
-        <span class="mark" aria-hidden="true"></span>
-        <span class="brand-name">Connect</span>
+  <div class="host">
+    <header class="host-bar">
+      <div class="host-brand">
+        <span class="logo" aria-hidden="true"></span>
+        <strong>Connect</strong>
       </div>
-      <nav class="rail-nav">
-        <button type="button" class="nav-item active" data-view="machines">Machines</button>
-        <button type="button" class="nav-item" data-view="sessions">Sessions</button>
+      <nav class="mode-tabs" role="tablist">
+        <button type="button" class="mode-tab active" data-mode="access">Access</button>
+        <button type="button" class="mode-tab" data-mode="support" title="Coming soon">Support</button>
       </nav>
-      <div class="rail-foot" id="health">—</div>
-    </aside>
+      <div class="host-bar-right">
+        <span id="health" class="health">—</span>
+        <button type="button" class="tool-btn" id="btn-refresh" title="Refresh">↻</button>
+      </div>
+    </header>
 
-    <div class="main">
-      <header class="topbar">
-        <div>
-          <h1 id="view-title">Machines</h1>
-          <p class="topbar-sub" id="view-sub">Online agents ready for remote access</p>
-        </div>
-        <div class="topbar-actions">
-          <button type="button" class="btn ghost" id="btn-refresh">Refresh</button>
-        </div>
-      </header>
+    <div class="host-body">
+      <aside class="groups">
+        <div class="groups-title">Session groups</div>
+        <button type="button" class="group active" data-group="all">
+          <span>All Machines</span>
+          <span class="count" id="count-all">0</span>
+        </button>
+        <button type="button" class="group" data-group="online">
+          <span>Online</span>
+          <span class="count" id="count-online">0</span>
+        </button>
+        <button type="button" class="group" data-group="sessions">
+          <span>Active Sessions</span>
+          <span class="count" id="count-sessions">0</span>
+        </button>
+      </aside>
 
-      <section id="panel-machines" class="panel active">
-        <div class="table-wrap">
-          <table class="grid" id="machines-table">
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Hostname</th>
-                <th>Device</th>
-                <th>Last seen</th>
-                <th>Pipeline</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="machines-body">
-              <tr class="empty-row"><td colspan="6">Loading…</td></tr>
-            </tbody>
-          </table>
+      <section class="list-pane">
+        <div class="list-toolbar">
+          <input id="filter" type="search" placeholder="Filter machines…" autocomplete="off" />
         </div>
-        <p class="hint" id="machines-hint"></p>
+        <div class="list-head">
+          <span class="col-status"></span>
+          <span class="col-name">Name</span>
+          <span class="col-guest">Guest</span>
+          <span class="col-activity">Last Activity</span>
+        </div>
+        <div id="session-list" class="session-list" role="listbox" aria-label="Machines"></div>
+        <div id="list-empty" class="list-empty" hidden>No machines match this filter.</div>
       </section>
 
-      <section id="panel-sessions" class="panel">
-        <div class="table-wrap">
-          <table class="grid" id="sessions-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Device</th>
-                <th>Expires</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="sessions-body">
-              <tr class="empty-row"><td colspan="4">No active sessions</td></tr>
-            </tbody>
-          </table>
+      <aside class="detail" id="detail">
+        <div class="detail-empty" id="detail-empty">
+          <p>Select a machine</p>
+          <span>Details and Join appear here</span>
         </div>
-      </section>
+        <div class="detail-body" id="detail-body" hidden>
+          <div class="detail-tabs">
+            <button type="button" class="dtab active">General</button>
+          </div>
+          <div class="preview" id="preview" aria-hidden="true">
+            <div class="preview-placeholder">
+              <span class="preview-icon">▣</span>
+              <span>No screenshot yet</span>
+            </div>
+          </div>
+          <h2 class="detail-name" id="detail-name">—</h2>
+          <dl class="props">
+            <div><dt>Status</dt><dd id="detail-status">—</dd></div>
+            <div><dt>Guest</dt><dd id="detail-guest">—</dd></div>
+            <div><dt>Device ID</dt><dd id="detail-device" class="mono">—</dd></div>
+            <div><dt>Last seen</dt><dd id="detail-seen">—</dd></div>
+            <div><dt>Pipeline</dt><dd id="detail-pipe">—</dd></div>
+            <div><dt>Connected</dt><dd id="detail-conn">—</dd></div>
+          </dl>
+          <div class="detail-actions">
+            <button type="button" class="join-btn" id="btn-join">Join</button>
+            <button type="button" class="secondary-btn" id="btn-share">Share link</button>
+          </div>
+          <p class="detail-note" id="detail-note"></p>
+        </div>
+      </aside>
     </div>
   </div>
 
