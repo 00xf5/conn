@@ -113,11 +113,18 @@
           </form>
         </div>
         <div id="issued-enroll" class="issued" hidden>
-          <strong>Copy this enrollment code now</strong>
-          <code id="issued-enroll-code"></code>
-          <button type="button" id="copy-enroll" class="btn-secondary">Copy</button>
+          <strong>Send this install link to the host</strong>
+          <code id="issued-enroll-link"></code>
+          <button type="button" id="copy-enroll-link" class="btn-secondary">Copy link</button>
           <pre id="issued-enroll-hint" class="enroll-hint"></pre>
+          <button type="button" id="copy-enroll-cmd" class="btn-secondary">Copy PowerShell</button>
+          <details class="enroll-advanced">
+            <summary>Enrollment code</summary>
+            <code id="issued-enroll-code"></code>
+            <button type="button" id="copy-enroll" class="btn-secondary">Copy code</button>
+          </details>
           <span class="hint" id="issued-enroll-ttl">One-time use · not shown again.</span>
+          <span class="hint warn" id="issued-enroll-pkg" hidden>Agent package not published — run deploy/publish-agent.ps1</span>
         </div>
         <div class="table-card">
           <table>

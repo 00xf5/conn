@@ -222,6 +222,24 @@ tr.selected td { background: #eaf1ff; }
   white-space: pre-wrap;
   word-break: break-all;
 }
+.enroll-advanced {
+  flex: 1 1 100%;
+  margin: 0;
+}
+.enroll-advanced summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.hint.warn {
+  flex: 1 1 100%;
+  color: #b45309;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 4px;
+  padding: 8px 10px;
+}
 
 .badge {
   display: inline-flex;

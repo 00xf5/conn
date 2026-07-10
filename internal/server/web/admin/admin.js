@@ -186,16 +186,21 @@ document.getElementById("enroll-form").onsubmit = async (ev) => {
       body: JSON.stringify({ label, ttlHours }),
     });
     issuedEnrollCode = body.enrollmentCode;
+    const link = body.installUrl || `${location.origin}/install?code=${encodeURIComponent(issuedEnrollCode)}`;
     const hint =
-      body.agentHint ||
-      `connect-agent.exe -server wss://${location.host}/ws -enroll ${issuedEnrollCode}`;
+      body.installCommand ||
+      `irm '${location.origin}/install.ps1?code=${issuedEnrollCode}' | iex`;
     document.getElementById("issued-enroll").hidden = false;
     document.getElementById("issued-enroll-code").textContent = issuedEnrollCode;
-    document.getElementById("issued-enroll-hint").textContent = hint.replace("HOST", location.host);
+    document.getElementById("issued-enroll-link").textContent = link;
+    document.getElementById("issued-enroll-hint").textContent = hint;
     document.getElementById("issued-enroll-ttl").textContent =
       `One-time use · expires ${fmtTime(body.expiresAt)} · not shown again.`;
+    document.getElementById("issued-enroll-pkg").hidden = body.packageReady !== false;
     document.getElementById("enroll-label").value = "";
-    toast("Enrollment code issued — copy it now");
+    window._issuedEnrollLink = link;
+    window._issuedEnrollCmd = hint;
+    toast("Install link ready — send it to the host");
     await loadEnrollments();
   } catch (e) {
     toast(e.message);
@@ -219,6 +224,28 @@ document.getElementById("copy-enroll").onclick = async () => {
     toast("Copied");
   } catch {
     toast(issuedEnrollCode);
+  }
+};
+
+document.getElementById("copy-enroll-link").onclick = async () => {
+  const t = window._issuedEnrollLink || "";
+  if (!t) return;
+  try {
+    await navigator.clipboard.writeText(t);
+    toast("Copied");
+  } catch {
+    toast(t);
+  }
+};
+
+document.getElementById("copy-enroll-cmd").onclick = async () => {
+  const t = window._issuedEnrollCmd || "";
+  if (!t) return;
+  try {
+    await navigator.clipboard.writeText(t);
+    toast("Copied");
+  } catch {
+    toast(t);
   }
 };
 

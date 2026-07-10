@@ -47,17 +47,39 @@ curl -s "https://remote.example.com/api/ice" | jq .
 # should include turn:... with username + credential
 ```
 
-## 3. Point Windows agent at VPS
+## 3. Publish Windows agent package (required for Host install links)
 
-On the host PC (after `.\deploy\start.ps1 -Build`):
+On a Windows build PC (CGO + gcc + ffmpeg):
 
 ```powershell
+.\deploy\publish-agent.ps1 -OutZip .\agent.zip
+scp .\agent.zip user@vps:~/connect/deploy/agent/agent.zip
+```
+
+On the VPS, recreate connectd so `/download/agent.zip` and `/install` work:
+
+```bash
+cd ~/connect/deploy
+docker compose up -d --force-recreate connectd
+curl -sI "https://$DOMAIN/download/agent.zip"   # 200
+```
+
+## 4. Enroll hosts (recommended)
+
+1. Tech signs into `https://DOMAIN/dashboard/` with an Access code  
+2. **Add machine** → copy **install link** → send to the host PC  
+3. Host opens the link (or pastes the PowerShell one-liner) → agent downloads, enrolls, appears online  
+
+Lab fallback (manual):
+
+```powershell
+.\deploy\start.ps1 -Build
 .\deploy\start-vps-agent.ps1 -Server "wss://remote.example.com/ws"
 ```
 
 Or copy `deploy/config.vps-agent.example.json` → `%LOCALAPPDATA%\Connect\config.json` and edit `serverUrl`.
 
-## 4. Viewer
+## 5. Viewer
 
 | Network | URL |
 |---------|-----|

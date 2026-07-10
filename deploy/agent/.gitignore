@@ -1,0 +1,4 @@
+# Place agent.zip here (from deploy/publish-agent.ps1 on a Windows build PC).
+# Mounted read-only into connectd as /data/agent for Host install links.
+*
+!.gitignore

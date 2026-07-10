@@ -566,7 +566,30 @@ body {
   border-radius: 3px;
   padding: 8px;
 }
-.enroll-cmd { font-weight: 600 !important; font-size: 12px !important; }
+.enroll-advanced {
+  border-top: 1px solid #c5d8ff;
+  padding-top: 8px;
+}
+.enroll-advanced summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.enroll-advanced label {
+  display: block;
+  margin-top: 6px;
+}
+.modal-warn {
+  margin: 0;
+  color: #b45309;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
 .enroll-list-wrap { display: grid; gap: 6px; }
 .enroll-list-title {
   font-size: 11px;

@@ -40,6 +40,7 @@ type Config struct {
 	EnableTURN         bool
 	ICE                ICEConfig
 	OverrideICEServers []ICEServer
+	AgentDir           string // directory containing agent.zip for host install
 }
 
 type Server struct {
@@ -168,6 +169,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/enrollments", s.handleTechEnrollments)
 	mux.HandleFunc("/api/enrollments/", s.handleTechEnrollmentRevoke)
 	mux.HandleFunc("/api/agent/enroll", s.handleAgentEnroll)
+	mux.HandleFunc("/api/agent/package", s.handleAgentPackageInfo)
+	mux.HandleFunc("/download/agent.zip", s.handleDownloadAgent)
+	mux.HandleFunc("/install", s.handleInstallPage)
+	mux.HandleFunc("/install.ps1", s.handleInstallScript)
 	mux.HandleFunc("/ws", s.handleWS)
 	mux.HandleFunc("/v/", s.handleViewer)
 	mux.Handle("/", http.FileServer(http.FS(s.cfg.StaticRoot)))

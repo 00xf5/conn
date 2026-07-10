@@ -106,7 +106,11 @@ func main() {
 	turnPort := flag.Int("turn-port", 3478, "embedded STUN/TURN UDP port (LAN only)")
 	noTurn := flag.Bool("no-turn", envBool("CONNECT_NO_TURN"), "disable embedded STUN/TURN (required on Render)")
 	requireTenant := flag.Bool("require-tenant", envBool("CONNECT_REQUIRE_TENANT"), "reject agents without tenantId")
+	agentDir := flag.String("agent-dir", strings.TrimSpace(os.Getenv("CONNECT_AGENT_DIR")), "directory with agent.zip for /download + /install (default data/agent)")
 	flag.Parse()
+	if *agentDir == "" {
+		*agentDir = "data/agent"
+	}
 
 	*addr = listenAddr(*addr)
 
@@ -147,6 +151,7 @@ func main() {
 		EnableTURN:         !*noTurn,
 		ICE:                iceCfg,
 		OverrideICEServers: overrideICE,
+		AgentDir:           *agentDir,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -157,6 +162,7 @@ func main() {
 	log.Printf("admin: %s/admin/", *publicURL)
 	log.Printf("dashboard: %s/dashboard/", *publicURL)
 	log.Printf("viewer example: %s/v/{code}", *publicURL)
+	log.Printf("host install: %s/install (agent dir %s)", *publicURL, *agentDir)
 	if *noTurn {
 		log.Printf("connectd: embedded TURN disabled")
 	}

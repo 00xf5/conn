@@ -16,9 +16,11 @@ services:
       CONNECT_TURN_URL: "turn:${DOMAIN}:3478?transport=udp"
       CONNECT_TURN_SECRET: "${TURN_SECRET}"
       CONNECT_ADMIN_TOKEN: "${CONNECT_ADMIN_TOKEN}"
+      CONNECT_AGENT_DIR: "/data/agent"
     volumes:
       - connectd_data:/data
-    command: ["-no-tls", "-no-turn", "-key", "/data/server.key", "-db", "/data/connect.db"]
+      - ./agent:/data/agent:ro
+    command: ["-no-tls", "-no-turn", "-key", "/data/server.key", "-db", "/data/connect.db", "-agent-dir", "/data/agent"]
     expose:
       - "8787"
     networks:

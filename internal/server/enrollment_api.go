@@ -51,12 +51,18 @@ func (s *Server) issueEnrollment(w http.ResponseWriter, r *http.Request, tenantI
 	if host == "" {
 		host = "HOST"
 	}
+	install := s.installURL(r, code)
+	base := s.publicBase(r)
+	psCmd := "irm '" + base + "/install.ps1?code=" + code + "' | iex"
 	writeJSON(w, map[string]any{
 		"enrollment":     rec,
 		"enrollmentCode": code, // once
 		"expiresAt":      exp,
 		"ttlHours":       int(ttl / time.Hour),
+		"installUrl":     install,
+		"installCommand": psCmd,
 		"agentHint":      "connect-agent.exe -server wss://" + host + "/ws -enroll " + code,
+		"packageReady":   s.agentPackageAvailable(),
 	})
 }
 

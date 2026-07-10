@@ -185,10 +185,12 @@ Agents must not join a global pool after multi-tenant ships.
 
 **One-time enrollment code (shipped):**
 
-1. Admin (`/admin/` → Enrollments) or tech (Host → **Add machine**) issues `ENR-…` code (configurable TTL, default 7 days, shown once).
-2. On the host: `connect-agent.exe -server wss://HOST/ws -enroll ENR-…`
+1. Admin (`/admin/` → Enrollments) or tech (Host → **Add machine**) issues an install link (`/install?code=ENR-…`, configurable TTL, shown once).
+2. Host opens the link (or runs the PowerShell one-liner) → downloads `agent.zip`, enrolls, starts agent.
 3. Agent `POST /api/agent/enroll` → server binds `deviceId` → `tenantId`, marks code redeemed.
 4. Agent writes `tenantId` into `%LOCALAPPDATA%\Connect\config.json` and registers on WS.
+
+**Ops:** publish the Windows package once with `deploy/publish-agent.ps1` → `deploy/agent/agent.zip` on the VPS (compose mounts it). Without the zip, install links warn that the package is missing.
 
 Fallback for lab: `"tenantId"` in config or `-tenant` flag.
 

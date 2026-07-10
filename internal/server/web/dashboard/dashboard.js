@@ -359,9 +359,14 @@ document.querySelector(".mode-tabs").onclick = (ev) => {
 
 let lastEnrollCode = "";
 let lastEnrollCmd = "";
+let lastEnrollLink = "";
 
 function enrollCmd(code) {
-  return `connect-agent.exe -server wss://${location.host}/ws -enroll ${code}`;
+  return `irm '${location.origin}/install.ps1?code=${code}' | iex`;
+}
+
+function enrollLink(code) {
+  return `${location.origin}/install?code=${encodeURIComponent(code)}`;
 }
 
 function showEnrollModal(on) {
@@ -418,14 +423,16 @@ document.getElementById("enroll-issue-form").onsubmit = async (ev) => {
       body: JSON.stringify({ label, ttlHours }),
     });
     lastEnrollCode = body.enrollmentCode;
-    lastEnrollCmd =
-      (body.agentHint || enrollCmd(lastEnrollCode)).replace("HOST", location.host);
+    lastEnrollLink = body.installUrl || enrollLink(lastEnrollCode);
+    lastEnrollCmd = body.installCommand || enrollCmd(lastEnrollCode);
     document.getElementById("enroll-code").textContent = lastEnrollCode;
+    document.getElementById("enroll-link").textContent = lastEnrollLink;
     document.getElementById("enroll-cmd").textContent = lastEnrollCmd;
     document.getElementById("enroll-ttl-note").textContent =
-      `One-time use · expires ${fmtTime(body.expiresAt)}. After enroll, the machine appears when the agent is online.`;
+      `One-time use · expires ${fmtTime(body.expiresAt)}. Host opens the link (or runs PowerShell) — machine appears when online.`;
+    document.getElementById("enroll-pkg-warn").hidden = body.packageReady !== false;
     document.getElementById("enroll-result").hidden = false;
-    toast("Enrollment code issued — copy it now");
+    toast("Install link ready — send it to the host");
     await loadEnrollments();
   } catch (e) {
     toast(e.message);
@@ -439,6 +446,9 @@ document.getElementById("enroll-copy-code").onclick = () => {
 };
 document.getElementById("enroll-copy-cmd").onclick = () => {
   if (lastEnrollCmd) copyText(lastEnrollCmd);
+};
+document.getElementById("enroll-copy-link").onclick = () => {
+  if (lastEnrollLink) copyText(lastEnrollLink);
 };
 
 document.getElementById("enroll-list").onclick = async (ev) => {
