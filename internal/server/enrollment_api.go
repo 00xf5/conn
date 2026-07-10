@@ -47,21 +47,17 @@ func (s *Server) issueEnrollment(w http.ResponseWriter, r *http.Request, tenantI
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	host := r.Host
-	if host == "" {
-		host = "HOST"
-	}
 	install := s.installURL(r, code)
-	base := s.publicBase(r)
-	psCmd := "irm '" + base + "/install.ps1?code=" + code + "' | iex"
 	writeJSON(w, map[string]any{
 		"enrollment":     rec,
-		"enrollmentCode": code, // once
+		"enrollmentCode": code,
 		"expiresAt":      exp,
 		"ttlHours":       int(ttl / time.Hour),
 		"installUrl":     install,
-		"installCommand": psCmd,
-		"agentHint":      "connect-agent.exe -server wss://" + host + "/ws -enroll " + code,
+		"setupCmdUrl":    s.publicBase(r) + "/download/setup.cmd?code=" + code,
+		"agentZipUrl":    s.publicBase(r) + "/download/agent.zip",
+		"installCommand": install,
+		"agentHint":      "Download from " + install,
 		"packageReady":   s.agentPackageAvailable(),
 	})
 }
@@ -114,11 +110,12 @@ func (s *Server) handleAdminAccessAccountsForTenant(w http.ResponseWriter, r *ht
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		acc, err := s.db.CreateAccessAccount(tenantID, body.Label, hash, nil)
+		acc, err := s.db.CreateAccessAccount(tenantID, body.Label, hash, code, nil)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		acc.AccessCode = code
 		writeJSON(w, map[string]any{
 			"account":    acc,
 			"accessCode": code,

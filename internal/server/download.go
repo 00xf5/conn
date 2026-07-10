@@ -202,23 +202,30 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 	code := strings.TrimSpace(r.URL.Query().Get("code"))
 	base := s.publicBase(r)
 	available := s.agentPackageAvailable()
-	psCmd := fmt.Sprintf(`irm %s/install.ps1`, base)
-	if code != "" {
-		psCmd = fmt.Sprintf(`irm '%s/install.ps1?code=%s' | iex`, base, code)
-	} else {
-		psCmd = fmt.Sprintf(`irm %s/install.ps1 | iex`, base)
-	}
 
-	status := `<p class="ok">Agent package ready.</p>`
+	status := `<p class="ok">Agent package ready — download below.</p>`
 	if !available {
-		status = `<p class="warn">Agent package is not on the server yet. Ask your admin to publish it (<code>deploy/publish-agent.ps1</code>).</p>`
+		status = `<p class="warn">Agent package is not on the server yet. Ask your admin to upload it (Admin → Agent package).</p>`
 	}
 
 	codeBlock := ""
+	setupBtn := ""
 	if code != "" {
 		codeBlock = fmt.Sprintf(`<p class="code-label">Enrollment code</p><code class="big">%s</code>`, htmlEscape(code))
+		setupHref := htmlEscape(base + "/download/setup.cmd?code=" + code)
+		if available {
+			setupBtn = fmt.Sprintf(`<a class="btn" href="%s">Download installer (Connect-Install.cmd)</a>`, setupHref)
+		} else {
+			setupBtn = `<span class="btn muted-btn">Download installer (package missing)</span>`
+		}
 	} else {
-		codeBlock = `<p class="muted">Open this page from an enrollment link, or paste a code into the PowerShell command your tech sent.</p>`
+		codeBlock = `<p class="muted">Open this page from an enrollment link your tech sent.</p>`
+	}
+
+	zipHref := htmlEscape(base + "/download/agent.zip")
+	zipBtn := ""
+	if available {
+		zipBtn = fmt.Sprintf(`<a class="btn secondary" href="%s">Download agent only (.zip)</a>`, zipHref)
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -239,37 +246,94 @@ h1{margin:0;font-size:22px}
 .warn{color:#b45309;margin:0;background:#fff7ed;border:1px solid #fed7aa;padding:10px;border-radius:4px}
 .code-label{margin:0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6b7280}
 .big{font:700 16px Consolas,monospace;word-break:break-all;background:#f4f5f7;padding:10px;border-radius:4px;display:block}
-.cmd{font:13px Consolas,monospace;background:#1e2430;color:#e8eaee;padding:12px;border-radius:4px;word-break:break-all;display:block}
-button{border:0;background:#0b5fff;color:#fff;font:inherit;font-weight:700;padding:10px 14px;border-radius:4px;cursor:pointer}
-button:hover{background:#094fd6}
 .steps{margin:0;padding-left:18px}
-.steps li{margin:6px 0}
+.steps li{margin:8px 0}
+.btn{display:inline-block;text-align:center;text-decoration:none;border:0;background:#0b5fff;color:#fff;font:inherit;font-weight:700;padding:12px 14px;border-radius:4px}
+.btn:hover{background:#094fd6}
+.btn.secondary{background:#fff;color:#1f2430;border:1px solid #b8bec9}
+.btn.secondary:hover{background:#f3f5f8}
+.muted-btn{background:#9aa1ad;pointer-events:none;display:inline-block;padding:12px 14px;border-radius:4px;color:#fff;font-weight:700}
+.actions{display:grid;gap:10px}
 </style>
 </head>
 <body>
 <div class="wrap"><div class="card">
 <h1>Install Connect</h1>
-<p class="muted">Remote access agent for this organization. One-time setup on this PC.</p>
+<p class="muted">Normal download + double-click install on this Windows PC.</p>
 %s
 %s
+<div class="actions">
+%s
+%s
+</div>
 <ol class="steps">
-<li>Open <strong>PowerShell</strong> (Start → type PowerShell).</li>
-<li>Paste the command below and press Enter.</li>
-<li>When it finishes, this PC appears in the Host console.</li>
+<li>Click <strong>Download installer</strong>.</li>
+<li>Double-click <strong>Connect-Install.cmd</strong> (downloads the agent, enrolls, starts).</li>
+<li>This PC appears in the Host console when online.</li>
 </ol>
-<code class="cmd" id="cmd">%s</code>
-<button type="button" id="copy">Copy install command</button>
-<p class="muted">Windows only. Requires network access to this server.</p>
+<p class="muted">Windows only.</p>
 </div></div>
-<script>
-document.getElementById('copy').onclick=async()=>{
-  const t=document.getElementById('cmd').textContent;
-  try{await navigator.clipboard.writeText(t);document.getElementById('copy').textContent='Copied';}
-  catch{prompt('Copy this command',t);}
-};
-</script>
-</body></html>`, status, codeBlock, htmlEscape(psCmd))
+</body></html>`, status, codeBlock, setupBtn, zipBtn)
 }
+
+func (s *Server) handleDownloadSetupCmd(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	code := strings.TrimSpace(r.URL.Query().Get("code"))
+	if code == "" {
+		http.Error(w, "code required", http.StatusBadRequest)
+		return
+	}
+	base := s.publicBase(r)
+	wss := strings.Replace(base, "https://", "wss://", 1)
+	wss = strings.Replace(wss, "http://", "ws://", 1)
+	if !strings.HasSuffix(wss, "/ws") {
+		wss = strings.TrimRight(wss, "/") + "/ws"
+	}
+	// Escape for cmd.exe: double quotes in paths; keep code simple.
+	zipURL := base + "/download/agent.zip"
+	body := fmt.Sprintf("@echo off\r\n"+
+		"setlocal\r\n"+
+		"title Connect Install\r\n"+
+		"echo Connect installer\r\n"+
+		"echo.\r\n"+
+		"set \"DEST=%%LOCALAPPDATA%%\\Connect\"\r\n"+
+		"set \"ZIP=%%TEMP%%\\connect-agent.zip\"\r\n"+
+		"set \"SERVER=%s\"\r\n"+
+		"set \"CODE=%s\"\r\n"+
+		"if not exist \"%%DEST%%\" mkdir \"%%DEST%%\"\r\n"+
+		"echo Downloading agent...\r\n"+
+		"curl.exe -fsSL \"%s\" -o \"%%ZIP%%\"\r\n"+
+		"if errorlevel 1 (\r\n"+
+		"  echo Download failed. Check network / agent package on server.\r\n"+
+		"  pause\r\n"+
+		"  exit /b 1\r\n"+
+		")\r\n"+
+		"taskkill /IM connect-agent.exe /F >nul 2>&1\r\n"+
+		"timeout /t 1 /nobreak >nul\r\n"+
+		"echo Extracting...\r\n"+
+		"powershell -NoProfile -Command \"Expand-Archive -LiteralPath '%%ZIP%%' -DestinationPath '%%DEST%%' -Force\"\r\n"+
+		"del \"%%ZIP%%\" >nul 2>&1\r\n"+
+		"set \"EXE=%%DEST%%\\connect-agent.exe\"\r\n"+
+		"if not exist \"%%EXE%%\" (\r\n"+
+		"  echo connect-agent.exe missing after extract.\r\n"+
+		"  pause\r\n"+
+		"  exit /b 1\r\n"+
+		")\r\n"+
+		"echo Enrolling and starting...\r\n"+
+		"start \"\" \"%%EXE%%\" -server \"%%SERVER%%\" -enroll \"%%CODE%%\"\r\n"+
+		"echo Done. This PC should appear in the Host console shortly.\r\n"+
+		"timeout /t 4 >nul\r\n",
+		wss, code, zipURL)
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", `attachment; filename="Connect-Install.cmd"`)
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = io.WriteString(w, body)
+}
+
 
 func htmlEscape(s string) string {
 	r := strings.NewReplacer(

@@ -166,7 +166,7 @@ document.getElementById("issue-form").onsubmit = async (ev) => {
     document.getElementById("issued").hidden = false;
     document.getElementById("issued-code").textContent = issuedCode;
     document.getElementById("issue-label").value = "";
-    toast("Access code issued — copy it now");
+    toast("Access code issued");
     await loadAccounts();
   } catch (e) {
     toast(e.message);
@@ -188,19 +188,14 @@ document.getElementById("enroll-form").onsubmit = async (ev) => {
     });
     issuedEnrollCode = body.enrollmentCode;
     const link = body.installUrl || `${location.origin}/install?code=${encodeURIComponent(issuedEnrollCode)}`;
-    const hint =
-      body.installCommand ||
-      `irm '${location.origin}/install.ps1?code=${issuedEnrollCode}' | iex`;
     document.getElementById("issued-enroll").hidden = false;
     document.getElementById("issued-enroll-code").textContent = issuedEnrollCode;
     document.getElementById("issued-enroll-link").textContent = link;
-    document.getElementById("issued-enroll-hint").textContent = hint;
     document.getElementById("issued-enroll-ttl").textContent =
-      `One-time use · expires ${fmtTime(body.expiresAt)} · not shown again.`;
+      `Expires ${fmtTime(body.expiresAt)} · host opens link → download agent + installer.`;
     document.getElementById("issued-enroll-pkg").hidden = body.packageReady !== false;
     document.getElementById("enroll-label").value = "";
     window._issuedEnrollLink = link;
-    window._issuedEnrollCmd = hint;
     toast("Install link ready — send it to the host");
     await loadEnrollments();
   } catch (e) {
@@ -230,17 +225,6 @@ document.getElementById("copy-enroll").onclick = async () => {
 
 document.getElementById("copy-enroll-link").onclick = async () => {
   const t = window._issuedEnrollLink || "";
-  if (!t) return;
-  try {
-    await navigator.clipboard.writeText(t);
-    toast("Copied");
-  } catch {
-    toast(t);
-  }
-};
-
-document.getElementById("copy-enroll-cmd").onclick = async () => {
-  const t = window._issuedEnrollCmd || "";
   if (!t) return;
   try {
     await navigator.clipboard.writeText(t);
@@ -314,16 +298,22 @@ function syncTenantSelects() {
 async function loadAccounts() {
   const body = document.getElementById("account-body");
   if (!selectedTenant) {
-    body.innerHTML = '<tr><td colspan="4" class="empty">Create a tenant first</td></tr>';
+    body.innerHTML = '<tr><td colspan="5" class="empty">Create a tenant first</td></tr>';
     return;
   }
   try {
     const list = (await api(`/api/admin/tenants/${selectedTenant}/access-accounts`)) || [];
     body.innerHTML = list.length
       ? list
-          .map(
-            (a) => `<tr>
+          .map((a) => {
+            const code = a.accessCode || "";
+            const codeCell = code
+              ? `<td class="mono"><code>${escapeHtml(code)}</code>
+                 <button type="button" class="btn-secondary" data-copy-code="${escapeHtml(code)}">Copy</button></td>`
+              : `<td class="hint">— (issued before copy-anytime; re-issue)</td>`;
+            return `<tr>
           <td>${escapeHtml(a.label || "—")}</td>
+          ${codeCell}
           <td>${escapeHtml(a.status)}</td>
           <td class="hint">${escapeHtml(fmtTime(a.createdAt))}</td>
           <td>${
@@ -331,11 +321,21 @@ async function loadAccounts() {
               ? ""
               : `<button type="button" class="btn-danger" data-revoke="${escapeHtml(a.id)}">Revoke</button>`
           }</td>
-        </tr>`
-          )
+        </tr>`;
+          })
           .join("")
-      : '<tr><td colspan="4" class="empty">No access codes for this tenant</td></tr>';
+      : '<tr><td colspan="5" class="empty">No access codes for this tenant</td></tr>';
     body.onclick = async (ev) => {
+      const copy = ev.target.closest("[data-copy-code]");
+      if (copy) {
+        try {
+          await navigator.clipboard.writeText(copy.dataset.copyCode);
+          toast("Copied");
+        } catch {
+          toast(copy.dataset.copyCode);
+        }
+        return;
+      }
       const btn = ev.target.closest("[data-revoke]");
       if (!btn) return;
       try {
@@ -347,7 +347,7 @@ async function loadAccounts() {
       }
     };
   } catch (e) {
-    body.innerHTML = `<tr><td colspan="4" class="empty">${escapeHtml(e.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(e.message)}</td></tr>`;
   }
 }
 

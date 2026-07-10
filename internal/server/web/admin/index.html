@@ -72,18 +72,18 @@
           </form>
         </div>
         <div id="issued" class="issued" hidden>
-          <strong>Copy this access code now</strong>
+          <strong>Access code</strong>
           <code id="issued-code"></code>
           <button type="button" id="copy-code" class="btn-secondary">Copy</button>
-          <span class="hint">It will not be shown again.</span>
+          <span class="hint">Also listed below — you can copy it anytime.</span>
         </div>
         <div class="table-card">
           <table>
             <thead>
-              <tr><th>Label</th><th>Status</th><th>Created</th><th></th></tr>
+              <tr><th>Label</th><th>Access code</th><th>Status</th><th>Created</th><th></th></tr>
             </thead>
             <tbody id="account-body">
-              <tr><td colspan="4" class="empty">Select a tenant</td></tr>
+              <tr><td colspan="5" class="empty">Select a tenant</td></tr>
             </tbody>
           </table>
         </div>
@@ -117,15 +117,13 @@
           <strong>Send this install link to the host</strong>
           <code id="issued-enroll-link"></code>
           <button type="button" id="copy-enroll-link" class="btn-secondary">Copy link</button>
-          <pre id="issued-enroll-hint" class="enroll-hint"></pre>
-          <button type="button" id="copy-enroll-cmd" class="btn-secondary">Copy PowerShell</button>
+          <span class="hint" id="issued-enroll-ttl">Host opens the link → Download agent → Download installer → double-click.</span>
+          <span class="hint warn" id="issued-enroll-pkg" hidden>Agent package not published — upload it under Admin → Agent package</span>
           <details class="enroll-advanced">
             <summary>Enrollment code</summary>
             <code id="issued-enroll-code"></code>
             <button type="button" id="copy-enroll" class="btn-secondary">Copy code</button>
           </details>
-          <span class="hint" id="issued-enroll-ttl">One-time use · not shown again.</span>
-          <span class="hint warn" id="issued-enroll-pkg" hidden>Agent package not published — upload it under Admin → Agent package</span>
         </div>
         <div class="table-card">
           <table>

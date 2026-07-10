@@ -33,6 +33,7 @@ type AccessAccount struct {
 	Label       string     `json:"label"`
 	Role        string     `json:"role"`
 	Status      string     `json:"status"`
+	AccessCode  string     `json:"accessCode,omitempty"` // plaintext for admin copy-anytime
 	RedeemedAt  *time.Time `json:"redeemedAt,omitempty"`
 	ExpiresAt   *time.Time `json:"expiresAt,omitempty"`
 	CreatedAt   time.Time  `json:"createdAt"`
@@ -92,6 +93,7 @@ CREATE TABLE IF NOT EXISTS access_accounts (
   label TEXT NOT NULL DEFAULT '',
   role TEXT NOT NULL,
   code_hash TEXT NOT NULL,
+  code_plain TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL,
   redeemed_at TEXT,
   expires_at TEXT,
@@ -120,7 +122,12 @@ CREATE TABLE IF NOT EXISTS enrollment_codes (
 CREATE INDEX IF NOT EXISTS idx_enroll_tenant ON enrollment_codes(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_enroll_status ON enrollment_codes(status);
 `)
-	return err
+	if err != nil {
+		return err
+	}
+	// Best-effort column add for existing DBs (ignore if already present).
+	_, _ = db.sql.Exec(`ALTER TABLE access_accounts ADD COLUMN code_plain TEXT NOT NULL DEFAULT ''`)
+	return nil
 }
 
 func (db *DB) CreateTenant(name string) (Tenant, error) {
@@ -176,7 +183,7 @@ func (db *DB) GetTenant(id string) (Tenant, error) {
 	return t, nil
 }
 
-func (db *DB) CreateAccessAccount(tenantID, label, codeHash string, expiresAt *time.Time) (AccessAccount, error) {
+func (db *DB) CreateAccessAccount(tenantID, label, codeHash, codePlain string, expiresAt *time.Time) (AccessAccount, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" || codeHash == "" {
 		return AccessAccount{}, fmt.Errorf("tenantId and code hash required")
@@ -185,30 +192,31 @@ func (db *DB) CreateAccessAccount(tenantID, label, codeHash string, expiresAt *t
 		return AccessAccount{}, err
 	}
 	a := AccessAccount{
-		ID:        uuid.NewString(),
-		TenantID:  tenantID,
-		Label:     strings.TrimSpace(label),
-		Role:      RoleTech,
-		Status:    StatusPending,
-		ExpiresAt: expiresAt,
-		CreatedAt: time.Now().UTC(),
-		CodeHash:  codeHash,
+		ID:         uuid.NewString(),
+		TenantID:   tenantID,
+		Label:      strings.TrimSpace(label),
+		Role:       RoleTech,
+		Status:     StatusPending,
+		AccessCode: strings.TrimSpace(codePlain),
+		ExpiresAt:  expiresAt,
+		CreatedAt:  time.Now().UTC(),
+		CodeHash:   codeHash,
 	}
 	var exp any
 	if expiresAt != nil {
 		exp = expiresAt.UTC().Format(time.RFC3339Nano)
 	}
 	_, err := db.sql.Exec(
-		`INSERT INTO access_accounts(id, tenant_id, label, role, code_hash, status, redeemed_at, expires_at, created_at)
-		 VALUES(?,?,?,?,?,?,NULL,?,?)`,
-		a.ID, a.TenantID, a.Label, a.Role, a.CodeHash, a.Status, exp, a.CreatedAt.Format(time.RFC3339Nano),
+		`INSERT INTO access_accounts(id, tenant_id, label, role, code_hash, code_plain, status, redeemed_at, expires_at, created_at)
+		 VALUES(?,?,?,?,?,?,?,NULL,?,?)`,
+		a.ID, a.TenantID, a.Label, a.Role, a.CodeHash, a.AccessCode, a.Status, exp, a.CreatedAt.Format(time.RFC3339Nano),
 	)
 	return a, err
 }
 
 func (db *DB) ListAccessAccounts(tenantID string) ([]AccessAccount, error) {
 	rows, err := db.sql.Query(`
-SELECT a.id, a.tenant_id, a.label, a.role, a.status, a.redeemed_at, a.expires_at, a.created_at, t.name
+SELECT a.id, a.tenant_id, a.label, a.role, a.status, a.code_plain, a.redeemed_at, a.expires_at, a.created_at, t.name
 FROM access_accounts a JOIN tenants t ON t.id=a.tenant_id
 WHERE a.tenant_id=? ORDER BY a.created_at DESC`, tenantID)
 	if err != nil {
@@ -220,7 +228,7 @@ WHERE a.tenant_id=? ORDER BY a.created_at DESC`, tenantID)
 
 func (db *DB) ListAllAccessAccounts() ([]AccessAccount, error) {
 	rows, err := db.sql.Query(`
-SELECT a.id, a.tenant_id, a.label, a.role, a.status, a.redeemed_at, a.expires_at, a.created_at, t.name
+SELECT a.id, a.tenant_id, a.label, a.role, a.status, a.code_plain, a.redeemed_at, a.expires_at, a.created_at, t.name
 FROM access_accounts a JOIN tenants t ON t.id=a.tenant_id
 ORDER BY a.created_at DESC`)
 	if err != nil {
@@ -234,9 +242,12 @@ func scanAccounts(rows *sql.Rows) ([]AccessAccount, error) {
 	var out []AccessAccount
 	for rows.Next() {
 		var a AccessAccount
-		var redeemed, expires, created sql.NullString
-		if err := rows.Scan(&a.ID, &a.TenantID, &a.Label, &a.Role, &a.Status, &redeemed, &expires, &created, &a.TenantName); err != nil {
+		var plain, redeemed, expires, created sql.NullString
+		if err := rows.Scan(&a.ID, &a.TenantID, &a.Label, &a.Role, &a.Status, &plain, &redeemed, &expires, &created, &a.TenantName); err != nil {
 			return nil, err
+		}
+		if plain.Valid {
+			a.AccessCode = plain.String
 		}
 		a.CreatedAt, _ = time.Parse(time.RFC3339Nano, created.String)
 		if redeemed.Valid {

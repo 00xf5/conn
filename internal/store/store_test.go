@@ -18,7 +18,7 @@ func TestTenantAccessAndBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	acc, err := db.CreateAccessAccount(ten.ID, "Alex", "hash-demo", nil)
+	acc, err := db.CreateAccessAccount(ten.ID, "Alex", "hash-demo", "DEMO-CODE-PLAIN", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestTenantAccessAndBinding(t *testing.T) {
 		t.Fatalf("list by tenant: %v %d", err, len(list))
 	}
 	exp := time.Now().Add(time.Hour)
-	_, err = db.CreateAccessAccount(ten.ID, "Temp", "hash-2", &exp)
+	_, err = db.CreateAccessAccount(ten.ID, "Temp", "hash-2", "TEMP-CODE", &exp)
 	if err != nil {
 		t.Fatal(err)
 	}

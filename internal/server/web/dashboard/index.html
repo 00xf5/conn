@@ -107,7 +107,7 @@
         <h2 id="enroll-title">Add machine</h2>
         <button type="button" class="modal-close" id="enroll-close" aria-label="Close">×</button>
       </header>
-      <p class="modal-help">Issue a one-time install link and send it to the host PC. They open it (or paste the PowerShell command) to download and enroll.</p>
+      <p class="modal-help">Issue an install link and send it to the host. They download the agent and double-click the installer.</p>
       <form id="enroll-issue-form" class="modal-form">
         <input id="enroll-label" type="text" placeholder="Label (optional)" autocomplete="off" />
         <select id="enroll-ttl" title="How long the code stays valid" aria-label="TTL">
@@ -128,11 +128,8 @@
           <code id="enroll-link" class="enroll-cmd"></code>
           <button type="button" class="secondary-btn" id="enroll-copy-link">Copy link</button>
         </div>
-        <label>Or PowerShell one-liner</label>
-        <div class="enroll-code-row">
-          <code id="enroll-cmd" class="enroll-cmd"></code>
-          <button type="button" class="secondary-btn" id="enroll-copy-cmd">Copy</button>
-        </div>
+        <p class="modal-note" id="enroll-ttl-note">Host opens the link → Download agent → Download installer → double-click Connect-Install.cmd.</p>
+        <p class="modal-warn" id="enroll-pkg-warn" hidden>Agent package not published on the server yet — ask admin to upload it.</p>
         <details class="enroll-advanced">
           <summary>Advanced</summary>
           <label>Enrollment code</label>
@@ -141,8 +138,6 @@
             <button type="button" class="secondary-btn" id="enroll-copy-code">Copy</button>
           </div>
         </details>
-        <p class="modal-note" id="enroll-ttl-note">One-time use. After install, the machine appears in this list when the agent is online.</p>
-        <p class="modal-warn" id="enroll-pkg-warn" hidden>Agent package not published on the server yet — hosts cannot download until admin runs publish-agent.</p>
       </div>
       <div class="enroll-list-wrap">
         <div class="enroll-list-title">Recent enrollments</div>

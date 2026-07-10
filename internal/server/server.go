@@ -172,6 +172,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/agent/enroll", s.handleAgentEnroll)
 	mux.HandleFunc("/api/agent/package", s.handleAgentPackageInfo)
 	mux.HandleFunc("/download/agent.zip", s.handleDownloadAgent)
+	mux.HandleFunc("/download/setup.cmd", s.handleDownloadSetupCmd)
 	mux.HandleFunc("/install", s.handleInstallPage)
 	mux.HandleFunc("/install.ps1", s.handleInstallScript)
 	mux.HandleFunc("/ws", s.handleWS)
