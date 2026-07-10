@@ -59,6 +59,7 @@ function setTab(name) {
     tenants: "Tenants",
     accounts: "Access codes",
     enrollments: "Enrollments",
+    package: "Agent package",
     agents: "Agents",
   };
   document.getElementById("page-title").textContent = titles[name] || name;
@@ -255,6 +256,7 @@ async function refreshAll() {
   fillTenantSelects();
   await loadAccounts();
   await loadEnrollments();
+  await loadPackageStatus();
   await loadAgents();
 }
 
@@ -414,6 +416,79 @@ async function loadAgents() {
     body.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(e.message)}</td></tr>`;
   }
 }
+
+async function loadPackageStatus() {
+  const el = document.getElementById("pkg-status");
+  const del = document.getElementById("pkg-delete");
+  if (!el) return;
+  try {
+    const info = await api("/api/admin/agent-package");
+    if (info.available) {
+      const mb = (Number(info.size) / (1024 * 1024)).toFixed(1);
+      el.innerHTML = `<strong>Package ready</strong> · ${mb} MB · updated ${escapeHtml(fmtTime(info.updatedAt))}`;
+      del.hidden = false;
+    } else {
+      el.innerHTML = `<strong>No package yet</strong> · ${escapeHtml(info.hint || "Upload agent.zip below")}`;
+      del.hidden = true;
+    }
+  } catch (e) {
+    el.textContent = e.message;
+    del.hidden = true;
+  }
+}
+
+document.getElementById("pkg-form").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const input = document.getElementById("pkg-file");
+  const btn = document.getElementById("pkg-upload-btn");
+  const prog = document.getElementById("pkg-progress");
+  const file = input.files && input.files[0];
+  if (!file) {
+    toast("Choose agent.zip first");
+    return;
+  }
+  btn.disabled = true;
+  prog.hidden = false;
+  prog.textContent = `Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)…`;
+  try {
+    const fd = new FormData();
+    fd.append("file", file, file.name || "agent.zip");
+    const res = await fetch("/api/admin/agent-package", {
+      method: "POST",
+      credentials: "same-origin",
+      body: fd,
+    });
+    const text = await res.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    if (!res.ok) {
+      throw new Error((typeof data === "string" ? data : data?.error || text || res.statusText).trim());
+    }
+    toast("Agent package uploaded");
+    input.value = "";
+    prog.textContent = "Upload complete";
+    await loadPackageStatus();
+  } catch (e) {
+    prog.textContent = e.message;
+    toast(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("pkg-delete").onclick = async () => {
+  try {
+    await api("/api/admin/agent-package", { method: "DELETE" });
+    toast("Package removed");
+    await loadPackageStatus();
+  } catch (e) {
+    toast(e.message);
+  }
+};
 
 function fmtTime(iso) {
   if (!iso) return "—";

@@ -19,7 +19,6 @@ services:
       CONNECT_AGENT_DIR: "/data/agent"
     volumes:
       - connectd_data:/data
-      - ./agent:/data/agent:ro
     command: ["-no-tls", "-no-turn", "-key", "/data/server.key", "-db", "/data/connect.db", "-agent-dir", "/data/agent"]
     expose:
       - "8787"

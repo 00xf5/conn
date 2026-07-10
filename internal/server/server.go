@@ -166,6 +166,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/admin/access-accounts/", s.handleAdminRevokeAccess)
 	mux.HandleFunc("/api/admin/enrollments/", s.handleAdminEnrollmentRevoke)
 	mux.HandleFunc("/api/admin/agents", s.handleAdminAgents)
+	mux.HandleFunc("/api/admin/agent-package", s.handleAdminAgentPackage)
 	mux.HandleFunc("/api/enrollments", s.handleTechEnrollments)
 	mux.HandleFunc("/api/enrollments/", s.handleTechEnrollmentRevoke)
 	mux.HandleFunc("/api/agent/enroll", s.handleAgentEnroll)

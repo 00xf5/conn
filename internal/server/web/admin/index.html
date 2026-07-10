@@ -26,6 +26,7 @@
         <button type="button" class="nav-btn active" data-tab="tenants">Tenants</button>
         <button type="button" class="nav-btn" data-tab="accounts">Access codes</button>
         <button type="button" class="nav-btn" data-tab="enrollments">Enrollments</button>
+        <button type="button" class="nav-btn" data-tab="package">Agent package</button>
         <button type="button" class="nav-btn" data-tab="agents">Agents</button>
       </nav>
       <div class="sidebar-foot">
@@ -124,7 +125,7 @@
             <button type="button" id="copy-enroll" class="btn-secondary">Copy code</button>
           </details>
           <span class="hint" id="issued-enroll-ttl">One-time use · not shown again.</span>
-          <span class="hint warn" id="issued-enroll-pkg" hidden>Agent package not published — run deploy/publish-agent.ps1</span>
+          <span class="hint warn" id="issued-enroll-pkg" hidden>Agent package not published — upload it under Admin → Agent package</span>
         </div>
         <div class="table-card">
           <table>
@@ -136,6 +137,19 @@
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section id="tab-package" class="tab">
+        <p class="tab-help">Upload <code>agent.zip</code> from your Windows build PC (from <code>publish-agent.ps1</code>). Hosts download it via install links — no SSH needed.</p>
+        <div id="pkg-status" class="issued">Checking…</div>
+        <div class="toolbar">
+          <form id="pkg-form" class="toolbar-form">
+            <input id="pkg-file" type="file" accept=".zip,application/zip" required />
+            <button type="submit" id="pkg-upload-btn">Upload agent.zip</button>
+          </form>
+          <button type="button" id="pkg-delete" class="btn-danger" hidden>Remove package</button>
+        </div>
+        <p id="pkg-progress" class="hint" hidden></p>
       </section>
 
       <section id="tab-agents" class="tab">

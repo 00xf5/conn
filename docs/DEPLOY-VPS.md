@@ -49,20 +49,15 @@ curl -s "https://remote.example.com/api/ice" | jq .
 
 ## 3. Publish Windows agent package (required for Host install links)
 
-On a Windows build PC (CGO + gcc + ffmpeg):
+On a Windows build PC:
 
 ```powershell
 .\deploy\publish-agent.ps1 -OutZip .\agent.zip
-scp .\agent.zip user@vps:~/connect/deploy/agent/agent.zip
 ```
 
-On the VPS, recreate connectd so `/download/agent.zip` and `/install` work:
+Then open **Admin → Agent package** at `https://DOMAIN/admin/` and upload `agent.zip` (no SSH/SCP).
 
-```bash
-cd ~/connect/deploy
-docker compose up -d --force-recreate connectd
-curl -sI "https://$DOMAIN/download/agent.zip"   # 200
-```
+Or from any machine with the zip: Admin UI upload is the supported path.
 
 ## 4. Enroll hosts (recommended)
 

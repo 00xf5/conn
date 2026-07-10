@@ -1,4 +1,13 @@
 {$DOMAIN} {
 	encode gzip
-	reverse_proxy connectd:8787
+	# Large agent.zip uploads from Admin (up to ~200MB)
+	request_body {
+		max_size 200MB
+	}
+	reverse_proxy connectd:8787 {
+		transport http {
+			read_timeout 10m
+			write_timeout 10m
+		}
+	}
 }

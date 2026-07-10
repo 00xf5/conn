@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -36,7 +37,7 @@ func (s *Server) handleAgentPackageInfo(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, map[string]any{
 			"available": false,
 			"agentDir":  s.agentDir(),
-			"hint":      "Upload agent.zip via deploy/publish-agent.ps1 (mount CONNECT_AGENT_DIR)",
+			"hint":      "Upload agent.zip in Admin → Agent package (or publish-agent.ps1)",
 		})
 		return
 	}
@@ -46,6 +47,108 @@ func (s *Server) handleAgentPackageInfo(w http.ResponseWriter, r *http.Request) 
 		"updatedAt": st.ModTime().UTC().Format(time.RFC3339),
 		"download":  "/download/agent.zip",
 		"install":   "/install",
+	})
+}
+
+const maxAgentUploadBytes = 200 << 20 // 200 MiB
+
+// Admin uploads agent.zip (no SSH/SCP required).
+func (s *Server) handleAdminAgentPackage(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAdmin(w, r) {
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		s.handleAgentPackageInfo(w, r)
+	case http.MethodPost:
+		s.handleAdminAgentPackageUpload(w, r)
+	case http.MethodDelete:
+		path := s.agentZipPath()
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true, "available": false})
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleAdminAgentPackageUpload(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxAgentUploadBytes)
+	if err := r.ParseMultipartForm(maxAgentUploadBytes); err != nil {
+		http.Error(w, "upload too large or invalid (max 200MB)", http.StatusBadRequest)
+		return
+	}
+	file, hdr, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "file field required (multipart form field name: file)", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	name := strings.ToLower(filepath.Base(hdr.Filename))
+	if !strings.HasSuffix(name, ".zip") {
+		http.Error(w, "file must be a .zip (agent.zip)", http.StatusBadRequest)
+		return
+	}
+
+	var magic [4]byte
+	if _, err := io.ReadFull(file, magic[:]); err != nil {
+		http.Error(w, "empty or unreadable upload", http.StatusBadRequest)
+		return
+	}
+	if magic[0] != 'P' || magic[1] != 'K' {
+		http.Error(w, "not a zip file", http.StatusBadRequest)
+		return
+	}
+
+	dir := s.agentDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	tmp := filepath.Join(dir, "agent.zip.uploading")
+	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if _, err := out.Write(magic[:]); err != nil {
+		_ = out.Close()
+		_ = os.Remove(tmp)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	nRest, copyErr := io.Copy(out, file)
+	closeErr := out.Close()
+	n := int64(len(magic)) + nRest
+	if copyErr != nil {
+		_ = os.Remove(tmp)
+		http.Error(w, copyErr.Error(), http.StatusInternalServerError)
+		return
+	}
+	if closeErr != nil {
+		_ = os.Remove(tmp)
+		http.Error(w, closeErr.Error(), http.StatusInternalServerError)
+		return
+	}
+	if n < 1000 {
+		_ = os.Remove(tmp)
+		http.Error(w, "upload too small", http.StatusBadRequest)
+		return
+	}
+	final := s.agentZipPath()
+	if err := os.Rename(tmp, final); err != nil {
+		_ = os.Remove(tmp)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{
+		"ok":        true,
+		"available": true,
+		"size":      n,
+		"path":      final,
 	})
 }
 
