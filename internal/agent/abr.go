@@ -57,12 +57,12 @@ func (a *Agent) adaptBitrateFromStats(loss, rttMs float64, mobile bool) {
 	prof := ProfileFromConfig(a.cfg)
 	cur := a.liveBitrateLocked()
 	ceiling := prof.BitrateK
-	if mobile && ceiling > 2500 {
-		ceiling = 2500
+	if mobile && ceiling > 4500 {
+		ceiling = 4500
 	}
 	floor := prof.BitrateMin
-	if mobile && floor < 1000 {
-		floor = 1000
+	if mobile && floor < 1500 {
+		floor = 1500
 	}
 
 	next := cur

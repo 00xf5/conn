@@ -1,9 +1,9 @@
 {
-  "serverUrl": "wss://163-245-213-130.sslip.io/ws",
-  "width": 854,
-  "height": 480,
+  "serverUrl": "wss://blueconnect.online/ws",
+  "width": 1280,
+  "height": 720,
   "fps": 20,
-  "bitrate": 2000,
+  "bitrate": 4500,
   "gop": 40,
   "keyIntMin": 20,
   "insecureTls": false

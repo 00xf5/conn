@@ -51,33 +51,40 @@ func spsProfileLevelID(annexB []byte) string {
 }
 
 func keyframeWaitTimeout(prof StreamProfile) time.Duration {
-	// Worst-case natural IDR spacing is ~GOP frames at target fps; allow 2× plus encode slack.
+	// Worst-case natural IDR spacing is ~GOP frames at target fps; allow slack for
+	// idle DXGI (no dirty frames) and slow HW encode startup.
 	if prof.FPS <= 0 {
-		return 8 * time.Second
+		return 10 * time.Second
 	}
 	gop := prof.GOP
 	if gop <= 0 {
 		gop = prof.FPS * 2
 	}
 	wait := time.Duration(gop*2) * time.Second / time.Duration(prof.FPS)
-	if wait < 6*time.Second {
-		wait = 6 * time.Second
+	if wait < 10*time.Second {
+		wait = 10 * time.Second
 	}
-	if wait > 12*time.Second {
-		wait = 12 * time.Second
+	if wait > 16*time.Second {
+		wait = 16 * time.Second
 	}
 	return wait
 }
 
 func readLiveKeyframe(enc videoEncoder, minBytes int, timeout time.Duration) (videoFrame, error) {
 	if timeout <= 0 {
-		timeout = 6 * time.Second
+		timeout = 10 * time.Second
 	}
 	deadline := time.Now().Add(timeout)
+	lastReq := time.Time{}
 	for time.Now().Before(deadline) {
+		if lastReq.IsZero() || time.Since(lastReq) >= 400*time.Millisecond {
+			requestEncoderKeyframe(enc)
+			lastReq = time.Now()
+		}
 		f, err := enc.ReadFrame()
 		if err != nil {
 			if strings.Contains(err.Error(), "no valid frame within") && time.Now().Before(deadline) {
+				time.Sleep(5 * time.Millisecond)
 				continue
 			}
 			return videoFrame{}, err
@@ -85,7 +92,7 @@ func readLiveKeyframe(enc videoEncoder, minBytes int, timeout time.Duration) (vi
 		if f.KeyFrame && len(f.Data) >= minBytes && captureenc.ContainsNALType(f.Data, 5) {
 			return f, nil
 		}
-		time.Sleep(time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 	}
 	return videoFrame{}, fmt.Errorf("no live keyframe within timeout")
 }

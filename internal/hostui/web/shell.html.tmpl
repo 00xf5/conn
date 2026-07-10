@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BlueConnect — Host agent</title>
+  <style>
+__CSS__
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <div class="brand-text">
+          <strong>BlueConnect</strong>
+          <span>Host agent</span>
+        </div>
+      </div>
+      <div class="top-right">
+        <span class="pill mock">Preview</span>
+        <button type="button" class="avatar" title="Account (coming soon)" data-stub="account" aria-label="Account"></button>
+      </div>
+    </header>
+
+    <div class="body">
+      <nav class="rail" aria-label="Sections">
+        <button type="button" class="rail-btn active" data-stub="home" title="Home">⌂</button>
+        <button type="button" class="rail-btn" data-stub="status" title="Status">◎</button>
+        <button type="button" class="rail-btn" data-stub="settings" title="Settings">⚙</button>
+        <button type="button" class="rail-btn rail-bottom" data-stub="help" title="Help">?</button>
+      </nav>
+
+      <aside class="side">
+        <div class="side-title">This PC</div>
+        <button type="button" class="side-item active" data-stub="connection"><span>Connection</span></button>
+        <button type="button" class="side-item" data-stub="session"><span>Session</span></button>
+        <button type="button" class="side-item" data-stub="tools"><span>Tools</span></button>
+        <button type="button" class="side-item" data-stub="logs"><span>Logs</span></button>
+      </aside>
+
+      <main class="stage">
+        <section class="status-card">
+          <p class="eyebrow">Agent status</p>
+          <h1>Ready</h1>
+          <p class="status-sub">UI shell only — tray and service still run the real agent.</p>
+          <dl class="props">
+            <div><dt>Hostname</dt><dd>—</dd></div>
+            <div><dt>Server</dt><dd>blueconnect.online</dd></div>
+            <div><dt>Session</dt><dd>None</dd></div>
+            <div><dt>Stream</dt><dd>1280×720 · placeholder</dd></div>
+          </dl>
+        </section>
+        <section class="activity">
+          <h2>Activity</h2>
+          <ul class="activity-list">
+            <li><span class="t">—</span> Host window opened (preview)</li>
+            <li><span class="t">—</span> No live events wired yet</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <footer class="dock">
+      <div class="dock-left">
+        <button type="button" class="dock-btn" data-stub="mute" disabled>Mute</button>
+        <button type="button" class="dock-btn" data-stub="video" disabled>Video</button>
+      </div>
+      <div class="dock-center">
+        <button type="button" class="dock-btn accent" data-stub="dashboard">Open dashboard</button>
+        <button type="button" class="dock-btn" data-stub="log">Open log</button>
+      </div>
+      <div class="dock-right">
+        <button type="button" class="dock-btn hide" id="btn-hide">Hide</button>
+      </div>
+    </footer>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+  <script>
+__JS__
+  </script>
+</body>
+</html>

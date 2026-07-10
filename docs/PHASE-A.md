@@ -158,8 +158,8 @@ Deploy **connectd + coturn** on a VPS — see **[DEPLOY-VPS.md](DEPLOY-VPS.md)**
 # On VPS (once): ./deploy/setup-vps.sh
 
 # On Windows host:
-.\deploy\start-vps-agent.ps1 -Server "wss://remote.example.com/ws"
-.\deploy\check-vps.ps1 -Domain remote.example.com
+.\deploy\start-vps-agent.ps1
+.\deploy\check-vps.ps1
 ```
 
 Cellular viewers use coturn on the VPS (`CONNECT_TURN_URL` + `CONNECT_TURN_SECRET`). Test with phone Wi‑Fi off.

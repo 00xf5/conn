@@ -1,7 +1,6 @@
-# Point connect-agent at your VPS (connectd + coturn). Run on the Windows host PC.
+# Point connect-agent at BlueConnect (connectd + coturn). Run on the Windows host PC.
 param(
-  [Parameter(Mandatory = $true)]
-  [string]$Server
+  [string]$Server = "wss://blueconnect.online/ws"
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,7 +11,7 @@ if (-not (Test-Path $Agent)) {
 }
 
 if ($Server -notmatch '^wss://') {
-  throw "Server must be wss://YOUR_DOMAIN/ws (HTTPS required for internet viewers)"
+  throw "Server must be wss://blueconnect.online/ws (HTTPS required for internet viewers)"
 }
 
 $configDir = Join-Path $env:LOCALAPPDATA "Connect"
@@ -22,10 +21,10 @@ $configPath = Join-Path $configDir "config.json"
 $configJson = @{
   serverUrl   = $Server
   insecureTls = $false
-  width       = 854
-  height      = 480
+  width       = 1280
+  height      = 720
   fps         = 20
-  bitrate     = 2000
+  bitrate     = 4500
   gop         = 40
   keyIntMin   = 20
 } | ConvertTo-Json
@@ -46,5 +45,5 @@ Start-Process -FilePath $Agent -ArgumentList @("-server", $Server) -WindowStyle 
 Write-Host "connect-agent started"
 Write-Host "Log: $(Join-Path $configDir 'agent.log')"
 Write-Host ""
-Write-Host "Viewer: open https://YOUR_DOMAIN/dashboard/ (same domain as wss URL, without /ws)"
+Write-Host "Viewer: open https://blueconnect.online/dashboard/"
 Write-Host "Test cellular: disable Wi-Fi on phone, use LTE/5G"

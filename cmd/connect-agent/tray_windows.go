@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"connect/internal/agent"
+	"connect/internal/hostui"
 
 	"github.com/getlantern/systray"
 )
@@ -20,17 +21,18 @@ import (
 func runTray(a *agent.Agent, logPath string) {
 	systray.Run(func() {
 		systray.SetIcon(trayIcon)
-		systray.SetTitle("Connect")
-		systray.SetTooltip("Connect host agent")
+		systray.SetTitle("BlueConnect")
+		systray.SetTooltip("BlueConnect host agent")
 
 		mStatus := systray.AddMenuItem("Starting…", "Connection status")
 		mStatus.Disable()
 		mSession := systray.AddMenuItem("No session", "Active session")
 		mSession.Disable()
 		systray.AddSeparator()
-		mDashboard := systray.AddMenuItem("Open dashboard", "Open Connect dashboard in browser")
+		mOpen := systray.AddMenuItem("Open agent", "Open BlueConnect host window")
+		mDashboard := systray.AddMenuItem("Open dashboard", "Open BlueConnect dashboard in browser")
 		mOpenLog := systray.AddMenuItem("Open log file", "Open agent log")
-		mQuit := systray.AddMenuItem("Quit Connect", "Stop the host agent")
+		mQuit := systray.AddMenuItem("Quit BlueConnect", "Stop the host agent")
 
 		go func() {
 			defer func() {
@@ -54,11 +56,11 @@ func runTray(a *agent.Agent, logPath string) {
 				}
 				switch st.State {
 				case "streaming":
-					systray.SetTooltip("Connect — streaming " + st.Session)
+					systray.SetTooltip("BlueConnect — streaming " + st.Session)
 				case "online":
-					systray.SetTooltip("Connect — online, waiting for viewer")
+					systray.SetTooltip("BlueConnect — online, waiting for viewer")
 				default:
-					systray.SetTooltip("Connect — offline")
+					systray.SetTooltip("BlueConnect — offline")
 				}
 				time.Sleep(2 * time.Second)
 			}
@@ -70,6 +72,8 @@ func runTray(a *agent.Agent, logPath string) {
 				a.Stop()
 				systray.Quit()
 				return
+			case <-mOpen.ClickedCh:
+				hostui.Show()
 			case <-mOpenLog.ClickedCh:
 				if logPath != "" {
 					_ = shellOpen(logPath)

@@ -1,10 +1,10 @@
 {
-  "serverUrl": "wss://remote.example.com/ws",
+  "serverUrl": "wss://blueconnect.online/ws",
   "insecureTls": false,
-  "width": 854,
-  "height": 480,
+  "width": 1280,
+  "height": 720,
   "fps": 20,
-  "bitrate": 2000,
+  "bitrate": 4500,
   "gop": 40,
   "keyIntMin": 20
 }

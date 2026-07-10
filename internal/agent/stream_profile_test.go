@@ -7,8 +7,15 @@ func TestNormalizeConfigSoftUpgradesOldBaseline(t *testing.T) {
 	if cfg.Width != 1280 || cfg.Height != 720 {
 		t.Fatalf("resolution got %dx%d want 1280x720", cfg.Width, cfg.Height)
 	}
-	if cfg.BitrateK != 3500 {
-		t.Fatalf("bitrate got %d want 3500", cfg.BitrateK)
+	if cfg.BitrateK != 4500 {
+		t.Fatalf("bitrate got %d want 4500", cfg.BitrateK)
+	}
+}
+
+func TestNormalizeConfigSoftUpgradesAligned480(t *testing.T) {
+	cfg := NormalizeConfig(Config{Width: 864, Height: 480, BitrateK: 2000})
+	if cfg.Width != 1280 || cfg.Height != 720 || cfg.BitrateK != 4500 {
+		t.Fatalf("aligned 480p not upgraded: %+v", cfg)
 	}
 }
 

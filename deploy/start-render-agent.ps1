@@ -2,7 +2,7 @@
 
 param(
 
-  [string]$Server = "wss://connect-lf9h.onrender.com/ws"
+  [string]$Server = "wss://blueconnect.online/ws"
 
 )
 

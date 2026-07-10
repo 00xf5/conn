@@ -1,9 +1,9 @@
 {
   "serverUrl": "ws://127.0.0.1:8787/ws",
-  "width": 854,
-  "height": 480,
+  "width": 1280,
+  "height": 720,
   "fps": 20,
-  "bitrate": 2000,
+  "bitrate": 4500,
   "gop": 40,
   "keyIntMin": 20,
   "insecureTls": true

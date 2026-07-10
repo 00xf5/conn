@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	"connect/internal/agent"
+	"connect/internal/hostui"
 )
 
 func main() {
@@ -14,10 +15,10 @@ func main() {
 	deviceID := flag.String("device", "", "device ID (auto-generated if empty)")
 	tenantID := flag.String("tenant", "", "tenant ID (binds agent to Access tenant)")
 	enroll := flag.String("enroll", "", "one-time enrollment code (ENR-…); binds tenant and saves config")
-	width := flag.Int("width", 0, "stream width (default from config or 854)")
-	height := flag.Int("height", 0, "stream height (default from config or 480)")
+	width := flag.Int("width", 0, "stream width (default from config or 1280)")
+	height := flag.Int("height", 0, "stream height (default from config or 720)")
 	fps := flag.Int("fps", 0, "capture FPS (default from config or 20)")
-	bitrate := flag.Int("bitrate", 0, "video bitrate kbps (default from config or 2000)")
+	bitrate := flag.Int("bitrate", 0, "video bitrate kbps (default from config or 4500)")
 	monitor := flag.Int("monitor", 0, "monitor index")
 	insecureTLS := flag.Bool("insecure-tls", false, "skip TLS verify for self-signed connectd cert")
 	console := flag.Bool("console", false, "show console window (Windows tray mode is default)")
@@ -25,8 +26,20 @@ func main() {
 	installSvc := flag.Bool("install-service", false, "install + start Windows Service (Administrator)")
 	uninstallSvc := flag.Bool("uninstall-service", false, "stop + remove Windows Service (Administrator)")
 	quitAfterEnroll := flag.Bool("quit-after-enroll", false, "exit after successful -enroll (installer use)")
+	hostUI := flag.Bool("host-ui", false, "open BlueConnect host agent UI window and exit when closed")
 	flag.Parse()
 
+	// Dedicated UI process — must not take the agent single-instance mutex or start capture.
+	if *hostUI {
+		logPath := ""
+		if runtime.GOOS == "windows" {
+			logPath = setupFileLog()
+		}
+		_ = logPath
+		log.Printf("connect-agent host-ui starting")
+		hostui.RunBlocking()
+		return
+	}
 	// SCM entry — must not take the interactive single-instance mutex.
 	if *service || isWindowsService() {
 		if err := runServiceMode(); err != nil {

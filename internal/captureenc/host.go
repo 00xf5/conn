@@ -25,31 +25,6 @@ type HostPipeline struct {
 	handle C.CaptureEncHandle
 }
 
-// AlignEncodeDimensions rounds to H.264 macroblock boundaries (16px).
-func AlignEncodeDimensions(w, h int) (int, int) {
-	if w <= 0 {
-		w = 854
-	}
-	if h <= 0 {
-		h = 480
-	}
-	w = (w + 15) & ^15
-	if h&1 != 0 {
-		h++
-	}
-	return w, h
-}
-
-// FitEncodeDimensions downscales for in-process HW encoders that cannot sustain
-// full desktop resolution on low-power iGPUs (pixels scale ~linearly with encode cost).
-func FitEncodeDimensions(w, h, maxW int) (int, int) {
-	if maxW > 0 && w > maxW {
-		h = h * maxW / w
-		w = maxW
-	}
-	return AlignEncodeDimensions(w, h)
-}
-
 func OpenHostPipeline(cfg HostConfig) (*HostPipeline, error) {
 	if cfg.Monitor < 0 {
 		cfg.Monitor = 0
@@ -58,7 +33,7 @@ func OpenHostPipeline(cfg HostConfig) (*HostPipeline, error) {
 		cfg.FPS = 20
 	}
 	if cfg.BitrateK <= 0 {
-		cfg.BitrateK = 2000
+		cfg.BitrateK = 6000
 	}
 	cfg.Width, cfg.Height = AlignEncodeDimensions(cfg.Width, cfg.Height)
 

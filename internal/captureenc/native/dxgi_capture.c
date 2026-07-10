@@ -297,7 +297,7 @@ int dxgi_capture_acquire(DxgiCapture* cap, ID3D11Texture2D** out_bgra) {
     DXGI_OUTDUPL_FRAME_INFO info;
     ZeroMemory(&info, sizeof(info));
 
-    HRESULT hr = cap->duplication->lpVtbl->AcquireNextFrame(cap->duplication, 100, &info, &resource);
+    HRESULT hr = cap->duplication->lpVtbl->AcquireNextFrame(cap->duplication, 250, &info, &resource);
     if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
         return 1;
     }

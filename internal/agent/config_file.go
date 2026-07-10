@@ -51,7 +51,12 @@ func LoadConfigFile() (Config, bool) {
 		if fc.InsecureTLS != nil {
 			cfg.InsecureTLS = *fc.InsecureTLS
 		}
-		return NormalizeConfig(cfg), true
+		upgraded := NormalizeConfig(cfg)
+		// Persist soft-upgraded stream settings so hosts leave 480p behind on disk.
+		if upgraded.Width != cfg.Width || upgraded.Height != cfg.Height || upgraded.BitrateK != cfg.BitrateK {
+			_ = SaveConfigFile(upgraded)
+		}
+		return upgraded, true
 	}
 	return Config{}, false
 }

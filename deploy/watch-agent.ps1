@@ -1,6 +1,6 @@
 # Keep connect-agent alive: restart on crash or exit. Run in a dedicated PowerShell window.
 param(
-  [string]$Server = "wss://163-245-213-130.sslip.io/ws"
+  [string]$Server = "wss://blueconnect.online/ws"
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,10 +17,10 @@ $configPath = Join-Path $configDir "config.json"
 $configJson = @{
   serverUrl   = $Server
   insecureTls = $false
-  width       = 854
-  height      = 480
+  width       = 1280
+  height      = 720
   fps         = 20
-  bitrate     = 2000
+  bitrate     = 4500
   gop         = 40
   keyIntMin   = 20
 } | ConvertTo-Json

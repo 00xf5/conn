@@ -179,12 +179,26 @@ static int captureenc_encode_qsv(CaptureEncState* st, uint64_t now, CaptureEncFr
         data = NULL;
     }
 
-    int cap = captureenc_acquire_nv12(st);
+    int want_idr = st->qsv.force_idr || (st->qsv.frame_index == 0);
+    int cap = 1;
+    /* Idle desktops often return DXGI timeout; retry briefly when an IDR is required
+       for WebRTC SDP so session start does not hang on "no keyframe". */
+    int attempts = want_idr ? 25 : 1;
+    for (int i = 0; i < attempts; i++) {
+        cap = captureenc_acquire_nv12(st);
+        if (cap == 0) {
+            break;
+        }
+        if (cap != 1) {
+            return cap;
+        }
+        if (!want_idr) {
+            return 1;
+        }
+        Sleep(40);
+    }
     if (cap == 1) {
         return 1;
-    }
-    if (cap != 0) {
-        return cap;
     }
 
     if (dxgi_capture_map_nv12(&st->dxgi) != 0) {
@@ -192,7 +206,7 @@ static int captureenc_encode_qsv(CaptureEncState* st, uint64_t now, CaptureEncFr
     }
     int pitch = 0;
     const uint8_t* nv12 = dxgi_capture_nv12_bytes(&st->dxgi, &pitch);
-    int force = (st->qsv.frame_index == 0) ? 1 : 0;
+    int force = want_idr ? 1 : 0;
 
     for (int feed = 0; feed < 32; feed++) {
         int rc = qsv_encode(&st->qsv, nv12, (int)st->dxgi.nv12_cpu_size, pitch, force, &data, &size, &keyframe);

@@ -16,7 +16,7 @@ import (
 
 const (
 	serviceName    = "ConnectAgent"
-	serviceDisplay = "Connect Host Agent"
+	serviceDisplay = "BlueConnect Host Agent"
 	serviceDesc    = "Connect remote access host agent supervisor. Keeps the interactive capture agent running across reboot, lock, and crash."
 )
 

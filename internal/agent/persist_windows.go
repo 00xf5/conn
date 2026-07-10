@@ -33,6 +33,9 @@ func EnsurePersistence() {
 		return
 	}
 
+	// Clear any leftover visible tasklist/watchdog loops from older builds.
+	stopWatchdogProcesses()
+
 	exe, err := os.Executable()
 	if err != nil || exe == "" {
 		return
@@ -107,23 +110,35 @@ func removeLegacyStartup() {
 	startupDir := filepath.Join(os.Getenv("APPDATA"),
 		`Microsoft\Windows\Start Menu\Programs\Startup`)
 	for _, name := range []string{startupName, startupNameOld} {
-		_ = os.Remove(filepath.Join(startupDir, name))
+		path := filepath.Join(startupDir, name)
+		if err := os.Remove(path); err == nil {
+			log.Printf("agent: removed legacy Startup %q (service owns persistence)", name)
+		}
 	}
+	// Drop leftover watchdog scripts next to the agent when the service is installed.
+	if dir := DataDir(); dir != "" {
+		for _, name := range []string{watchdogName, watchdogVbs} {
+			_ = os.Remove(filepath.Join(dir, name))
+		}
+	}
+	stopWatchdogProcesses()
 }
 
 func buildWatchdogCmd(dir, exe string) string {
-	// Runs under a hidden console (launched via VBS window style 0).
-	// start /wait keeps the loop blocked on the GUI agent without a second window.
+	// No tasklist.exe — it flashes a console even when redirected.
+	// PowerShell -WindowStyle Hidden checks for the agent process quietly.
+	ps := `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`
 	return fmt.Sprintf("@echo off\r\n"+
 		"title %s\r\n"+
 		"cd /d \"%s\"\r\n"+
 		":loop\r\n"+
-		"tasklist /FI \"IMAGENAME eq connect-agent.exe\" 2>nul | find /I \"connect-agent.exe\" >nul\r\n"+
+		"\"%s\" -NoProfile -NonInteractive -WindowStyle Hidden -Command "+
+		"\"if (-not (Get-Process -Name connect-agent -ErrorAction SilentlyContinue)) { exit 1 } else { exit 0 }\" >nul 2>&1\r\n"+
 		"if errorlevel 1 (\r\n"+
 		"  start /wait \"\" \"%s\"\r\n"+
 		")\r\n"+
 		"timeout /t 5 /nobreak >nul\r\n"+
-		"goto loop\r\n", watchTitle, dir, exe)
+		"goto loop\r\n", watchTitle, dir, ps, exe)
 }
 
 func buildWatchdogVBS(watchCmdPath string) string {
@@ -166,16 +181,35 @@ func writeIfChanged(path, body string) error {
 
 func startWatchdogHidden(vbsPath string) error {
 	cmd := exec.Command("wscript.exe", "//B", "//Nologo", vbsPath)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	hideConsole(cmd)
 	return cmd.Start()
 }
 
 func watchdogRunning() bool {
-	out, err := exec.Command("tasklist", "/V", "/FO", "CSV", "/NH").CombinedOutput()
+	// Prefer title match without a visible console (CREATE_NO_WINDOW).
+	cmd := exec.Command("tasklist", "/V", "/FO", "CSV", "/NH")
+	hideConsole(cmd)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false
 	}
 	return strings.Contains(string(out), watchTitle)
+}
+
+func hideConsole(cmd *exec.Cmd) {
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.HideWindow = true
+	cmd.SysProcAttr.CreationFlags |= 0x08000000 // CREATE_NO_WINDOW
+}
+
+func stopWatchdogProcesses() {
+	// Kill leftover visible/hidden watchdog consoles left from older installs.
+	ps := `$p = Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" | Where-Object { $_.CommandLine -match 'Connect-Watch|Connect Agent Watchdog' }; foreach ($x in $p) { Stop-Process -Id $x.ProcessId -Force -ErrorAction SilentlyContinue }; Get-Process | Where-Object { $_.MainWindowTitle -eq 'Connect Agent Watchdog' } | Stop-Process -Force -ErrorAction SilentlyContinue`
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", ps)
+	hideConsole(cmd)
+	_ = cmd.Run()
 }
 
 func fileExists(p string) bool {

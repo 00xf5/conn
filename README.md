@@ -1,6 +1,6 @@
-# Connect
+# BlueConnect
 
-Self-hosted remote desktop: **Go signaling server**, **Windows host agent**, **browser viewer**.
+Self-hosted remote desktop (**blueconnect.online**): **Go signaling server**, **Windows host agent**, **browser viewer**.
 
 ## Components
 
@@ -81,7 +81,7 @@ After a viewer session: `.\deploy\check-phase-a.ps1`
 
 **connectd only** — agent stays on Windows. See **`docs/DEPLOY-RENDER.md`**.
 
-Quick pointer: push repo → Render Blueprint (`render.yaml`) or Docker web service → set agent `serverUrl` to `wss://YOUR-SERVICE.onrender.com/ws`.
+Quick pointer: production is **https://blueconnect.online** (VPS). For a throwaway Render smoke test, set agent `serverUrl` to that service’s `wss://…/ws` — see [DEPLOY-RENDER.md](docs/DEPLOY-RENDER.md).
 
 ## Build (manual)
 
@@ -126,8 +126,8 @@ cd deploy && cp .env.example .env && ./setup-vps.sh
 
 ```powershell
 # Windows host
-.\deploy\start-vps-agent.ps1 -Server "wss://remote.example.com/ws"
-.\deploy\check-vps.ps1 -Domain remote.example.com
+.\deploy\start-vps-agent.ps1
+.\deploy\check-vps.ps1
 ```
 
 See **[docs/DEPLOY-VPS.md](docs/DEPLOY-VPS.md)** — coturn TURN relay for cellular viewers.

@@ -21,19 +21,20 @@ type StreamProfile struct {
 	BitrateMax   int
 }
 
-// DefaultStreamProfile is the product baseline (1280×720 @ 20fps, 3.5 Mbps).
+// DefaultStreamProfile is the product baseline (1280×720 @ 20fps, 4.5 Mbps).
+// Sharp enough for readable text; full 1080p can miss IDRs on some QSV hosts.
 func DefaultStreamProfile() StreamProfile {
 	return StreamProfile{
 		Width:        1280,
 		Height:       720,
 		FPS:          20,
-		BitrateK:     3500,
+		BitrateK:     4500,
 		GOP:          40,
 		KeyIntMin:    20,
 		WarmPrime:    1200 * time.Millisecond,
 		StallTimeout: 15 * time.Second,
-		BitrateMin:   1000,
-		BitrateMax:   12000,
+		BitrateMin:   1200,
+		BitrateMax:   15000,
 	}
 }
 
@@ -84,15 +85,14 @@ func alignStreamDimensions(w, h int) (int, int) {
 }
 
 // NormalizeConfig fills zero fields from DefaultStreamProfile.
-// Soft-upgrades the previous product baseline (854×480 @ 2 Mbps) so existing
-// hosts pick up the sharper profile without wiping intentional custom settings.
+// Soft-upgrades legacy ≤480p baselines so existing hosts get readable text
+// without wiping intentional higher custom settings.
 func NormalizeConfig(cfg Config) Config {
 	p := DefaultStreamProfile()
-	if (cfg.Width == 854 || cfg.Width == 0) && (cfg.Height == 480 || cfg.Height == 0) {
-		if cfg.BitrateK == 0 || cfg.BitrateK == 2000 || cfg.BitrateK == 2500 {
-			// Clear old baseline so defaults become 1280×720 @ 3500 kbps.
-			cfg.Width = 0
-			cfg.Height = 0
+	if isLegacyLowResStream(cfg) {
+		cfg.Width = 0
+		cfg.Height = 0
+		if cfg.BitrateK > 0 && cfg.BitrateK <= 3500 {
 			cfg.BitrateK = 0
 		}
 	}
@@ -114,5 +114,22 @@ func NormalizeConfig(cfg Config) Config {
 	if cfg.KeyIntMin <= 0 {
 		cfg.KeyIntMin = p.KeyIntMin
 	}
+	cfg.Width, cfg.Height = alignStreamDimensions(cfg.Width, cfg.Height)
 	return cfg
+}
+
+func isLegacyLowResStream(cfg Config) bool {
+	h := cfg.Height
+	w := cfg.Width
+	if h == 0 && w == 0 {
+		return false
+	}
+	// Classic product baselines and near-misses (aligned 864×480, etc.).
+	if h > 0 && h <= 480 {
+		return true
+	}
+	if w > 0 && w <= 864 && h > 0 && h <= 486 {
+		return true
+	}
+	return false
 }

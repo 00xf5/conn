@@ -235,7 +235,7 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Install Connect</title>
+<title>Install BlueConnect</title>
 <style>
 body{font:15px/1.45 system-ui,Segoe UI,sans-serif;margin:0;background:#e8eaee;color:#1f2430}
 .wrap{max-width:520px;margin:48px auto;padding:0 16px}
@@ -258,7 +258,7 @@ h1{margin:0;font-size:22px}
 </head>
 <body>
 <div class="wrap"><div class="card">
-<h1>Install Connect</h1>
+<h1>Install BlueConnect</h1>
 <p class="muted">Normal download + double-click install on this Windows PC.</p>
 %s
 %s
@@ -311,7 +311,7 @@ func (s *Server) handleDownloadSetupCmd(w http.ResponseWriter, r *http.Request) 
 
 	body := fmt.Sprintf("@echo off\r\n"+
 		"setlocal\r\n"+
-		"title Connect Install\r\n"+
+		"title BlueConnect Install\r\n"+
 		"echo Connect installer\r\n"+
 		"echo.\r\n"+
 		"set \"DEST=%%LOCALAPPDATA%%\\Connect\"\r\n"+
