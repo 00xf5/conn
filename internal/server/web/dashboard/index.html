@@ -4,12 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BlueConnect — Host</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/dashboard/dashboard.css" />
 </head>
 <body>
   <div id="login-gate" class="gate">
     <form id="redeem-form" class="gate-card">
-      <h1>BlueConnect</h1>
+      <div class="gate-brand">
+        <span class="logo logo-lg" aria-hidden="true"></span>
+        <h1>BlueConnect</h1>
+      </div>
       <p class="gate-sub">Enter your Access code to open the Host console</p>
       <input id="access-code" type="text" autocomplete="one-time-code" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" required />
       <button type="submit">Sign in</button>
@@ -35,34 +41,27 @@
       </div>
     </header>
 
-    <div class="host-body">
-      <aside class="groups">
-        <div class="groups-title">Session groups</div>
-        <button type="button" class="group active" data-group="all">
-          <span>All Machines</span>
-          <span class="count" id="count-all">0</span>
-        </button>
-        <button type="button" class="group" data-group="online">
-          <span>Online</span>
-          <span class="count" id="count-online">0</span>
-        </button>
-        <button type="button" class="group" data-group="sessions">
-          <span>Active Sessions</span>
-          <span class="count" id="count-sessions">0</span>
-        </button>
-      </aside>
-
+    <div class="host-body" id="host-body">
       <section class="list-pane">
         <div class="list-toolbar">
-          <input id="filter" type="search" placeholder="Filter machines…" autocomplete="off" />
-          <button type="button" class="add-machine-btn" id="btn-add-machine">Add machine</button>
-        </div>
-        <div class="list-head">
-          <span class="col-status"></span>
-          <span class="col-listen" title="Host mic level / listen">Listen</span>
-          <span class="col-name">Name</span>
-          <span class="col-guest">Guest</span>
-          <span class="col-activity">Last Activity</span>
+          <div class="groups" role="tablist" aria-label="Filters">
+            <button type="button" class="group active" data-group="all">
+              <span>All</span>
+              <span class="count" id="count-all">0</span>
+            </button>
+            <button type="button" class="group" data-group="online">
+              <span>Online</span>
+              <span class="count" id="count-online">0</span>
+            </button>
+            <button type="button" class="group" data-group="sessions">
+              <span>Sessions</span>
+              <span class="count" id="count-sessions">0</span>
+            </button>
+          </div>
+          <div class="list-search-row">
+            <input id="filter" type="search" placeholder="Search machines…" autocomplete="off" />
+            <button type="button" class="add-machine-btn" id="btn-add-machine">Add machine</button>
+          </div>
         </div>
         <div id="session-list" class="session-list" role="listbox" aria-label="Machines"></div>
         <div id="list-empty" class="list-empty" hidden>No machines match this filter.</div>
@@ -70,31 +69,41 @@
 
       <aside class="detail" id="detail">
         <div class="detail-empty" id="detail-empty">
+          <div class="detail-empty-art" aria-hidden="true"></div>
           <p>Select a machine</p>
-          <span>Details and Join appear here</span>
+          <span>Join, share, and machine details appear here</span>
         </div>
         <div class="detail-body" id="detail-body" hidden>
-          <div class="detail-tabs">
-            <button type="button" class="dtab active">General</button>
-          </div>
-          <div class="preview" id="preview" aria-hidden="true">
-            <div class="preview-placeholder">
-              <span class="preview-icon">▣</span>
-              <span>No screenshot yet</span>
+          <button type="button" class="detail-back" id="btn-detail-back" aria-label="Back to list">← Machines</button>
+          <div class="detail-hero">
+            <div class="detail-hero-top">
+              <div class="detail-tabs">
+                <button type="button" class="dtab active">General</button>
+              </div>
+              <div class="detail-actions detail-actions-top">
+                <button type="button" class="join-btn" id="btn-join">Join</button>
+                <button type="button" class="secondary-btn" id="btn-share">Share link</button>
+              </div>
             </div>
+            <h2 class="detail-name" id="detail-name">—</h2>
+            <p class="detail-status-line" id="detail-status">—</p>
           </div>
-          <h2 class="detail-name" id="detail-name">—</h2>
-          <dl class="props">
-            <div><dt>Status</dt><dd id="detail-status">—</dd></div>
-            <div><dt>Guest</dt><dd id="detail-guest">—</dd></div>
-            <div><dt>Device ID</dt><dd id="detail-device" class="mono">—</dd></div>
-            <div><dt>Last seen</dt><dd id="detail-seen">—</dd></div>
-            <div><dt>Pipeline</dt><dd id="detail-pipe">—</dd></div>
-            <div><dt>Connected</dt><dd id="detail-conn">—</dd></div>
-          </dl>
-          <div class="detail-actions">
-            <button type="button" class="join-btn" id="btn-join">Join</button>
-            <button type="button" class="secondary-btn" id="btn-share">Share link</button>
+          <div class="detail-sections">
+            <section class="info-card">
+              <h3>Identity</h3>
+              <dl class="props">
+                <div><dt>Guest / host</dt><dd id="detail-guest">—</dd></div>
+                <div><dt>Device ID</dt><dd id="detail-device" class="mono">—</dd></div>
+              </dl>
+            </section>
+            <section class="info-card">
+              <h3>Connection</h3>
+              <dl class="props">
+                <div><dt>Last seen</dt><dd id="detail-seen">—</dd></div>
+                <div><dt>Connected</dt><dd id="detail-conn">—</dd></div>
+                <div><dt>Pipeline</dt><dd id="detail-pipe">—</dd></div>
+              </dl>
+            </section>
           </div>
           <p class="detail-note" id="detail-note"></p>
         </div>
@@ -152,4 +161,3 @@
   <script src="/dashboard/dashboard.js"></script>
 </body>
 </html>
-

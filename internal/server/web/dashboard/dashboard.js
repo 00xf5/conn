@@ -201,8 +201,14 @@ function renderDetail() {
   }
 }
 
+function setDetailOpen(open) {
+  const body = document.getElementById("host-body");
+  if (body) body.classList.toggle("show-detail", !!open);
+}
+
 function selectDevice(id) {
   selectedId = id;
+  setDetailOpen(!!id);
   renderList();
   renderDetail();
 }
@@ -389,6 +395,12 @@ document.getElementById("session-list").ondblclick = (ev) => {
 document.getElementById("btn-join").onclick = () => joinSelected();
 document.getElementById("btn-share").onclick = () => shareSelected();
 document.getElementById("btn-refresh").onclick = () => refresh();
+document.getElementById("btn-detail-back").onclick = () => {
+  selectedId = null;
+  setDetailOpen(false);
+  renderList();
+  renderDetail();
+};
 
 document.querySelector(".mode-tabs").onclick = (ev) => {
   const tab = ev.target.closest("[data-mode]");

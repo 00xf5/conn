@@ -1,0 +1,80 @@
+﻿2026/07/10 10:16:23 agent: viewer stats session=GNXJ6Y mobile=true rtt=30ms loss=0.0%
+2026/07/10 10:16:25 agent: viewer stats session=GNXJ6Y mobile=true rtt=7ms loss=0.0%
+2026/07/10 10:16:27 agent: viewer stats session=GNXJ6Y mobile=true rtt=113ms loss=0.0%
+2026/07/10 10:16:29 agent: viewer stats session=GNXJ6Y mobile=true rtt=8ms loss=0.0%
+2026/07/10 10:16:31 agent: viewer stats session=GNXJ6Y mobile=true rtt=8ms loss=0.0%
+2026/07/10 10:16:33 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:16:35 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:16:37 agent: viewer stats session=GNXJ6Y mobile=true rtt=11ms loss=0.0%
+2026/07/10 10:16:39 agent: viewer stats session=GNXJ6Y mobile=true rtt=11ms loss=0.0%
+2026/07/10 10:16:41 agent: viewer stats session=GNXJ6Y mobile=true rtt=8ms loss=0.0%
+2026/07/10 10:16:43 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:16:45 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:16:47 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:16:47 agent: perf session GNXJ6Y samples=1197 send_fps=4.9 uptime_s=246 dropped=0 rejected=1 skipped_nonkey=0
+2026/07/10 10:16:49 agent: viewer stats session=GNXJ6Y mobile=true rtt=7ms loss=0.0%
+2026/07/10 10:16:51 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:16:53 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:16:54 agent: sent 1200 video samples (key=false, 827 bytes)
+2026/07/10 10:16:55 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:16:57 agent: viewer stats session=GNXJ6Y mobile=true rtt=8ms loss=0.0%
+2026/07/10 10:16:59 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:17:01 agent: control action list_files
+2026/07/10 10:17:01 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:17:03 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:17:05 agent: viewer stats session=GNXJ6Y mobile=true rtt=12ms loss=0.0%
+2026/07/10 10:17:07 agent: viewer stats session=GNXJ6Y mobile=true rtt=9ms loss=0.0%
+2026/07/10 10:17:08 agent: control action set_bitrate
+2026/07/10 10:17:09 agent: viewer stats session=GNXJ6Y mobile=true rtt=7ms loss=0.0%
+2026/07/10 10:17:10 agent: control action set_bitrate
+2026/07/10 10:17:11 agent: viewer stats session=GNXJ6Y mobile=true rtt=7ms loss=0.0%
+2026/07/10 10:17:13 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:17:16 agent: viewer stats session=GNXJ6Y mobile=true rtt=59ms loss=0.0%
+2026/07/10 10:17:17 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:17:19 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:17:21 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:17:22 agent: sent 1320 video samples (key=false, 928 bytes)
+2026/07/10 10:17:23 agent: viewer stats session=GNXJ6Y mobile=true rtt=10ms loss=0.0%
+2026/07/10 10:17:25 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:17:27 agent: viewer stats session=GNXJ6Y mobile=true rtt=7ms loss=0.0%
+2026/07/10 10:17:29 agent: viewer stats session=GNXJ6Y mobile=true rtt=7ms loss=0.0%
+2026/07/10 10:17:31 agent: viewer stats session=GNXJ6Y mobile=true rtt=8ms loss=0.0%
+2026/07/10 10:17:33 agent: viewer stats session=GNXJ6Y mobile=true rtt=43ms loss=0.0%
+2026/07/10 10:17:35 agent: viewer stats session=GNXJ6Y mobile=true rtt=8ms loss=0.0%
+2026/07/10 10:17:37 agent: viewer stats session=GNXJ6Y mobile=true rtt=8ms loss=0.0%
+2026/07/10 10:17:39 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:17:41 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:17:43 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:17:45 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:17:47 agent: viewer stats session=GNXJ6Y mobile=true rtt=8ms loss=0.0%
+2026/07/10 10:17:48 agent: perf session GNXJ6Y samples=1434 send_fps=4.7 uptime_s=307 dropped=0 rejected=1 skipped_nonkey=0
+2026/07/10 10:17:49 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:17:49 agent: sent 1440 video samples (key=false, 910 bytes)
+2026/07/10 10:17:51 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:17:53 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:17:55 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:17:57 agent: viewer stats session=GNXJ6Y mobile=true rtt=8ms loss=0.0%
+2026/07/10 10:17:59 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:18:01 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:18:03 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:18:05 agent: viewer stats session=GNXJ6Y mobile=true rtt=13ms loss=0.0%
+2026/07/10 10:18:07 agent: viewer stats session=GNXJ6Y mobile=true rtt=8ms loss=0.0%
+2026/07/10 10:18:09 agent: viewer stats session=GNXJ6Y mobile=true rtt=8ms loss=0.0%
+2026/07/10 10:18:11 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:18:13 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:18:15 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:18:16 agent: sent 1560 video samples (key=false, 943 bytes)
+2026/07/10 10:18:17 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:18:19 agent: viewer stats session=GNXJ6Y mobile=true rtt=30ms loss=0.0%
+2026/07/10 10:18:21 agent: viewer stats session=GNXJ6Y mobile=true rtt=7ms loss=0.0%
+2026/07/10 10:18:23 agent: viewer stats session=GNXJ6Y mobile=true rtt=10ms loss=0.0%
+2026/07/10 10:18:25 agent: viewer stats session=GNXJ6Y mobile=true rtt=10ms loss=0.0%
+2026/07/10 10:18:27 agent: viewer stats session=GNXJ6Y mobile=true rtt=6ms loss=0.0%
+2026/07/10 10:18:29 agent: viewer stats session=GNXJ6Y mobile=true rtt=8ms loss=0.0%
+2026/07/10 10:18:31 agent: viewer stats session=GNXJ6Y mobile=true rtt=11ms loss=0.0%
+2026/07/10 10:18:34 agent: viewer stats session=GNXJ6Y mobile=true rtt=11ms loss=0.0%
+2026/07/10 10:18:35 agent: viewer stats session=GNXJ6Y mobile=true rtt=11ms loss=0.0%
+2026/07/10 10:18:37 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:18:39 agent: viewer stats session=GNXJ6Y mobile=true rtt=5ms loss=0.0%
+2026/07/10 10:18:47 agent: sent 1680 video samples (key=false, 858 bytes)
+2026/07/10 10:18:48 agent: perf session GNXJ6Y samples=1685 send_fps=4.6 uptime_s=367 dropped=0 rejected=1 skipped_nonkey=0

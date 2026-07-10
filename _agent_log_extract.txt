@@ -1,0 +1,57 @@
+=== LAST 50 LINES ===
+2026/07/10 16:01:59 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:01:59 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+2026/07/10 16:02:03 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:02:03 agent: connected as … (shivudu)
+2026/07/10 16:02:03 agent: registered with server
+2026/07/10 16:02:03 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+2026/07/10 16:02:06 agent: connected as … (shivudu)
+2026/07/10 16:02:06 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+2026/07/10 16:02:06 agent: registered with server
+2026/07/10 16:02:06 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:02:10 agent: connected as … (shivudu)
+2026/07/10 16:02:10 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:02:10 agent: registered with server
+2026/07/10 16:02:10 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+2026/07/10 16:02:14 agent: connected as … (shivudu)
+2026/07/10 16:02:14 agent: registered with server
+2026/07/10 16:02:14 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:02:14 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+2026/07/10 16:02:18 agent: connected as … (shivudu)
+2026/07/10 16:02:18 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:02:18 agent: registered with server
+2026/07/10 16:02:18 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+2026/07/10 16:02:22 agent: connected as … (shivudu)
+2026/07/10 16:02:22 agent: registered with server
+2026/07/10 16:02:22 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:02:22 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+2026/07/10 16:02:27 agent: connected as … (shivudu)
+2026/07/10 16:02:27 agent: registered with server
+2026/07/10 16:02:27 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:02:27 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+2026/07/10 16:02:31 agent: connected as … (shivudu)
+2026/07/10 16:02:31 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+2026/07/10 16:02:31 agent: registered with server
+2026/07/10 16:02:31 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:02:34 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:02:34 agent: connected as … (shivudu)
+2026/07/10 16:02:34 agent: registered with server
+2026/07/10 16:02:34 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+2026/07/10 16:02:38 agent: connected as … (shivudu)
+2026/07/10 16:02:38 agent: registered with server
+2026/07/10 16:02:38 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:02:38 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+2026/07/10 16:02:42 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:02:42 agent: connected as … (shivudu)
+2026/07/10 16:02:42 agent: registered with server
+2026/07/10 16:02:42 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+2026/07/10 16:02:46 agent: disconnected: connection closed; retry in 3s
+2026/07/10 16:02:46 agent: connected as … (shivudu)
+2026/07/10 16:02:46 agent: registered with server
+2026/07/10 16:02:46 agent: audio mic device: miniaudio: Permission denied (voice send disabled)
+
+=== MATCHES hostui|panic|WebView (all; count below) ===
+MATCH_COUNT=3
+2026/07/10 15:41:56 hostui: panic: runtime error: invalid memory address or nil pointer dereference
+2026/07/10 15:59:19 hostui: CoInitializeEx: Cannot change thread mode after it is set. (continuing)
+2026/07/10 15:59:20 hostui: panic: runtime error: invalid memory address or nil pointer dereference

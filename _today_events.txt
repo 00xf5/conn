@@ -1,0 +1,259 @@
+﻿2026/07/10 04:38:43 agent: registered with server
+2026/07/10 05:16:53 agent: registered with server
+2026/07/10 05:35:18 agent: registered with server
+2026/07/10 05:47:54 agent: registered with server
+2026/07/10 05:59:30 connect-agent starting (device=df26eeb2-7433-40e2-99bf-8d75e3fcb0e9 tenant=d9021178-8c2e-487c-8f35-8a379e249266)
+2026/07/10 05:59:31 agent: registered with server
+2026/07/10 05:59:32 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 05:59:32 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 05:59:32 agent: encoder primed with keyframe (40428 bytes)
+2026/07/10 05:59:32 agent: encoder warmed (dxgi-dxgi-qsv-h264)
+2026/07/10 05:59:46 agent: session 4Y7RSS requested
+2026/07/10 05:59:46 agent: using pre-warmed encoder (dxgi-dxgi-qsv-h264)
+2026/07/10 05:59:46 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=0)
+2026/07/10 05:59:46 agent: capture size 864x480
+2026/07/10 05:59:46 agent: H.264 profile-level-id=420028
+2026/07/10 05:59:47 agent: WebRTC state connecting (session 4Y7RSS)
+2026/07/10 05:59:47 agent: WebRTC state connected (session 4Y7RSS)
+2026/07/10 05:59:47 agent: perf session 4Y7RSS first_frame_ms=190
+2026/07/10 06:00:43 agent: WebRTC state closed (session 4Y7RSS)
+2026/07/10 06:08:40 agent: session F3KGYM requested
+2026/07/10 06:08:41 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 06:08:41 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 06:08:41 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=352)
+2026/07/10 06:08:41 agent: capture size 864x480
+2026/07/10 06:08:41 agent: H.264 profile-level-id=420028
+2026/07/10 06:08:42 agent: WebRTC state connecting (session F3KGYM)
+2026/07/10 06:08:43 agent: WebRTC state connected (session F3KGYM)
+2026/07/10 06:08:43 agent: perf session F3KGYM first_frame_ms=245
+2026/07/10 06:08:55 agent: frame read: host pipeline read: -30
+2026/07/10 06:08:55 agent: WebRTC state closed (session F3KGYM)
+2026/07/10 06:08:55 agent: native encode unavailable (host pipeline init failed (-20)); trying ffmpeg
+2026/07/10 06:08:58 agent: pipeline capture=gdigrab codec=libx264
+2026/07/10 06:09:00 agent: encoder primed with keyframe (4915 bytes)
+2026/07/10 06:09:00 agent: encoder warmed (gdigrab-libx264)
+2026/07/10 06:09:11 agent: session NHJSQG requested
+2026/07/10 06:09:11 agent: using pre-warmed encoder (gdigrab-libx264)
+2026/07/10 06:09:11 agent: encoder gdigrab-libx264 (ready_ms=0)
+2026/07/10 06:09:11 agent: capture size 864x480
+2026/07/10 06:09:11 agent: H.264 profile-level-id=42c01f
+2026/07/10 06:09:12 agent: WebRTC state connecting (session NHJSQG)
+2026/07/10 06:09:13 agent: WebRTC state connected (session NHJSQG)
+2026/07/10 06:09:13 agent: perf session NHJSQG first_frame_ms=58
+2026/07/10 06:10:00 agent: WebRTC state closed (session NHJSQG)
+2026/07/10 08:21:32 connect-agent starting (device=df26eeb2-7433-40e2-99bf-8d75e3fcb0e9 tenant=d9021178-8c2e-487c-8f35-8a379e249266)
+2026/07/10 08:21:34 agent: registered with server
+2026/07/10 08:21:35 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 08:21:35 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 08:21:35 agent: encoder primed with keyframe (71395 bytes)
+2026/07/10 08:21:35 agent: encoder warmed (dxgi-dxgi-qsv-h264)
+2026/07/10 08:24:06 agent: session QPNYBM requested
+2026/07/10 08:24:06 agent: using pre-warmed encoder (dxgi-dxgi-qsv-h264)
+2026/07/10 08:24:06 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=0)
+2026/07/10 08:24:06 agent: capture size 864x480
+2026/07/10 08:24:06 agent: H.264 profile-level-id=420028
+2026/07/10 08:24:07 agent: WebRTC state connecting (session QPNYBM)
+2026/07/10 08:24:08 agent: WebRTC state connected (session QPNYBM)
+2026/07/10 08:24:08 agent: perf session QPNYBM first_frame_ms=86
+2026/07/10 08:25:02 agent: WebRTC state closed (session QPNYBM)
+2026/07/10 08:25:08 agent: session GCJ7J6 requested
+2026/07/10 08:25:08 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 08:25:08 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 08:25:08 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=198)
+2026/07/10 08:25:08 agent: capture size 864x480
+2026/07/10 08:25:08 agent: H.264 profile-level-id=420028
+2026/07/10 08:25:09 agent: WebRTC state connecting (session GCJ7J6)
+2026/07/10 08:25:10 agent: WebRTC state connected (session GCJ7J6)
+2026/07/10 08:25:10 agent: perf session GCJ7J6 first_frame_ms=83
+2026/07/10 08:26:48 agent: WebRTC state closed (session GCJ7J6)
+2026/07/10 08:28:55 agent: session HFVTRE requested
+2026/07/10 08:28:56 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 08:28:56 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 08:28:56 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=626)
+2026/07/10 08:28:56 agent: capture size 864x480
+2026/07/10 08:28:56 agent: H.264 profile-level-id=420028
+2026/07/10 08:28:57 agent: WebRTC state connecting (session HFVTRE)
+2026/07/10 08:28:58 agent: WebRTC state connected (session HFVTRE)
+2026/07/10 08:28:58 agent: perf session HFVTRE first_frame_ms=81
+2026/07/10 08:29:43 agent: WebRTC state closed (session HFVTRE)
+2026/07/10 08:29:47 agent: registered with server
+2026/07/10 08:29:47 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 08:29:47 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 08:29:47 agent: encoder primed with keyframe (66509 bytes)
+2026/07/10 08:29:47 agent: encoder warmed (dxgi-dxgi-qsv-h264)
+2026/07/10 08:29:55 agent: session JXC2XU requested
+2026/07/10 08:29:55 agent: using pre-warmed encoder (dxgi-dxgi-qsv-h264)
+2026/07/10 08:29:55 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=0)
+2026/07/10 08:29:55 agent: capture size 864x480
+2026/07/10 08:29:55 agent: H.264 profile-level-id=420028
+2026/07/10 08:29:56 agent: WebRTC state connecting (session JXC2XU)
+2026/07/10 08:29:57 agent: WebRTC state connected (session JXC2XU)
+2026/07/10 08:29:57 agent: perf session JXC2XU first_frame_ms=165
+2026/07/10 08:30:51 agent: WebRTC state closed (session JXC2XU)
+2026/07/10 08:31:10 agent: session UVV5ND requested
+2026/07/10 08:31:10 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 08:31:10 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 08:31:10 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=199)
+2026/07/10 08:31:10 agent: capture size 864x480
+2026/07/10 08:31:10 agent: H.264 profile-level-id=420028
+2026/07/10 08:31:11 agent: WebRTC state connecting (session UVV5ND)
+2026/07/10 08:31:11 agent: WebRTC state connected (session UVV5ND)
+2026/07/10 08:31:11 agent: perf session UVV5ND first_frame_ms=183
+2026/07/10 08:42:18 agent: WebRTC state closed (session UVV5ND)
+2026/07/10 08:42:18 agent: WebRTC state closed (session UVV5ND)
+2026/07/10 08:42:22 agent: session 4UE7UL requested
+2026/07/10 08:42:23 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 08:42:23 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 08:42:23 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=672)
+2026/07/10 08:42:23 agent: capture size 864x480
+2026/07/10 08:42:23 agent: H.264 profile-level-id=420028
+2026/07/10 08:42:23 agent: WebRTC state connecting (session 4UE7UL)
+2026/07/10 08:42:24 agent: WebRTC state connected (session 4UE7UL)
+2026/07/10 08:42:24 agent: perf session 4UE7UL first_frame_ms=164
+2026/07/10 08:42:48 agent: WebRTC state closed (session 4UE7UL)
+2026/07/10 09:07:12 agent: registered with server
+2026/07/10 09:07:12 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 09:07:12 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 09:07:13 agent: encoder primed with keyframe (59433 bytes)
+2026/07/10 09:07:13 agent: encoder warmed (dxgi-dxgi-qsv-h264)
+2026/07/10 09:09:15 agent: session BXF5P5 requested
+2026/07/10 09:09:15 agent: using pre-warmed encoder (dxgi-dxgi-qsv-h264)
+2026/07/10 09:09:15 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=0)
+2026/07/10 09:09:15 agent: capture size 864x480
+2026/07/10 09:09:15 agent: H.264 profile-level-id=420028
+2026/07/10 09:09:16 agent: WebRTC state connecting (session BXF5P5)
+2026/07/10 09:09:17 agent: WebRTC state connected (session BXF5P5)
+2026/07/10 09:09:17 agent: perf session BXF5P5 first_frame_ms=81
+2026/07/10 09:15:04 connect-agent starting (device=df26eeb2-7433-40e2-99bf-8d75e3fcb0e9 tenant=d9021178-8c2e-487c-8f35-8a379e249266)
+2026/07/10 09:15:05 agent: registered with server
+2026/07/10 09:15:06 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 09:15:06 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 09:15:06 agent: encoder primed with keyframe (51953 bytes)
+2026/07/10 09:15:06 agent: encoder warmed (dxgi-dxgi-qsv-h264)
+2026/07/10 09:15:17 agent: audio-only session BLTC53 requested
+2026/07/10 09:15:18 agent: WebRTC state connecting (session BLTC53)
+2026/07/10 09:15:18 agent: WebRTC state connected (session BLTC53)
+2026/07/10 09:15:20 agent: WebRTC state closed (session BLTC53)
+2026/07/10 09:15:21 agent: audio-only session PBFW43 requested
+2026/07/10 09:15:22 agent: WebRTC state connecting (session PBFW43)
+2026/07/10 09:15:22 agent: WebRTC state connected (session PBFW43)
+2026/07/10 09:15:26 agent: WebRTC state closed (session PBFW43)
+2026/07/10 09:15:28 agent: session WJ5MBL requested
+2026/07/10 09:15:28 agent: using pre-warmed encoder (dxgi-dxgi-qsv-h264)
+2026/07/10 09:15:28 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=0)
+2026/07/10 09:15:28 agent: capture size 864x480
+2026/07/10 09:15:28 agent: H.264 profile-level-id=420028
+2026/07/10 09:15:28 agent: WebRTC state connecting (session WJ5MBL)
+2026/07/10 09:15:29 agent: WebRTC state connected (session WJ5MBL)
+2026/07/10 09:15:29 agent: perf session WJ5MBL first_frame_ms=84
+2026/07/10 09:16:39 agent: control action set_bitrate
+2026/07/10 09:16:46 agent: control action set_bitrate
+2026/07/10 09:17:04 agent: WebRTC state closed (session WJ5MBL)
+2026/07/10 09:17:09 agent: audio-only session J2MZY4 requested
+2026/07/10 09:17:10 agent: WebRTC state connecting (session J2MZY4)
+2026/07/10 09:17:10 agent: WebRTC state connected (session J2MZY4)
+2026/07/10 09:17:18 agent: WebRTC state closed (session J2MZY4)
+2026/07/10 09:17:19 agent: session 8MMHAZ requested
+2026/07/10 09:17:20 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 3400kbps
+2026/07/10 09:17:20 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 09:17:20 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=929)
+2026/07/10 09:17:20 agent: capture size 864x480
+2026/07/10 09:17:20 agent: H.264 profile-level-id=420028
+2026/07/10 09:17:21 agent: WebRTC state connecting (session 8MMHAZ)
+2026/07/10 09:17:21 agent: WebRTC state connected (session 8MMHAZ)
+2026/07/10 09:17:22 agent: perf session 8MMHAZ first_frame_ms=218
+2026/07/10 09:20:23 agent: WebRTC state disconnected (session 8MMHAZ)
+2026/07/10 09:20:23 agent: WebRTC state closed (session 8MMHAZ)
+2026/07/10 09:20:34 agent: session ARTZZX requested
+2026/07/10 09:20:34 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 3400kbps
+2026/07/10 09:20:34 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 09:20:34 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=633)
+2026/07/10 09:20:34 agent: capture size 864x480
+2026/07/10 09:20:34 agent: H.264 profile-level-id=420028
+2026/07/10 09:20:35 agent: WebRTC state connecting (session ARTZZX)
+2026/07/10 09:20:36 agent: WebRTC state connected (session ARTZZX)
+2026/07/10 09:20:36 agent: perf session ARTZZX first_frame_ms=118
+2026/07/10 09:23:23 agent: WebRTC state closed (session ARTZZX)
+2026/07/10 09:23:23 agent: WebRTC state closed (session ARTZZX)
+2026/07/10 09:25:40 connect-agent starting (device=df26eeb2-7433-40e2-99bf-8d75e3fcb0e9 tenant=d9021178-8c2e-487c-8f35-8a379e249266)
+2026/07/10 09:25:41 agent: registered with server
+2026/07/10 09:25:41 agent: native encode unavailable (host pipeline init failed (-20)); trying ffmpeg
+2026/07/10 09:25:44 agent: pipeline capture=gdigrab codec=libx264
+2026/07/10 09:25:46 agent: encoder warmed (gdigrab-libx264)
+2026/07/10 09:25:56 agent: session 2Z8VVJ requested
+2026/07/10 09:25:56 agent: using pre-warmed encoder (gdigrab-libx264)
+2026/07/10 09:25:56 agent: encoder gdigrab-libx264 (ready_ms=0)
+2026/07/10 09:25:56 agent: capture size 864x480
+2026/07/10 09:26:30 agent: session LFKQS2 requested
+2026/07/10 09:26:32 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 09:26:32 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 09:26:32 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=1477)
+2026/07/10 09:26:32 agent: capture size 864x480
+2026/07/10 09:26:32 agent: H.264 profile-level-id=420028
+2026/07/10 09:26:33 agent: WebRTC state connecting (session LFKQS2)
+2026/07/10 09:26:33 agent: WebRTC state connected (session LFKQS2)
+2026/07/10 09:26:33 agent: perf session LFKQS2 first_frame_ms=87
+2026/07/10 09:28:26 agent: video stalled (session LFKQS2)
+2026/07/10 09:28:26 agent: WebRTC state closed (session LFKQS2)
+2026/07/10 09:28:27 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 09:28:27 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 09:28:28 agent: encoder primed with keyframe (50172 bytes)
+2026/07/10 09:28:28 agent: encoder warmed (dxgi-dxgi-qsv-h264)
+2026/07/10 09:29:35 agent: session HUJQRU requested
+2026/07/10 09:29:35 agent: using pre-warmed encoder (dxgi-dxgi-qsv-h264)
+2026/07/10 09:29:35 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=0)
+2026/07/10 09:29:35 agent: capture size 864x480
+2026/07/10 09:29:35 agent: H.264 profile-level-id=420028
+2026/07/10 09:29:37 agent: WebRTC state connecting (session HUJQRU)
+2026/07/10 09:29:38 agent: WebRTC state connected (session HUJQRU)
+2026/07/10 09:29:38 agent: perf session HUJQRU first_frame_ms=178
+2026/07/10 09:30:37 agent: WebRTC state disconnected (session HUJQRU)
+2026/07/10 09:30:37 agent: WebRTC state closed (session HUJQRU)
+2026/07/10 09:30:47 agent: session M68JQN requested
+2026/07/10 09:30:52 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 09:30:52 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 09:30:52 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=5282)
+2026/07/10 09:30:52 agent: capture size 864x480
+2026/07/10 09:30:54 agent: H.264 profile-level-id=420028
+2026/07/10 09:30:55 agent: WebRTC state connecting (session M68JQN)
+2026/07/10 09:30:55 agent: WebRTC state connected (session M68JQN)
+2026/07/10 09:30:55 agent: perf session M68JQN first_frame_ms=78
+2026/07/10 09:38:09 agent: control action set_bitrate
+2026/07/10 09:38:12 agent: control action set_bitrate
+2026/07/10 09:38:13 agent: control action set_bitrate
+2026/07/10 09:45:19 agent: WebRTC state closed (session M68JQN)
+2026/07/10 10:05:35 agent: registered with server
+2026/07/10 10:05:38 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 7200kbps
+2026/07/10 10:05:38 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 10:05:39 agent: encoder primed with keyframe (96914 bytes)
+2026/07/10 10:05:39 agent: encoder warmed (dxgi-dxgi-qsv-h264)
+2026/07/10 10:10:19 connect-agent starting (device=df26eeb2-7433-40e2-99bf-8d75e3fcb0e9 tenant=d9021178-8c2e-487c-8f35-8a379e249266)
+2026/07/10 10:10:20 agent: registered with server
+2026/07/10 10:10:20 agent: native encode unavailable (host pipeline init failed (-20)); trying ffmpeg
+2026/07/10 10:10:21 agent: pipeline capture=gdigrab codec=libx264
+2026/07/10 10:10:21 agent: encoder warmed (gdigrab-libx264)
+2026/07/10 10:10:45 agent: session D3PBJG requested
+2026/07/10 10:10:45 agent: using pre-warmed encoder (gdigrab-libx264)
+2026/07/10 10:10:45 agent: encoder gdigrab-libx264 (ready_ms=0)
+2026/07/10 10:10:45 agent: capture size 864x480
+2026/07/10 10:11:20 agent: session WT9FQD requested
+2026/07/10 10:11:20 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 10:11:20 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 10:11:20 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=409)
+2026/07/10 10:11:20 agent: capture size 864x480
+2026/07/10 10:11:20 agent: H.264 profile-level-id=420028
+2026/07/10 10:11:21 agent: WebRTC state connecting (session WT9FQD)
+2026/07/10 10:11:21 agent: WebRTC state connected (session WT9FQD)
+2026/07/10 10:11:22 agent: perf session WT9FQD first_frame_ms=91
+2026/07/10 10:12:36 agent: WebRTC state closed (session WT9FQD)
+2026/07/10 10:12:41 agent: session GNXJ6Y requested
+2026/07/10 10:12:41 agent: host pipeline dxgi 864x480 -> dxgi-qsv-h264 @ 2000kbps
+2026/07/10 10:12:41 agent: pipeline capture=dxgi codec=dxgi-dxgi-qsv-h264
+2026/07/10 10:12:41 agent: encoder dxgi-dxgi-qsv-h264 (ready_ms=217)
+2026/07/10 10:12:41 agent: capture size 864x480
+2026/07/10 10:12:41 agent: H.264 profile-level-id=420028
+2026/07/10 10:12:41 agent: WebRTC state connecting (session GNXJ6Y)
+2026/07/10 10:12:42 agent: WebRTC state connected (session GNXJ6Y)
+2026/07/10 10:12:42 agent: perf session GNXJ6Y first_frame_ms=184
+2026/07/10 10:17:08 agent: control action set_bitrate
+2026/07/10 10:17:10 agent: control action set_bitrate
