@@ -8,6 +8,7 @@
 typedef struct {
     CaptureOnlyConfig cfg;
     DxgiCapture dxgi;
+    int need_reinit;
 } CaptureOnlyState;
 
 int capture_only_init(const CaptureOnlyConfig* cfg, CaptureOnlyHandle* out) {
@@ -28,29 +29,39 @@ int capture_only_read(CaptureOnlyHandle handle, CaptureOnlyFrame* out) {
     CaptureOnlyState* st = (CaptureOnlyState*)handle;
     ZeroMemory(out, sizeof(*out));
 
+    if (st->need_reinit || !st->dxgi.duplication) {
+        dxgi_capture_shutdown(&st->dxgi);
+        if (dxgi_capture_init(&st->dxgi, st->cfg.monitor_index, st->cfg.width, st->cfg.height, st->cfg.fps) != 0) {
+            st->need_reinit = 1;
+            Sleep(250); /* avoid busy-spin while locked */
+            return 1; /* lock screen / secure desktop — soft pause */
+        }
+        st->need_reinit = 0;
+    }
+
     ID3D11Texture2D* bgra = NULL;
     int acq = dxgi_capture_acquire(&st->dxgi, &bgra);
     if (acq == 1) return 1;
     if (acq == -2) {
-        dxgi_capture_shutdown(&st->dxgi);
-        if (dxgi_capture_init(&st->dxgi, st->cfg.monitor_index, st->cfg.width, st->cfg.height, st->cfg.fps) != 0) {
-            return -20;
-        }
+        st->need_reinit = 1;
         return 1;
     }
-    if (acq != 0) return -2;
+    if (acq != 0) {
+        st->need_reinit = 1;
+        return 1;
+    }
 
     if (dxgi_capture_convert_nv12(&st->dxgi, bgra) != 0) {
         dxgi_capture_release(&st->dxgi);
-        return -3;
+        return 1;
     }
     dxgi_capture_release(&st->dxgi);
 
-    if (dxgi_capture_map_nv12(&st->dxgi) != 0) return -4;
+    if (dxgi_capture_map_nv12(&st->dxgi) != 0) return 1;
 
     int pitch = 0;
     const uint8_t* nv12 = dxgi_capture_nv12_bytes(&st->dxgi, &pitch);
-    if (!nv12) return -5;
+    if (!nv12) return 1;
 
     int h = st->dxgi.height;
     size_t size = (size_t)pitch * (size_t)h * 3 / 2;

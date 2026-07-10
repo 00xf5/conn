@@ -118,6 +118,21 @@ func (a *Agent) startSession(sessionCode string) {
 		return
 	}
 
+	atrack, err := webrtc.NewTrackLocalStaticSample(
+		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypePCMU, ClockRate: 8000, Channels: 1},
+		"audio",
+		"connect",
+	)
+	if err != nil {
+		log.Printf("agent: audio track failed: %v (continuing video-only)", err)
+		atrack = nil
+	} else if _, err = pc.AddTransceiverFromTrack(atrack, webrtc.RTPTransceiverInit{
+		Direction: webrtc.RTPTransceiverDirectionSendrecv,
+	}); err != nil {
+		log.Printf("agent: add audio transceiver failed: %v (continuing video-only)", err)
+		atrack = nil
+	}
+
 	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
 		if c == nil {
 			return
@@ -148,15 +163,27 @@ func (a *Agent) startSession(sessionCode string) {
 		a.bindInputChannel(dc)
 	}
 
+	pc.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
+		if remote.Kind() != webrtc.RTPCodecTypeAudio {
+			return
+		}
+		go a.playRemoteAudio(remote, gen)
+	})
+
 	a.mu.Lock()
+	a.stopAudioLocked()
 	a.enc = guardEncoder(enc)
 	a.pc = pc
 	a.vtrack = vtrack
+	a.atrack = atrack
 	a.videoGate = make(chan struct{})
 	videoGate := a.videoGate
 	a.mu.Unlock()
 
 	go a.pumpVideoTrack(vtrack, sessionCode, gen, videoGate)
+	if atrack != nil {
+		a.startHostMic(atrack, gen)
+	}
 
 	offer, err := pc.CreateOffer(nil)
 	if err != nil {

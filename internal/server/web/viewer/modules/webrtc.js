@@ -4,6 +4,8 @@ Connect.webrtc = {
   create(ctx, hooks) {
     const { code, status, video, overlay } = ctx;
     const { layout, taskmgr, control } = hooks;
+    const remoteAudio = document.getElementById('remote-audio');
+    const btnMic = document.getElementById('btn-mic');
 
     const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
@@ -16,6 +18,9 @@ Connect.webrtc = {
     let moveTimer = null;
     let pendingICE = [];
     let receiverTuneTimer = null;
+    let micTrack = null;
+    let micStream = null;
+    let micEnabled = false;
 
     function getDC() { return dc; }
 
@@ -43,6 +48,106 @@ Connect.webrtc = {
         if ('playoutDelayHint' in rx) rx.playoutDelayHint = 0;
         if ('jitterBufferTarget' in rx) rx.jitterBufferTarget = 0;
       }
+    }
+
+    function preferPCMU() {
+      if (!pc || typeof RTCRtpSender === 'undefined' || !RTCRtpSender.getCapabilities) return;
+      const caps = RTCRtpSender.getCapabilities('audio');
+      if (!caps || !caps.codecs) return;
+      const preferred = [
+        ...caps.codecs.filter((c) => /pcmu/i.test(c.mimeType)),
+        ...caps.codecs.filter((c) => !/pcmu/i.test(c.mimeType)),
+      ];
+      if (!preferred.length) return;
+      for (const tr of pc.getTransceivers()) {
+        if (tr.receiver?.track?.kind !== 'audio') continue;
+        try { tr.setCodecPreferences(preferred); } catch (_) {}
+      }
+    }
+
+    function setMicButton(on) {
+      if (!btnMic) return;
+      micEnabled = !!on;
+      btnMic.classList.toggle('mic-on', micEnabled);
+      btnMic.classList.toggle('mic-off', !micEnabled);
+      btnMic.setAttribute('aria-pressed', micEnabled ? 'true' : 'false');
+      btnMic.title = micEnabled
+        ? 'Microphone is on — click to mute'
+        : 'Microphone is off — click to unmute';
+      btnMic.textContent = micEnabled ? 'Mic On' : 'Mic';
+    }
+
+    async function ensureMicTrack() {
+      if (micTrack && micTrack.readyState !== 'ended') return micTrack;
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: false,
+      });
+      micStream = stream;
+      micTrack = stream.getAudioTracks()[0] || null;
+      return micTrack;
+    }
+
+    async function attachMicTrack(track) {
+      if (!pc || !track) return;
+      const audioSender = pc.getSenders().find((s) => s.track && s.track.kind === 'audio');
+      if (audioSender) {
+        await audioSender.replaceTrack(track);
+        return;
+      }
+      const tr = pc.getTransceivers().find((t) =>
+        (t.receiver && t.receiver.track && t.receiver.track.kind === 'audio') ||
+        (t.mid != null && (!t.sender.track || t.sender.track.kind === 'audio'))
+      );
+      if (tr && tr.sender) {
+        await tr.sender.replaceTrack(track);
+        try { tr.direction = 'sendrecv'; } catch (_) {}
+        return;
+      }
+      pc.addTrack(track, micStream || new MediaStream([track]));
+    }
+
+    async function toggleMic() {
+      if (!pc) {
+        status.textContent = 'wait for connection before enabling mic';
+        return;
+      }
+      try {
+        if (!micEnabled) {
+          const track = await ensureMicTrack();
+          if (!track) throw new Error('no microphone');
+          track.enabled = true;
+          await attachMicTrack(track);
+          setMicButton(true);
+        } else if (micTrack) {
+          micTrack.enabled = false;
+          setMicButton(false);
+        }
+      } catch (e) {
+        setMicButton(false);
+        status.textContent = 'mic unavailable: ' + (e && e.message ? e.message : e);
+      }
+    }
+
+    function stopMic() {
+      if (micTrack) {
+        try { micTrack.stop(); } catch (_) {}
+        micTrack = null;
+      }
+      if (micStream) {
+        try { micStream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+        micStream = null;
+      }
+      setMicButton(false);
+    }
+
+    if (btnMic) {
+      setMicButton(false);
+      btnMic.addEventListener('click', () => { toggleMic(); });
     }
 
     async function addIceCandidateSafe(cand) {
@@ -104,6 +209,9 @@ Connect.webrtc = {
       if (!document.hidden && video && video.srcObject) {
         video.play().catch(() => {});
       }
+      if (!document.hidden && remoteAudio && remoteAudio.srcObject) {
+        remoteAudio.play().catch(() => {});
+      }
     });
 
     async function handleOffer(offer) {
@@ -115,11 +223,15 @@ Connect.webrtc = {
         pc.close();
         pc = null;
       }
+      stopMic();
       if (receiverTuneTimer) {
         clearInterval(receiverTuneTimer);
         receiverTuneTimer = null;
       }
       pendingICE = [];
+      if (remoteAudio) {
+        remoteAudio.srcObject = null;
+      }
 
       pc = new RTCPeerConnection({
         iceServers: ctx.iceServers || [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -128,6 +240,14 @@ Connect.webrtc = {
       });
 
       pc.ontrack = (e) => {
+        if (e.track.kind === 'audio') {
+          if (remoteAudio) {
+            const stream = e.streams[0] || new MediaStream([e.track]);
+            remoteAudio.srcObject = stream;
+            remoteAudio.play().catch(() => {});
+          }
+          return;
+        }
         const stream = e.streams[0] || new MediaStream([e.track]);
         video.srcObject = stream;
         video.muted = true;
@@ -165,6 +285,7 @@ Connect.webrtc = {
 
       try {
         await pc.setRemoteDescription(offer);
+        preferPCMU();
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         ws.send(JSON.stringify({ type: 'answer', session: code, payload: answer }));
@@ -218,6 +339,7 @@ Connect.webrtc = {
     };
 
     ws.onclose = (ev) => {
+      stopMic();
       if (ev.code === 1006 || /connecting/i.test(status.textContent)) {
         status.textContent = 'session invalid or expired — Connect again from Machines';
       } else {

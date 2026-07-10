@@ -26,6 +26,8 @@ type Agent struct {
 	capW       int
 	capH       int
 	vtrack     *webrtc.TrackLocalStaticSample
+	atrack     *webrtc.TrackLocalStaticSample
+	audio      *audioRuntime
 	warmEnc    videoEncoder
 	warmMu     sync.Mutex
 	warming    bool

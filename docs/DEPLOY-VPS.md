@@ -57,7 +57,7 @@ On a Windows build PC:
 
 Then open **Admin → Agent package** at `https://DOMAIN/admin/` and upload `agent.zip` (no SSH/SCP).
 
-Or from any machine with the zip: Admin UI upload is the supported path.
+Host install (from dashboard link) enrolls the machine and installs the **ConnectAgent** Windows Service (UAC). The service supervisor keeps the interactive capture agent alive across reboot, lock, and crash. If UAC is denied, Startup-folder watchdog is used as fallback.
 
 ## 4. Enroll hosts (recommended)
 

@@ -186,6 +186,8 @@ func (a *Agent) pumpVideoTrack(track *webrtc.TrackLocalStaticSample, sessionCode
 				return
 			}
 			if len(frame.Data) == 0 {
+				// DXGI pause (e.g. lock screen): keep waiting; stall timer may end the
+				// viewer session, but the agent process/WS stay up.
 				continue
 			}
 			if !acceptVideoFrame(frame) {
@@ -325,6 +327,7 @@ func (a *Agent) closePeer() {
 
 func (a *Agent) closePeerLocked() {
 	a.sessGen++
+	a.stopAudioLocked()
 	if a.pc != nil {
 		_ = a.pc.Close()
 		a.pc = nil
@@ -334,6 +337,7 @@ func (a *Agent) closePeerLocked() {
 		a.enc = nil
 	}
 	a.vtrack = nil
+	a.atrack = nil
 	a.videoGate = nil
 	a.pendingICE = nil
 	a.capW = 0

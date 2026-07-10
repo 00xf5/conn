@@ -121,6 +121,10 @@ func (p *HostPipeline) ReadAccessUnit() (AccessUnit, error) {
 	if rc == 1 {
 		return AccessUnit{}, nil
 	}
+	// -30 was hard reinit failure (e.g. lock screen); treat as empty so the agent stays up.
+	if rc == -30 || rc == -20 {
+		return AccessUnit{}, nil
+	}
 	if rc != 0 {
 		return AccessUnit{}, fmt.Errorf("host pipeline read: %d", rc)
 	}

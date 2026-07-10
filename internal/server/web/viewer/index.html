@@ -22,6 +22,7 @@
       <div class="spacer"></div>
       <button id="btn-fit" type="button" class="active">Fit</button>
       <button id="btn-fill" type="button">Fill</button>
+      <button id="btn-mic" type="button" class="mic-off" title="Microphone is off — click to unmute" aria-pressed="false">Mic</button>
       <button id="btn-full" type="button">Fullscreen</button>
       <a class="btn-leave" href="/dashboard/">Leave</a>
     </header>
@@ -29,6 +30,7 @@
       <div id="layout">
         <div id="video-pane">
           <video id="video" autoplay playsinline muted></video>
+          <audio id="remote-audio" autoplay playsinline></audio>
           <div id="overlay" tabindex="0"></div>
         </div>
         <aside id="host-panel" class="tm-shell">

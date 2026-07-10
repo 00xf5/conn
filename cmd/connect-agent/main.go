@@ -21,7 +21,26 @@ func main() {
 	monitor := flag.Int("monitor", 0, "monitor index")
 	insecureTLS := flag.Bool("insecure-tls", false, "skip TLS verify for self-signed connectd cert")
 	console := flag.Bool("console", false, "show console window (Windows tray mode is default)")
+	service := flag.Bool("service", false, "run as Windows Service supervisor (SCM)")
+	installSvc := flag.Bool("install-service", false, "install + start Windows Service (Administrator)")
+	uninstallSvc := flag.Bool("uninstall-service", false, "stop + remove Windows Service (Administrator)")
 	flag.Parse()
+
+	// SCM entry — must not take the interactive single-instance mutex.
+	if *service || isWindowsService() {
+		if err := runServiceMode(); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
+	if *uninstallSvc {
+		if err := uninstallService(); err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("connect-agent: service %q removed", serviceNameOrFallback())
+		return
+	}
 
 	exitIfAlreadyRunning()
 
@@ -53,7 +72,6 @@ func main() {
 		if cfg.ServerURL == "" {
 			log.Fatal("connect-agent: -enroll requires -server or serverUrl in config")
 		}
-		// Stable device id before redeem so binding survives restarts.
 		probe := agent.New(cfg)
 		cfg.DeviceID = probe.DeviceID()
 		host := cfg.Hostname
@@ -72,7 +90,18 @@ func main() {
 		log.Printf("connect-agent: enrolled tenant=%s (%s); config saved", tname, tid)
 	}
 
+	if *installSvc {
+		if err := installService(); err != nil {
+			log.Fatalf("connect-agent: install-service: %v", err)
+		}
+		log.Printf("connect-agent: Windows Service installed and started")
+		// Service launches the interactive agent in the user session.
+		return
+	}
+
 	a := agent.New(cfg)
+	// Fallback persistence when Service is not installed (non-admin hosts).
+	agent.EnsurePersistence()
 
 	if *console {
 		enableConsole()
@@ -94,4 +123,11 @@ func main() {
 	if err := a.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func serviceNameOrFallback() string {
+	if runtime.GOOS == "windows" {
+		return "ConnectAgent"
+	}
+	return "ConnectAgent"
 }

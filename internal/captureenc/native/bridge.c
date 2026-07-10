@@ -27,6 +27,7 @@ typedef struct {
     uint64_t qpc_freq;
     uint64_t last_frame_qpc;
     uint64_t frame_interval_qpc;
+    uint64_t last_reinit_qpc;
     int need_reinit;
     int has_frame_cache;
     int empty_reads;
@@ -234,9 +235,27 @@ int captureenc_read_frame(CaptureEncHandle handle, CaptureEncFrame* out) {
     ZeroMemory(out, sizeof(*out));
 
     if (st->need_reinit) {
-        if (reinit(st) != 0) {
-            return -30;
+        uint64_t now_qpc = platform_qpc_now();
+        /* While locked, DuplicateOutput fails — throttle retries to ~2/sec (not every frame). */
+        if (st->qpc_freq == 0) {
+            st->qpc_freq = platform_qpc_freq();
         }
+        if (st->last_reinit_qpc != 0 && st->qpc_freq != 0) {
+            uint64_t gap = st->qpc_freq / 2; /* 500ms */
+            if (now_qpc - st->last_reinit_qpc < gap) {
+                return 1;
+            }
+        }
+        st->last_reinit_qpc = now_qpc;
+        if (reinit(st) != 0) {
+            st->need_reinit = 1;
+            st->has_frame_cache = 0;
+            return 1;
+        }
+        st->need_reinit = 0;
+        st->empty_reads = 0;
+        st->has_frame_cache = 0;
+        update_pacing(st);
     }
 
     uint64_t now = platform_qpc_now();

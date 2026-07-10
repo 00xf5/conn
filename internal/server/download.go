@@ -322,9 +322,14 @@ func (s *Server) handleDownloadSetupCmd(w http.ResponseWriter, r *http.Request) 
 		"  pause\r\n"+
 		"  exit /b 1\r\n"+
 		")\r\n"+
-		"echo Enrolling and starting...\r\n"+
-		"start \"\" \"%%EXE%%\" -server \"%%SERVER%%\" -enroll \"%%CODE%%\"\r\n"+
-		"echo Done. This PC should appear in the Host console shortly.\r\n"+
+		"echo Enrolling and installing Windows Service (UAC prompt may appear)...\r\n"+
+		"powershell -NoProfile -Command \"Start-Process -Wait -Verb RunAs -FilePath '%%EXE%%' -ArgumentList '-server','%%SERVER%%','-enroll','%%CODE%%','-install-service'\"\r\n"+
+		"if errorlevel 1 (\r\n"+
+		"  echo Service install skipped — starting agent with Startup fallback...\r\n"+
+		"  start \"\" \"%%EXE%%\" -server \"%%SERVER%%\" -enroll \"%%CODE%%\"\r\n"+
+		") else (\r\n"+
+		"  echo OK: ConnectAgent Windows Service is installed and running.\r\n"+
+		")\r\n"+
 		"timeout /t 4 >nul\r\n",
 		wss, code, zipURL)
 
@@ -413,10 +418,15 @@ if (-not (Test-Path $Exe)) {
 }
 if (-not (Test-Path $Exe)) { throw "connect-agent.exe missing from package" }
 
-Write-Host "Enrolling and starting..."
-$args = @('-server', $Server, '-enroll', $Code)
-Start-Process -FilePath $Exe -ArgumentList $args -WorkingDirectory (Split-Path $Exe)
-Write-Host "Done. This PC should appear in the Host console shortly."
+Write-Host "Enrolling and installing Windows Service (UAC may prompt)..."
+try {
+  $p = Start-Process -FilePath $Exe -ArgumentList @('-server', $Server, '-enroll', $Code, '-install-service') -Verb RunAs -Wait -PassThru
+  if ($p.ExitCode -ne 0) { throw "exit $($p.ExitCode)" }
+  Write-Host "OK: ConnectAgent Windows Service is installed and running."
+} catch {
+  Write-Host "Service install skipped — starting agent with Startup fallback..."
+  Start-Process -FilePath $Exe -ArgumentList @('-server', $Server, '-enroll', $Code) -WorkingDirectory (Split-Path $Exe)
+}
 `, baseLit, wssLit, codeLit, avail)
 }
 
