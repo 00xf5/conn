@@ -13,6 +13,7 @@ type AgentInfo struct {
 	LastSeen   time.Time `json:"lastSeen"`
 	Encoder    string    `json:"encoder,omitempty"`
 	Resolution string    `json:"resolution,omitempty"`
+	AudioLevel float64   `json:"audioLevel,omitempty"`
 }
 
 type Registry struct {
@@ -30,6 +31,9 @@ func (r *Registry) Register(info AgentInfo) {
 	now := time.Now()
 	if existing, ok := r.agents[info.DeviceID]; ok {
 		info.Connected = existing.Connected
+		if info.AudioLevel == 0 && existing.AudioLevel > 0 {
+			info.AudioLevel = existing.AudioLevel
+		}
 	} else {
 		info.Connected = now
 	}
@@ -38,10 +42,21 @@ func (r *Registry) Register(info AgentInfo) {
 }
 
 func (r *Registry) Heartbeat(deviceID string) {
+	r.HeartbeatLevel(deviceID, -1)
+}
+
+// HeartbeatLevel updates last-seen; if level >= 0, also stores audioLevel (0..1).
+func (r *Registry) HeartbeatLevel(deviceID string, level float64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if a, ok := r.agents[deviceID]; ok {
 		a.LastSeen = time.Now()
+		if level >= 0 {
+			if level > 1 {
+				level = 1
+			}
+			a.AudioLevel = level
+		}
 	}
 }
 

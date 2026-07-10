@@ -202,6 +202,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		var body struct {
 			DeviceID string `json:"deviceId"`
+			Mode     string `json:"mode"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		agents := s.registry.ListByTenant(claims.TenantID)
@@ -218,7 +219,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "device not in tenant", http.StatusForbidden)
 			return
 		}
-		sess, err := s.sessions.Create(body.DeviceID, 30*time.Minute)
+		sess, err := s.sessions.CreateMode(body.DeviceID, 30*time.Minute, body.Mode)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -226,6 +227,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{
 			"code":     sess.Code,
 			"deviceId": sess.DeviceID,
+			"mode":     sess.Mode,
 			"viewer":   sess.ViewerURL(s.cfg.PublicURL),
 			"expires":  sess.ExpiresAt,
 		})
@@ -382,10 +384,15 @@ func (s *Server) notifyAgentIncomingViewer(sessionCode string, viewer *signaling
 		return
 	}
 	s.hub.JoinSession(sessionCode, agentPeer)
+	mode := "full"
+	if sess.Mode == "audio" {
+		mode = "audio"
+	}
 	_ = agentPeer.Send(signaling.Message{
 		Type:    "incoming-viewer",
 		Session: sessionCode,
 		From:    signaling.RoleViewer,
+		Payload: mustRaw(map[string]any{"mode": mode}),
 	})
 	_ = viewer.Send(signaling.Message{Type: "peer-present", From: signaling.RoleAgent, Session: sessionCode})
 }
@@ -431,13 +438,20 @@ func (s *Server) readLoop(peer *signaling.Peer) {
 		switch msg.Type {
 		case "heartbeat":
 			if peer.Role == signaling.RoleAgent {
-				s.registry.Heartbeat(peer.DeviceID)
+				level := parseAudioLevel(msg.Payload)
+				s.registry.HeartbeatLevel(peer.DeviceID, level)
 				// Enroll can finish after the agent already connected (installer race).
-				// Pick up the binding so the host dashboard lists the machine.
 				if a, ok := s.registry.Get(peer.DeviceID); ok && a.TenantID == "" {
 					if b, err := s.db.GetAgentBinding(peer.DeviceID); err == nil && b.TenantID != "" {
 						s.registry.SetTenant(peer.DeviceID, b.TenantID, b.Hostname)
 					}
+				}
+			}
+		case "audio_level":
+			if peer.Role == signaling.RoleAgent {
+				level := parseAudioLevel(msg.Payload)
+				if level >= 0 {
+					s.registry.HeartbeatLevel(peer.DeviceID, level)
 				}
 			}
 		case "offer", "answer", "ice", "stats":
@@ -458,6 +472,25 @@ func (s *Server) readLoop(peer *signaling.Peer) {
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+func parseAudioLevel(payload json.RawMessage) float64 {
+	if len(payload) == 0 {
+		return -1
+	}
+	var p struct {
+		Level float64 `json:"level"`
+	}
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return -1
+	}
+	if p.Level < 0 {
+		return 0
+	}
+	if p.Level > 1 {
+		return 1
+	}
+	return p.Level
 }
 
 func mustRaw(v any) json.RawMessage {

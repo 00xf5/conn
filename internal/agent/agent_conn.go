@@ -67,12 +67,14 @@ func (a *Agent) connectOnce() error {
 		if a.conn == conn {
 			a.conn = nil
 		}
+		a.stopAmbientMicLocked()
 		a.mu.Unlock()
 		conn.Close()
 	}()
 
 	log.Printf("agent: connected as %s (%s)", a.cfg.DeviceID, a.cfg.Hostname)
 	a.setState("online", "-")
+	a.ensureAmbientMic()
 
 	conn.SetReadDeadline(time.Now().Add(90 * time.Second))
 	conn.SetPongHandler(func(string) error {
@@ -96,7 +98,9 @@ func (a *Agent) connectOnce() error {
 		case <-a.closed:
 			return nil
 		case <-ticker.C:
-			if err := a.send(signalingEnvelope{Type: "heartbeat"}); err != nil {
+			level := a.audioLevel()
+			payload, _ := json.Marshal(map[string]float64{"level": level})
+			if err := a.send(signalingEnvelope{Type: "heartbeat", Payload: payload}); err != nil {
 				log.Printf("agent: heartbeat failed: %v", err)
 				return fmt.Errorf("heartbeat failed: %w", err)
 			}
@@ -122,10 +126,20 @@ func (a *Agent) readLoop() {
 		case "registered":
 			a.setICEServers(parseICEServers(msg.Payload))
 			log.Printf("agent: registered with server")
+			a.ensureAmbientMic()
 			go a.preloadEncoder()
 		case "incoming-viewer":
 			if msg.Session != "" {
-				go a.startSession(msg.Session)
+				audioOnly := false
+				if len(msg.Payload) > 0 {
+					var p struct {
+						Mode string `json:"mode"`
+					}
+					if json.Unmarshal(msg.Payload, &p) == nil && strings.EqualFold(p.Mode, "audio") {
+						audioOnly = true
+					}
+				}
+				go a.startSession(msg.Session, audioOnly)
 			}
 		case "answer":
 			a.handleAnswer(msg.Payload)

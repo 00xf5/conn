@@ -58,6 +58,7 @@ func (a *Agent) Stop() {
 			_ = a.conn.Close()
 			a.conn = nil
 		}
+		a.stopAudioLocked()
 		a.mu.Unlock()
 		a.closePeer()
 		a.closeWarmEncoder()

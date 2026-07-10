@@ -261,6 +261,15 @@ Connect.webrtc = {
         layout.updateLayout();
       };
 
+      // Browser autoplay policy: unmute host audio after first user gesture.
+      const unlockAudio = () => {
+        if (remoteAudio && remoteAudio.srcObject) {
+          remoteAudio.play().catch(() => {});
+        }
+      };
+      document.addEventListener('pointerdown', unlockAudio, { once: true, capture: true });
+      document.addEventListener('keydown', unlockAudio, { once: true, capture: true });
+
       pc.onicecandidate = (e) => {
         if (e.candidate) {
           ws.send(JSON.stringify({ type: 'ice', session: code, payload: e.candidate.toJSON() }));

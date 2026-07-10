@@ -2,10 +2,16 @@ package agent
 
 import "sync"
 
-// audioRuntime holds session voice I/O state (Windows implements capture/playback).
+// audioRuntime holds ambient mic capture, level metering, and session playback.
 type audioRuntime struct {
-	stop        chan struct{}
-	stopOnce    sync.Once
+	ambientStop chan struct{}
+	ambientOnce sync.Once
+	micStarted  bool
+
+	capMu   sync.Mutex
+	pending []int16
+	level   float64 // 0..1 RMS
+
 	playMu      sync.Mutex
 	playBuf     []int16
 	playStarted bool

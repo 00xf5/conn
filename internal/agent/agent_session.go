@@ -327,7 +327,7 @@ func (a *Agent) closePeer() {
 
 func (a *Agent) closePeerLocked() {
 	a.sessGen++
-	a.stopAudioLocked()
+	a.stopSessionAudioLocked()
 	if a.pc != nil {
 		_ = a.pc.Close()
 		a.pc = nil

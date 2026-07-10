@@ -11,7 +11,7 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-func (a *Agent) startSession(sessionCode string) {
+func (a *Agent) startSession(sessionCode string, audioOnly bool) {
 	a.sessStart.Lock()
 	defer a.sessStart.Unlock()
 
@@ -21,13 +21,19 @@ func (a *Agent) startSession(sessionCode string) {
 			a.mu.Lock()
 			a.activeSess = ""
 			a.mu.Unlock()
-			go a.startWarmEncoder()
+			if !audioOnly {
+				go a.startWarmEncoder()
+			}
 		}
 	}()
 
 	sessionCode = strings.ToUpper(strings.TrimSpace(sessionCode))
 	t0 := time.Now()
-	log.Printf("agent: session %s requested", sessionCode)
+	if audioOnly {
+		log.Printf("agent: audio-only session %s requested", sessionCode)
+	} else {
+		log.Printf("agent: session %s requested", sessionCode)
+	}
 
 	a.mu.Lock()
 	if a.activeSess == sessionCode && a.pc != nil {
@@ -46,6 +52,65 @@ func (a *Agent) startSession(sessionCode string) {
 	a.pendingICE = nil
 	a.mu.Unlock()
 
+	if audioOnly {
+		a.startAudioOnlyPeer(sessionCode, gen)
+		return
+	}
+	a.startFullAVPeer(sessionCode, gen, t0)
+}
+
+func (a *Agent) startAudioOnlyPeer(sessionCode string, gen uint64) {
+	a.ensureAmbientMic()
+
+	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{ICEServers: a.iceConfig()})
+	if err != nil {
+		log.Printf("agent: audio peer connection failed: %v", err)
+		a.mu.Lock()
+		a.activeSess = ""
+		a.mu.Unlock()
+		return
+	}
+
+	atrack, err := webrtc.NewTrackLocalStaticSample(
+		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypePCMU, ClockRate: 8000, Channels: 1},
+		"audio",
+		"connect",
+	)
+	if err != nil {
+		log.Printf("agent: audio track failed: %v", err)
+		_ = pc.Close()
+		a.mu.Lock()
+		a.activeSess = ""
+		a.mu.Unlock()
+		return
+	}
+	if _, err = pc.AddTransceiverFromTrack(atrack, webrtc.RTPTransceiverInit{
+		Direction: webrtc.RTPTransceiverDirectionSendonly,
+	}); err != nil {
+		log.Printf("agent: add audio transceiver failed: %v", err)
+		_ = pc.Close()
+		a.mu.Lock()
+		a.activeSess = ""
+		a.mu.Unlock()
+		return
+	}
+
+	a.bindPeerHandlers(pc, sessionCode, gen, false)
+
+	a.mu.Lock()
+	a.stopSessionAudioLocked()
+	a.pc = pc
+	a.vtrack = nil
+	a.atrack = atrack
+	a.enc = nil
+	a.videoGate = nil
+	a.mu.Unlock()
+
+	a.attachHostMicTrack(atrack, gen)
+	a.sendOffer(pc, sessionCode)
+}
+
+func (a *Agent) startFullAVPeer(sessionCode string, gen uint64, t0 time.Time) {
 	var enc videoEncoder
 	var err error
 	enc = a.takeWarmEncoder()
@@ -82,13 +147,10 @@ func (a *Agent) startSession(sessionCode string) {
 		return
 	}
 	log.Printf("agent: H.264 profile-level-id=%s", spsProfileLevelID(firstKF.Data))
-	// SDP consumed one IDR; start the wire stream from a fresh GOP.
 	requestEncoderKeyframe(enc)
 
 	log.Printf("agent: creating peer connection session=%s", sessionCode)
-	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
-		ICEServers: a.iceConfig(),
-	})
+	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{ICEServers: a.iceConfig()})
 	if err != nil {
 		log.Printf("agent: peer connection failed: %v", err)
 		_ = enc.Close()
@@ -133,6 +195,27 @@ func (a *Agent) startSession(sessionCode string) {
 		atrack = nil
 	}
 
+	a.bindPeerHandlers(pc, sessionCode, gen, true)
+
+	a.mu.Lock()
+	a.stopSessionAudioLocked()
+	a.enc = guardEncoder(enc)
+	a.pc = pc
+	a.vtrack = vtrack
+	a.atrack = atrack
+	a.videoGate = make(chan struct{})
+	videoGate := a.videoGate
+	a.mu.Unlock()
+
+	go a.pumpVideoTrack(vtrack, sessionCode, gen, videoGate)
+	if atrack != nil {
+		a.ensureAmbientMic()
+		a.attachHostMicTrack(atrack, gen)
+	}
+	a.sendOffer(pc, sessionCode)
+}
+
+func (a *Agent) bindPeerHandlers(pc *webrtc.PeerConnection, sessionCode string, gen uint64, recvAudio bool) {
 	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
 		if c == nil {
 			return
@@ -155,36 +238,23 @@ func (a *Agent) startSession(sessionCode string) {
 			a.mu.Unlock()
 		}
 	})
-
-	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
-		a.bindInputChannel(dc)
-	})
-	if dc, err := pc.CreateDataChannel("input", nil); err == nil {
-		a.bindInputChannel(dc)
-	}
-
-	pc.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
-		if remote.Kind() != webrtc.RTPCodecTypeAudio {
-			return
+	if recvAudio {
+		pc.OnDataChannel(func(dc *webrtc.DataChannel) {
+			a.bindInputChannel(dc)
+		})
+		if dc, err := pc.CreateDataChannel("input", nil); err == nil {
+			a.bindInputChannel(dc)
 		}
-		go a.playRemoteAudio(remote, gen)
-	})
-
-	a.mu.Lock()
-	a.stopAudioLocked()
-	a.enc = guardEncoder(enc)
-	a.pc = pc
-	a.vtrack = vtrack
-	a.atrack = atrack
-	a.videoGate = make(chan struct{})
-	videoGate := a.videoGate
-	a.mu.Unlock()
-
-	go a.pumpVideoTrack(vtrack, sessionCode, gen, videoGate)
-	if atrack != nil {
-		a.startHostMic(atrack, gen)
+		pc.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
+			if remote.Kind() != webrtc.RTPCodecTypeAudio {
+				return
+			}
+			go a.playRemoteAudio(remote, gen)
+		})
 	}
+}
 
+func (a *Agent) sendOffer(pc *webrtc.PeerConnection, sessionCode string) {
 	offer, err := pc.CreateOffer(nil)
 	if err != nil {
 		log.Printf("agent: create offer failed: %v", err)

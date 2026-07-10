@@ -84,6 +84,16 @@ function filteredAgents() {
   );
 }
 
+function vuBars(level) {
+  const n = Math.max(0, Math.min(1, Number(level) || 0));
+  const hot = n > 0.04 ? " hot" : "";
+  const h1 = Math.max(2, Math.round(4 + n * 8));
+  const h2 = Math.max(2, Math.round(4 + n * 12));
+  const h3 = Math.max(2, Math.round(4 + n * 10));
+  const h4 = Math.max(2, Math.round(4 + n * 14));
+  return `<span class="vu${hot}" aria-hidden="true"><span style="height:${h1}px"></span><span style="height:${h2}px"></span><span style="height:${h3}px"></span><span style="height:${h4}px"></span></span>`;
+}
+
 function renderList() {
   const list = document.getElementById("session-list");
   const empty = document.getElementById("list-empty");
@@ -101,6 +111,7 @@ function renderList() {
         const selected = selectedId === s.deviceId ? " selected" : "";
         return `<div class="session-row${selected}" role="option" data-device="${escapeHtml(s.deviceId)}" data-session="${escapeHtml(s.code)}" tabindex="0">
           <span><span class="dot${agentById(s.deviceId) ? " on" : ""}"></span></span>
+          <span class="listen-cell"></span>
           <span class="name">${escapeHtml(host)}</span>
           <span class="guest mono">${escapeHtml(s.code)}</span>
           <span class="activity">${escapeHtml(fmtTime(s.expiresAt))}</span>
@@ -127,8 +138,16 @@ function renderList() {
   list.innerHTML = rows
     .map((a) => {
       const selected = selectedId === a.deviceId ? " selected" : "";
+      const listening = window.ConnectListen && ConnectListen.isUnmuted(a.deviceId);
+      const listenCls = listening ? " on" : "";
+      const listenTitle = listening ? "Mute host audio" : "Listen to host mic (muted by default)";
+      const listenLabel = listening ? "🔊" : "🔇";
       return `<div class="session-row${selected}" role="option" data-device="${escapeHtml(a.deviceId)}" tabindex="0">
         <span><span class="dot on" title="Online"></span></span>
+        <span class="listen-cell">
+          ${vuBars(a.audioLevel)}
+          <button type="button" class="btn-listen${listenCls}" data-listen="${escapeHtml(a.deviceId)}" title="${listenTitle}" aria-pressed="${listening ? "true" : "false"}">${listenLabel}</button>
+        </span>
         <span class="name" title="${escapeHtml(a.hostname || "host")}">${escapeHtml(a.hostname || "host")}</span>
         <span class="guest">${escapeHtml(shortId(a.deviceId))}</span>
         <span class="activity">${escapeHtml(fmtTime(a.lastSeen))}</span>
@@ -202,13 +221,17 @@ async function joinSelected() {
     return;
   }
 
+  if (window.ConnectListen) {
+    try { await ConnectListen.mute(selectedId); } catch (_) {}
+  }
+
   joining = true;
   renderDetail();
   try {
     const body = await api("/api/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceId: selectedId }),
+      body: JSON.stringify({ deviceId: selectedId, mode: "full" }),
     });
     toast(`Joining ${a.hostname || "host"} · ${body.code}`);
     location.href = body.viewer || `/v/${body.code}`;
@@ -276,13 +299,19 @@ async function refresh() {
 
 let refreshTimer = null;
 
+function scheduleRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  const ms = window.ConnectListen && ConnectListen.hasActiveListen() ? 1000 : 5000;
+  refreshTimer = setInterval(refresh, ms);
+}
+
 async function boot() {
   try {
     me = await api("/api/me");
     document.getElementById("tenant-chip").textContent = me.tenantName || me.tenantId;
     showHost(true);
     await refresh();
-    if (!refreshTimer) refreshTimer = setInterval(refresh, 5000);
+    scheduleRefresh();
   } catch {
     showHost(false);
   }
@@ -300,7 +329,7 @@ document.getElementById("redeem-form").onsubmit = async (ev) => {
     document.getElementById("tenant-chip").textContent = me.tenantName || me.tenantId;
     showHost(true);
     await refresh();
-    if (!refreshTimer) refreshTimer = setInterval(refresh, 5000);
+    scheduleRefresh();
   } catch (e) {
     err.hidden = false;
     err.textContent = e.message;
@@ -308,6 +337,7 @@ document.getElementById("redeem-form").onsubmit = async (ev) => {
 };
 
 document.getElementById("btn-logout").onclick = async () => {
+  if (window.ConnectListen) ConnectListen.stopAll();
   await api("/api/auth/logout", { method: "POST" });
   me = null;
   showHost(false);
@@ -328,7 +358,22 @@ document.getElementById("filter").oninput = (ev) => {
   renderList();
 };
 
-document.getElementById("session-list").onclick = (ev) => {
+document.getElementById("session-list").onclick = async (ev) => {
+  const listenBtn = ev.target.closest("[data-listen]");
+  if (listenBtn) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const id = listenBtn.dataset.listen;
+    try {
+      await ConnectListen.toggle(id);
+      scheduleRefresh();
+      renderList();
+    } catch (err) {
+      toast(`Listen failed: ${err.message}`);
+      renderList();
+    }
+    return;
+  }
   const row = ev.target.closest("[data-device]");
   if (!row) return;
   selectDevice(row.dataset.device);

@@ -260,7 +260,7 @@ body {
 
 .list-head {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1.4fr) minmax(0, 1fr) 110px;
+  grid-template-columns: 28px 64px minmax(0, 1.4fr) minmax(0, 1fr) 110px;
   gap: 8px;
   padding: 6px 10px;
   font-size: 11px;
@@ -275,7 +275,7 @@ body {
 .session-list { padding: 0; }
 .session-row {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1.4fr) minmax(0, 1fr) 110px;
+  grid-template-columns: 28px 64px minmax(0, 1.4fr) minmax(0, 1fr) 110px;
   gap: 8px;
   align-items: center;
   padding: 8px 10px;
@@ -288,6 +288,48 @@ body {
   background: var(--select);
   box-shadow: inset 3px 0 0 var(--select-border);
 }
+.session-row .listen-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.session-row .vu {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+  width: 22px;
+}
+.session-row .vu span {
+  display: block;
+  width: 3px;
+  min-height: 2px;
+  border-radius: 1px;
+  background: #c5cad3;
+  transition: height 80ms linear, background 80ms linear;
+}
+.session-row .vu.hot span { background: #2f6fed; }
+.session-row .vu.hot span:nth-child(3),
+.session-row .vu.hot span:nth-child(4) { background: #1a9f5c; }
+.session-row .btn-listen {
+  border: 1px solid #c5cad3;
+  background: #fff;
+  color: #6b7280;
+  border-radius: 3px;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.session-row .btn-listen.on {
+  border-color: #2f6fed;
+  color: #0b5fff;
+  background: #eef4ff;
+}
+.session-row .btn-listen:hover { border-color: #9aa3b2; }
 .session-row .name {
   font-weight: 600;
   white-space: nowrap;

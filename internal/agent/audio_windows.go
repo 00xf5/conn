@@ -4,9 +4,10 @@ package agent
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"log"
+	"math"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gen2brain/malgo"
@@ -25,103 +26,188 @@ func (a *Agent) ensureAudioRuntimeLocked() *audioRuntime {
 	if a.audio != nil {
 		return a.audio
 	}
-	a.audio = &audioRuntime{stop: make(chan struct{})}
+	a.audio = &audioRuntime{ambientStop: make(chan struct{})}
 	return a.audio
 }
 
-func (a *Agent) stopAudioLocked() {
+func (a *Agent) stopAmbientMicLocked() {
 	if a.audio == nil {
 		return
 	}
-	a.audio.stopOnce.Do(func() { close(a.audio.stop) })
+	a.audio.ambientOnce.Do(func() {
+		if a.audio.ambientStop != nil {
+			close(a.audio.ambientStop)
+		}
+	})
 	a.audio = nil
 }
 
-func (a *Agent) startHostMic(track *webrtc.TrackLocalStaticSample, gen uint64) {
+func (a *Agent) stopSessionAudioLocked() {
+	if a.audio == nil {
+		return
+	}
+	a.audio.playMu.Lock()
+	a.audio.playBuf = nil
+	a.audio.playStarted = false
+	a.audio.playMu.Unlock()
+}
+
+func (a *Agent) stopAudioLocked() {
+	a.stopSessionAudioLocked()
+	a.stopAmbientMicLocked()
+}
+
+func (a *Agent) audioLevel() float64 {
+	a.mu.Lock()
+	rt := a.audio
+	a.mu.Unlock()
+	if rt == nil {
+		return 0
+	}
+	rt.capMu.Lock()
+	defer rt.capMu.Unlock()
+	return rt.level
+}
+
+func pcmRMSLevel(samples []int16) float64 {
+	if len(samples) == 0 {
+		return 0
+	}
+	var sum float64
+	for _, s := range samples {
+		v := float64(s) / 32768.0
+		sum += v * v
+	}
+	rms := math.Sqrt(sum / float64(len(samples)))
+	// Soft knee so quiet speech still moves the meter.
+	level := math.Min(1, rms*4)
+	return level
+}
+
+// ensureAmbientMic starts always-on host mic capture for levels + session send.
+func (a *Agent) ensureAmbientMic() {
 	a.mu.Lock()
 	rt := a.ensureAudioRuntimeLocked()
-	stop := rt.stop
+	if rt.micStarted {
+		a.mu.Unlock()
+		return
+	}
+	rt.micStarted = true
+	stop := rt.ambientStop
 	a.mu.Unlock()
 
+	go a.runAmbientMic(stop)
+	go a.pumpAudioLevels(stop)
+}
+
+func (a *Agent) runAmbientMic(stop <-chan struct{}) {
+	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, nil)
+	if err != nil {
+		log.Printf("agent: audio mic context: %v (voice send disabled)", err)
+		return
+	}
+	defer func() {
+		_ = ctx.Uninit()
+		ctx.Free()
+	}()
+
+	cfg := malgo.DefaultDeviceConfig(malgo.Capture)
+	cfg.Capture.Format = malgo.FormatS16
+	cfg.Capture.Channels = 1
+	cfg.SampleRate = audioSampleRate
+	cfg.PeriodSizeInFrames = audioFramePCM
+	cfg.Alsa.NoMMap = 1
+
+	onRecv := func(_, input []byte, frameCount uint32) {
+		if len(input) < int(frameCount)*2 {
+			return
+		}
+		n := int(frameCount)
+		samples := make([]int16, n)
+		for i := 0; i < n; i++ {
+			samples[i] = int16(binary.LittleEndian.Uint16(input[i*2:]))
+		}
+		level := pcmRMSLevel(samples)
+		a.mu.Lock()
+		rt := a.audio
+		a.mu.Unlock()
+		if rt == nil {
+			return
+		}
+		rt.capMu.Lock()
+		rt.pending = append(rt.pending, samples...)
+		if len(rt.pending) > audioSampleRate*2 {
+			rt.pending = rt.pending[len(rt.pending)-audioSampleRate:]
+		}
+		// EMA for smoother VU.
+		rt.level = rt.level*0.7 + level*0.3
+		rt.capMu.Unlock()
+	}
+
+	dev, err := malgo.InitDevice(ctx.Context, cfg, malgo.DeviceCallbacks{Data: onRecv})
+	if err != nil {
+		log.Printf("agent: audio mic device: %v (voice send disabled)", err)
+		return
+	}
+	defer dev.Uninit()
+	if err := dev.Start(); err != nil {
+		log.Printf("agent: audio mic start: %v (voice send disabled)", err)
+		return
+	}
+	log.Printf("agent: host mic capture started (%d Hz PCMU)", audioSampleRate)
+	<-stop
+}
+
+func (a *Agent) pumpAudioLevels(stop <-chan struct{}) {
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-a.closed:
+			return
+		case <-ticker.C:
+			level := a.audioLevel()
+			payload, _ := json.Marshal(map[string]float64{"level": level})
+			_ = a.send(signalingEnvelope{Type: "audio_level", Payload: payload})
+		}
+	}
+}
+
+// attachHostMicTrack pumps ambient capture into a WebRTC PCMU track for a session.
+func (a *Agent) attachHostMicTrack(track *webrtc.TrackLocalStaticSample, gen uint64) {
+	a.ensureAmbientMic()
 	go func() {
-		ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, nil)
-		if err != nil {
-			log.Printf("agent: audio mic context: %v (voice send disabled)", err)
-			return
-		}
-		defer func() {
-			_ = ctx.Uninit()
-			ctx.Free()
-		}()
-
-		var (
-			mu     sync.Mutex
-			pending []int16
-		)
-
-		cfg := malgo.DefaultDeviceConfig(malgo.Capture)
-		cfg.Capture.Format = malgo.FormatS16
-		cfg.Capture.Channels = 1
-		cfg.SampleRate = audioSampleRate
-		cfg.PeriodSizeInFrames = audioFramePCM
-		cfg.Alsa.NoMMap = 1
-
-		onRecv := func(_, input []byte, frameCount uint32) {
-			if len(input) < int(frameCount)*2 {
-				return
-			}
-			n := int(frameCount)
-			samples := make([]int16, n)
-			for i := 0; i < n; i++ {
-				samples[i] = int16(binary.LittleEndian.Uint16(input[i*2:]))
-			}
-			mu.Lock()
-			pending = append(pending, samples...)
-			mu.Unlock()
-		}
-
-		dev, err := malgo.InitDevice(ctx.Context, cfg, malgo.DeviceCallbacks{Data: onRecv})
-		if err != nil {
-			log.Printf("agent: audio mic device: %v (voice send disabled)", err)
-			return
-		}
-		defer dev.Uninit()
-		if err := dev.Start(); err != nil {
-			log.Printf("agent: audio mic start: %v (voice send disabled)", err)
-			return
-		}
-		log.Printf("agent: host mic capture started (%d Hz PCMU)", audioSampleRate)
-
 		ticker := time.NewTicker(audioFrameMs * time.Millisecond)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-stop:
-				return
 			case <-a.closed:
 				return
 			case <-ticker.C:
 				a.mu.Lock()
 				alive := a.sessGen == gen && a.pc != nil
+				rt := a.audio
 				a.mu.Unlock()
 				if !alive {
 					return
 				}
-				mu.Lock()
 				var frame []int16
-				if len(pending) >= audioFramePCM {
-					frame = append([]int16(nil), pending[:audioFramePCM]...)
-					pending = pending[audioFramePCM:]
-					if len(pending) > audioSampleRate { // drop backlog (~1s)
-						pending = pending[len(pending)-audioFramePCM:]
+				if rt != nil {
+					rt.capMu.Lock()
+					if len(rt.pending) >= audioFramePCM {
+						frame = append([]int16(nil), rt.pending[:audioFramePCM]...)
+						rt.pending = rt.pending[audioFramePCM:]
+					} else {
+						frame = make([]int16, audioFramePCM)
 					}
+					rt.capMu.Unlock()
 				} else {
-					frame = make([]int16, audioFramePCM) // silence
+					frame = make([]int16, audioFramePCM)
 				}
-				mu.Unlock()
-				payload := pcm16ToMulaw(frame)
 				if err := track.WriteSample(media.Sample{
-					Data:     payload,
+					Data:     pcm16ToMulaw(frame),
 					Duration: audioFrameMs * time.Millisecond,
 				}); err != nil {
 					return
@@ -134,13 +220,16 @@ func (a *Agent) startHostMic(track *webrtc.TrackLocalStaticSample, gen uint64) {
 func (a *Agent) enqueuePlayback(samples []int16) {
 	a.mu.Lock()
 	rt := a.audio
+	if rt == nil {
+		rt = a.ensureAudioRuntimeLocked()
+	}
 	a.mu.Unlock()
-	if rt == nil || len(samples) == 0 {
+	if len(samples) == 0 {
 		return
 	}
 	rt.playMu.Lock()
 	rt.playBuf = append(rt.playBuf, samples...)
-	const maxBuf = audioSampleRate * 2 // ~2s
+	const maxBuf = audioSampleRate * 2
 	if len(rt.playBuf) > maxBuf {
 		rt.playBuf = rt.playBuf[len(rt.playBuf)-maxBuf:]
 	}
@@ -155,7 +244,7 @@ func (a *Agent) ensurePlayback(gen uint64) {
 		return
 	}
 	rt.playStarted = true
-	stop := rt.stop
+	stopAmbient := rt.ambientStop
 	a.mu.Unlock()
 
 	go func() {
@@ -180,9 +269,10 @@ func (a *Agent) ensurePlayback(gen uint64) {
 			need := int(frameCount)
 			a.mu.Lock()
 			rt := a.audio
+			alive := a.sessGen == gen
 			a.mu.Unlock()
 			var chunk []int16
-			if rt != nil {
+			if rt != nil && alive {
 				rt.playMu.Lock()
 				if len(rt.playBuf) >= need {
 					chunk = append([]int16(nil), rt.playBuf[:need]...)
@@ -214,7 +304,21 @@ func (a *Agent) ensurePlayback(gen uint64) {
 		}
 		log.Printf("agent: speaker playback started (%d Hz)", audioSampleRate)
 
-		<-stop
+		for {
+			select {
+			case <-stopAmbient:
+				return
+			case <-a.closed:
+				return
+			case <-time.After(500 * time.Millisecond):
+				a.mu.Lock()
+				alive := a.sessGen == gen && a.audio != nil && a.audio.playStarted
+				a.mu.Unlock()
+				if !alive {
+					return
+				}
+			}
+		}
 	}()
 }
 
@@ -259,7 +363,6 @@ func (a *Agent) playRemoteOpus(track *webrtc.TrackRemote, gen uint64) {
 		log.Printf("agent: opus decoder: %v", err)
 		return
 	}
-	// Max Opus frame ~120ms at 8kHz = 960 samples/channel
 	pcm := make([]int16, 960)
 	for {
 		pkt, _, err := track.ReadRTP()

@@ -15,6 +15,7 @@ const defaultTTL = 30 * time.Minute
 type Session struct {
 	Code      string    `json:"code"`
 	DeviceID  string    `json:"deviceId"`
+	Mode      string    `json:"mode,omitempty"` // "full" (default) or "audio"
 	CreatedAt time.Time `json:"createdAt"`
 	ExpiresAt time.Time `json:"expiresAt"`
 }
@@ -35,8 +36,17 @@ func NewStore() *Store {
 // Create issues a session ticket for deviceID. Any prior ticket for the same
 // device is replaced so Active Sessions cannot accumulate from repeated Join/Share.
 func (s *Store) Create(deviceID string, ttl time.Duration) (*Session, error) {
+	return s.CreateMode(deviceID, ttl, "full")
+}
+
+// CreateMode is like Create but sets session mode ("full" or "audio").
+func (s *Store) CreateMode(deviceID string, ttl time.Duration, mode string) (*Session, error) {
 	if ttl <= 0 {
 		ttl = defaultTTL
+	}
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	if mode != "audio" {
+		mode = "full"
 	}
 	code, err := randomCode(codeLen)
 	if err != nil {
@@ -46,6 +56,7 @@ func (s *Store) Create(deviceID string, ttl time.Duration) (*Session, error) {
 	sess := &Session{
 		Code:      code,
 		DeviceID:  deviceID,
+		Mode:      mode,
 		CreatedAt: now,
 		ExpiresAt: now.Add(ttl),
 	}
