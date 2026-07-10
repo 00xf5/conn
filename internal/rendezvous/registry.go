@@ -45,6 +45,23 @@ func (r *Registry) Heartbeat(deviceID string) {
 	}
 }
 
+// SetTenant updates tenant/hostname for an online agent (e.g. enroll finished after connect).
+func (r *Registry) SetTenant(deviceID, tenantID, hostname string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	a, ok := r.agents[deviceID]
+	if !ok {
+		return
+	}
+	if tenantID != "" {
+		a.TenantID = tenantID
+	}
+	if hostname != "" {
+		a.Hostname = hostname
+	}
+	a.LastSeen = time.Now()
+}
+
 func (r *Registry) Remove(deviceID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

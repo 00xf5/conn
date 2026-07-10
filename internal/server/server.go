@@ -432,6 +432,13 @@ func (s *Server) readLoop(peer *signaling.Peer) {
 		case "heartbeat":
 			if peer.Role == signaling.RoleAgent {
 				s.registry.Heartbeat(peer.DeviceID)
+				// Enroll can finish after the agent already connected (installer race).
+				// Pick up the binding so the host dashboard lists the machine.
+				if a, ok := s.registry.Get(peer.DeviceID); ok && a.TenantID == "" {
+					if b, err := s.db.GetAgentBinding(peer.DeviceID); err == nil && b.TenantID != "" {
+						s.registry.SetTenant(peer.DeviceID, b.TenantID, b.Hostname)
+					}
+				}
 			}
 		case "offer", "answer", "ice", "stats":
 			if msg.Session != "" {

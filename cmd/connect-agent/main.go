@@ -70,6 +70,10 @@ func main() {
 	// Enroll / install-service must run BEFORE the single-instance mutex.
 	// Otherwise a service-relaunched agent holds the mutex and this process
 	// exits 0 without enrolling — install looks successful but dashboard stays empty.
+	if *enroll != "" || *installSvc {
+		// windowsgui builds have no console; attach one so enroll errors are visible.
+		enableConsole()
+	}
 	if *enroll != "" {
 		if cfg.ServerURL == "" {
 			log.Fatal("connect-agent: -enroll requires -server or serverUrl in config")

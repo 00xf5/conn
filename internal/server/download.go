@@ -325,7 +325,7 @@ func (s *Server) handleDownloadSetupCmd(w http.ResponseWriter, r *http.Request) 
 		"  exit /b 1\r\n"+
 		")\r\n"+
 		"echo Enrolling this PC (no admin needed)...\r\n"+
-		"\"%%EXE%%\" -server \"%%SERVER%%\" -enroll \"%%CODE%%\" -quit-after-enroll\r\n"+
+		"powershell -NoProfile -Command \"$p = Start-Process -Wait -PassThru -FilePath '%%EXE%%' -ArgumentList '-server','%%SERVER%%','-enroll','%%CODE%%','-quit-after-enroll'; if ($null -eq $p -or $p.ExitCode -ne 0) { exit 1 }\"\r\n"+
 		"if errorlevel 1 (\r\n"+
 		"  echo Enrollment failed.\r\n"+
 		"  pause\r\n"+
@@ -429,8 +429,10 @@ if (-not (Test-Path $Exe)) {
 if (-not (Test-Path $Exe)) { throw "connect-agent.exe missing from package" }
 
 Write-Host "Enrolling this PC (no admin needed)..."
-& $Exe -server $Server -enroll $Code -quit-after-enroll
-if ($LASTEXITCODE -ne 0) { throw "Enrollment failed (exit $LASTEXITCODE)" }
+$enroll = Start-Process -FilePath $Exe -ArgumentList @('-server', $Server, '-enroll', $Code, '-quit-after-enroll') -Wait -PassThru
+if ($null -eq $enroll -or $enroll.ExitCode -ne 0) {
+  throw "Enrollment failed (exit $($enroll.ExitCode))"
+}
 
 Write-Host "Installing Windows Service (UAC may prompt)..."
 try {
