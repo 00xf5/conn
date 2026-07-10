@@ -7,11 +7,22 @@
   <link rel="stylesheet" href="/dashboard/dashboard.css" />
 </head>
 <body>
-  <div class="host">
+  <div id="login-gate" class="gate">
+    <form id="redeem-form" class="gate-card">
+      <h1>Connect</h1>
+      <p class="gate-sub">Enter your Access code to open the Host console</p>
+      <input id="access-code" type="text" autocomplete="one-time-code" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" required />
+      <button type="submit">Sign in</button>
+      <p id="redeem-err" class="gate-err" hidden></p>
+    </form>
+  </div>
+
+  <div id="host-app" class="host" hidden>
     <header class="host-bar">
       <div class="host-brand">
         <span class="logo" aria-hidden="true"></span>
         <strong>Connect</strong>
+        <span id="tenant-chip" class="tenant-chip"></span>
       </div>
       <nav class="mode-tabs" role="tablist">
         <button type="button" class="mode-tab active" data-mode="access">Access</button>
@@ -20,6 +31,7 @@
       <div class="host-bar-right">
         <span id="health" class="health">—</span>
         <button type="button" class="tool-btn" id="btn-refresh" title="Refresh">↻</button>
+        <button type="button" class="tool-btn" id="btn-logout" title="Logout">⎋</button>
       </div>
     </header>
 
@@ -92,3 +104,4 @@
   <script src="/dashboard/dashboard.js"></script>
 </body>
 </html>
+

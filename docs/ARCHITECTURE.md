@@ -75,5 +75,6 @@ Setup: agent/viewer ↔ connectd WSS (SDP/ICE relay)
 
 ## Related
 
+- [RMM-BLUEPRINT.md](RMM-BLUEPRINT.md) — multi-tenant Access RMM, Main Admin, Access codes vs session tickets
 - [STABLE.md](STABLE.md) — stream tunables via config
 - [RELEASE-GATE.md](RELEASE-GATE.md) — pass/fail gates

@@ -11,6 +11,7 @@ import (
 type fileConfig struct {
 	ServerURL   string `json:"serverUrl"`
 	DeviceID    string `json:"deviceId"`
+	TenantID    string `json:"tenantId"`
 	Hostname    string `json:"hostname"`
 	Monitor     int    `json:"monitor"`
 	Width       int    `json:"width"`
@@ -37,6 +38,7 @@ func LoadConfigFile() (Config, bool) {
 		cfg := Config{
 			ServerURL: fc.ServerURL,
 			DeviceID:  fc.DeviceID,
+			TenantID:  fc.TenantID,
 			Hostname:  fc.Hostname,
 			Monitor:   fc.Monitor,
 			Width:     fc.Width,
@@ -71,6 +73,9 @@ func MergeConfig(base Config, overrides Config) Config {
 	}
 	if overrides.DeviceID != "" {
 		out.DeviceID = overrides.DeviceID
+	}
+	if overrides.TenantID != "" {
+		out.TenantID = overrides.TenantID
 	}
 	if overrides.Hostname != "" {
 		out.Hostname = overrides.Hostname

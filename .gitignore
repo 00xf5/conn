@@ -3,3 +3,6 @@ data/
 *.dll
 *.obj
 *.lib
+*.db
+*.db-wal
+*.db-shm

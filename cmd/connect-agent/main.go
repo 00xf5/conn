@@ -11,6 +11,7 @@ import (
 func main() {
 	serverURL := flag.String("server", "", "connectd WebSocket URL (overrides config.json)")
 	deviceID := flag.String("device", "", "device ID (auto-generated if empty)")
+	tenantID := flag.String("tenant", "", "tenant ID (binds agent to Access tenant)")
 	width := flag.Int("width", 0, "stream width (default from config or 854)")
 	height := flag.Int("height", 0, "stream height (default from config or 480)")
 	fps := flag.Int("fps", 0, "capture FPS (default from config or 20)")
@@ -25,6 +26,7 @@ func main() {
 	cli := agent.Config{
 		ServerURL:   *serverURL,
 		DeviceID:    *deviceID,
+		TenantID:    *tenantID,
 		Monitor:     *monitor,
 		Width:       *width,
 		Height:      *height,
@@ -36,8 +38,8 @@ func main() {
 	cfg := cli
 	if fileCfg, ok := agent.LoadConfigFile(); ok {
 		cfg = agent.MergeConfig(fileCfg, cli)
-		log.Printf("connect-agent: loaded config.json (server=%s %dx%d @ %dfps %dkbps)",
-			cfg.ServerURL, cfg.Width, cfg.Height, cfg.FPS, cfg.BitrateK)
+		log.Printf("connect-agent: loaded config.json (server=%s tenant=%s %dx%d @ %dfps %dkbps)",
+			cfg.ServerURL, cfg.TenantID, cfg.Width, cfg.Height, cfg.FPS, cfg.BitrateK)
 	} else {
 		if cfg.ServerURL == "" {
 			cfg.ServerURL = "wss://localhost:8787/ws"

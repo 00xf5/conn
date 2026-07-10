@@ -99,11 +99,13 @@ func main() {
 	addr := flag.String("addr", defaultAddr, "listen address (overridden by PORT env on Render)")
 	publicURL := flag.String("public-url", configuredPublicURL(""), "public HTTPS base URL for viewer links (CONNECT_PUBLIC_URL or RENDER_EXTERNAL_URL)")
 	keyPath := flag.String("key", "data/server.key", "Ed25519 private key path")
+	dbPath := flag.String("db", "data/connect.db", "SQLite path for tenants / access accounts")
 	tlsCert := flag.String("tls-cert", "data/tls.crt", "TLS certificate path")
 	tlsKey := flag.String("tls-key", "data/tls.key", "TLS private key path")
 	noTLS := flag.Bool("no-tls", envBool("CONNECT_NO_TLS"), "disable TLS (use behind Render/nginx TLS termination)")
 	turnPort := flag.Int("turn-port", 3478, "embedded STUN/TURN UDP port (LAN only)")
 	noTurn := flag.Bool("no-turn", envBool("CONNECT_NO_TURN"), "disable embedded STUN/TURN (required on Render)")
+	requireTenant := flag.Bool("require-tenant", envBool("CONNECT_REQUIRE_TENANT"), "reject agents without tenantId")
 	flag.Parse()
 
 	*addr = listenAddr(*addr)
@@ -138,6 +140,9 @@ func main() {
 		PublicURL:          *publicURL,
 		PublicHost:         publicHost,
 		KeyPath:            *keyPath,
+		DBPath:             *dbPath,
+		AdminToken:         strings.TrimSpace(os.Getenv("CONNECT_ADMIN_TOKEN")),
+		RequireTenant:      *requireTenant,
 		TURNPort:           *turnPort,
 		EnableTURN:         !*noTurn,
 		ICE:                iceCfg,
@@ -149,6 +154,7 @@ func main() {
 
 	log.Printf("connectd listening on %s (%s)", *addr, *publicURL)
 	log.Printf("server public key: %s", srv.PublicKey())
+	log.Printf("admin: %s/admin/", *publicURL)
 	log.Printf("dashboard: %s/dashboard/", *publicURL)
 	log.Printf("viewer example: %s/v/{code}", *publicURL)
 	if *noTurn {

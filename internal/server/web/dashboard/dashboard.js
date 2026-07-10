@@ -4,11 +4,21 @@ let selectedId = null;
 let group = "all";
 let filterText = "";
 let joining = false;
+let me = null;
 
-async function api(path, opts) {
-  const res = await fetch(path, opts);
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+    ...opts,
+  });
   if (!res.ok) throw new Error((await res.text()) || res.statusText);
   return res.json();
+}
+
+function showHost(on) {
+  document.getElementById("login-gate").hidden = on;
+  document.getElementById("host-app").hidden = !on;
 }
 
 function toast(msg) {
@@ -62,11 +72,6 @@ function agentById(id) {
 
 function filteredAgents() {
   let list = agents.slice();
-  if (group === "online") list = list.filter(() => true); // all listed agents are online
-  if (group === "sessions") {
-    const ids = new Set(sessions.map((s) => s.deviceId));
-    list = list.filter((a) => ids.has(a.deviceId));
-  }
   const q = filterText.trim().toLowerCase();
   if (q) {
     list = list.filter((a) => {
@@ -88,20 +93,25 @@ function renderList() {
   document.getElementById("count-online").textContent = String(agents.length);
   document.getElementById("count-sessions").textContent = String(sessions.length);
 
-  if (group === "sessions" && !agents.length && sessions.length) {
-    // show session tickets even if agent dropped
+  if (group === "sessions") {
+    // Show session tickets themselves (not agent rows filtered by ticket).
     list.innerHTML = sessions
       .map((s) => {
+        const host = agentById(s.deviceId)?.hostname || shortId(s.deviceId);
         const selected = selectedId === s.deviceId ? " selected" : "";
         return `<div class="session-row${selected}" role="option" data-device="${escapeHtml(s.deviceId)}" data-session="${escapeHtml(s.code)}" tabindex="0">
-          <span><span class="dot"></span></span>
-          <span class="name">${escapeHtml(s.code)}</span>
-          <span class="guest">${escapeHtml(shortId(s.deviceId))}</span>
+          <span><span class="dot${agentById(s.deviceId) ? " on" : ""}"></span></span>
+          <span class="name">${escapeHtml(host)}</span>
+          <span class="guest mono">${escapeHtml(s.code)}</span>
           <span class="activity">${escapeHtml(fmtTime(s.expiresAt))}</span>
         </div>`;
       })
       .join("");
     empty.hidden = sessions.length > 0;
+    if (!sessions.length) {
+      empty.hidden = false;
+      empty.textContent = "No active session tickets.";
+    }
     return;
   }
 
@@ -249,16 +259,59 @@ async function refresh() {
     }
     if (!selectedId && agents[0]) selectedId = agents[0].deviceId;
     document.getElementById("health").textContent =
-      `${health.agents} agent(s) · ${(health.publicKey || "").slice(0, 10)}…`;
+      `${agents.length} online · ${(health.publicKey || "").slice(0, 10)}…`;
     renderList();
     renderDetail();
   } catch (err) {
+    if (/unauthorized/i.test(err.message)) {
+      showHost(false);
+      return;
+    }
     document.getElementById("health").textContent = "offline";
     document.getElementById("session-list").innerHTML = "";
     document.getElementById("list-empty").hidden = false;
     document.getElementById("list-empty").textContent = `Server unreachable: ${err.message}`;
   }
 }
+
+let refreshTimer = null;
+
+async function boot() {
+  try {
+    me = await api("/api/me");
+    document.getElementById("tenant-chip").textContent = me.tenantName || me.tenantId;
+    showHost(true);
+    await refresh();
+    if (!refreshTimer) refreshTimer = setInterval(refresh, 5000);
+  } catch {
+    showHost(false);
+  }
+}
+
+document.getElementById("redeem-form").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const err = document.getElementById("redeem-err");
+  err.hidden = true;
+  try {
+    me = await api("/api/auth/redeem", {
+      method: "POST",
+      body: JSON.stringify({ accessCode: document.getElementById("access-code").value }),
+    });
+    document.getElementById("tenant-chip").textContent = me.tenantName || me.tenantId;
+    showHost(true);
+    await refresh();
+    if (!refreshTimer) refreshTimer = setInterval(refresh, 5000);
+  } catch (e) {
+    err.hidden = false;
+    err.textContent = e.message;
+  }
+};
+
+document.getElementById("btn-logout").onclick = async () => {
+  await api("/api/auth/logout", { method: "POST" });
+  me = null;
+  showHost(false);
+};
 
 document.querySelector(".groups").onclick = (ev) => {
   const btn = ev.target.closest("[data-group]");
@@ -304,5 +357,4 @@ document.querySelector(".mode-tabs").onclick = (ev) => {
   });
 };
 
-refresh();
-setInterval(refresh, 5000);
+boot();

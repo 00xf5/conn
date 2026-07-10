@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"connect/internal/rendezvous"
 	"connect/internal/session"
 	"connect/internal/signaling"
+	"connect/internal/store"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -22,29 +24,38 @@ import (
 var webFS embed.FS
 
 type Config struct {
-	Addr       string
-	PublicURL  string
-	PublicHost string
-	KeyPath    string
-	StaticRoot fs.FS
-	TLSCert    string
-	TLSKey     string
-	TURNPort   int
-	TURNSecret string
-	EnableTURN bool
-	ICE                 ICEConfig
-	OverrideICEServers  []ICEServer
+	Addr               string
+	PublicURL          string
+	PublicHost         string
+	KeyPath            string
+	DBPath             string
+	AuthSecretPath     string
+	AdminToken         string
+	RequireTenant      bool
+	StaticRoot         fs.FS
+	TLSCert            string
+	TLSKey             string
+	TURNPort           int
+	TURNSecret         string
+	EnableTURN         bool
+	ICE                ICEConfig
+	OverrideICEServers []ICEServer
 }
 
 type Server struct {
-	cfg        Config
-	sessions   *session.Store
-	registry   *rendezvous.Registry
-	hub        *signaling.Hub
-	keyPair    auth.KeyPair
-	upgrader   websocket.Upgrader
-	turnSecret string
-	turnSrv    interface{ Close() error }
+	cfg         Config
+	sessions    *session.Store
+	registry    *rendezvous.Registry
+	hub         *signaling.Hub
+	keyPair     auth.KeyPair
+	tokens      *auth.TokenSigner
+	db          *store.DB
+	adminToken  string
+	loginLimit  *keyedLimiter
+	redeemLimit *keyedLimiter
+	upgrader    websocket.Upgrader
+	turnSecret  string
+	turnSrv     interface{ Close() error }
 }
 
 func New(cfg Config) (*Server, error) {
@@ -57,6 +68,12 @@ func New(cfg Config) (*Server, error) {
 	if cfg.KeyPath == "" {
 		cfg.KeyPath = "data/server.key"
 	}
+	if cfg.DBPath == "" {
+		cfg.DBPath = "data/connect.db"
+	}
+	if cfg.AuthSecretPath == "" {
+		cfg.AuthSecretPath = filepath.Join(filepath.Dir(cfg.KeyPath), "auth.secret")
+	}
 	if cfg.TURNPort <= 0 {
 		cfg.TURNPort = 3478
 	}
@@ -67,19 +84,33 @@ func New(cfg Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	tokens, err := auth.LoadOrCreateSecret(cfg.AuthSecretPath)
+	if err != nil {
+		return nil, err
+	}
+	db, err := store.Open(cfg.DBPath)
+	if err != nil {
+		return nil, err
+	}
 	static, err := fs.Sub(webFS, "web")
 	if err != nil {
+		_ = db.Close()
 		return nil, err
 	}
 	cfg.StaticRoot = static
 
 	s := &Server{
-		cfg:      cfg,
-		sessions: session.NewStore(),
-		registry: rendezvous.NewRegistry(),
-		hub:      signaling.NewHub(),
-		keyPair:  kp,
-		upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		cfg:         cfg,
+		sessions:    session.NewStore(),
+		registry:    rendezvous.NewRegistry(),
+		hub:         signaling.NewHub(),
+		keyPair:     kp,
+		tokens:      tokens,
+		db:          db,
+		adminToken:  loadAdminToken(cfg.AdminToken),
+		loginLimit:  newKeyedLimiter(20, time.Minute),
+		redeemLimit: newKeyedLimiter(30, time.Minute),
+		upgrader:    websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
 	}
 
 	if cfg.EnableTURN {
@@ -89,6 +120,7 @@ func New(cfg Config) (*Server, error) {
 		}
 		secret, err := loadOrCreateTURNSecret(secretPath)
 		if err != nil {
+			_ = db.Close()
 			return nil, err
 		}
 		s.turnSecret = secret
@@ -107,6 +139,7 @@ func New(cfg Config) (*Server, error) {
 		}
 	}
 
+	log.Printf("connectd: sqlite %s", cfg.DBPath)
 	return s, nil
 }
 
@@ -121,6 +154,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/session", s.handleSession)
 	mux.HandleFunc("/api/agents", s.handleAgents)
 	mux.HandleFunc("/api/sessions", s.handleSessions)
+	mux.HandleFunc("/api/me", s.handleMe)
+	mux.HandleFunc("/api/auth/redeem", s.handleAuthRedeem)
+	mux.HandleFunc("/api/auth/logout", s.handleAuthLogout)
+	mux.HandleFunc("/api/admin/login", s.handleAdminLogin)
+	mux.HandleFunc("/api/admin/logout", s.handleAdminLogout)
+	mux.HandleFunc("/api/admin/me", s.handleAdminMe)
+	mux.HandleFunc("/api/admin/tenants", s.handleAdminTenants)
+	mux.HandleFunc("/api/admin/tenants/", s.handleAdminAccessAccounts)
+	mux.HandleFunc("/api/admin/access-accounts/", s.handleAdminRevokeAccess)
+	mux.HandleFunc("/api/admin/agents", s.handleAdminAgents)
 	mux.HandleFunc("/ws", s.handleWS)
 	mux.HandleFunc("/v/", s.handleViewer)
 	mux.Handle("/", http.FileServer(http.FS(s.cfg.StaticRoot)))
@@ -140,17 +183,29 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
+	claims, ok := s.requireTech(w, r)
+	if !ok {
+		return
+	}
 	switch r.Method {
 	case http.MethodPost:
 		var body struct {
 			DeviceID string `json:"deviceId"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		agents := s.registry.ListByTenant(claims.TenantID)
 		if body.DeviceID == "" {
-			agents := s.registry.List()
 			if len(agents) > 0 {
 				body.DeviceID = agents[0].DeviceID
 			}
+		}
+		if body.DeviceID == "" {
+			http.Error(w, "no agent online", http.StatusBadRequest)
+			return
+		}
+		if !s.deviceInTenant(body.DeviceID, claims.TenantID) {
+			http.Error(w, "device not in tenant", http.StatusForbidden)
+			return
 		}
 		sess, err := s.sessions.Create(body.DeviceID, 30*time.Minute)
 		if err != nil {
@@ -163,17 +218,57 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 			"viewer":   sess.ViewerURL(s.cfg.PublicURL),
 			"expires":  sess.ExpiresAt,
 		})
+	case http.MethodDelete:
+		code := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("code")))
+		if code == "" {
+			http.Error(w, "code required", http.StatusBadRequest)
+			return
+		}
+		if sess, ok := s.sessions.Get(code); ok && !s.deviceInTenant(sess.DeviceID, claims.TenantID) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		s.sessions.Delete(code)
+		writeJSON(w, map[string]any{"ok": true, "code": code})
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
 func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, s.registry.List())
+	claims, ok := s.requireTech(w, r)
+	if !ok {
+		return
+	}
+	writeJSON(w, s.registry.ListByTenant(claims.TenantID))
 }
 
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, s.sessions.List())
+	claims, ok := s.requireTech(w, r)
+	if !ok {
+		return
+	}
+	all := s.sessions.List()
+	out := make([]*session.Session, 0, len(all))
+	for _, sess := range all {
+		if s.deviceInTenant(sess.DeviceID, claims.TenantID) {
+			out = append(out, sess)
+		}
+	}
+	writeJSON(w, out)
+}
+
+func (s *Server) deviceInTenant(deviceID, tenantID string) bool {
+	if deviceID == "" || tenantID == "" {
+		return false
+	}
+	if a, ok := s.registry.Get(deviceID); ok && a.TenantID == tenantID {
+		return true
+	}
+	if b, err := s.db.GetAgentBinding(deviceID); err == nil && b.TenantID == tenantID {
+		return true
+	}
+	return false
 }
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
@@ -181,6 +276,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	sessionCode := r.URL.Query().Get("session")
 	deviceID := r.URL.Query().Get("deviceId")
 	hostname := r.URL.Query().Get("hostname")
+	tenantID := strings.TrimSpace(r.URL.Query().Get("tenantId"))
 
 	if role != signaling.RoleAgent && role != signaling.RoleViewer {
 		http.Error(w, "role must be agent or viewer", http.StatusBadRequest)
@@ -198,6 +294,24 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		if _, ok := s.sessions.Get(sessionCode); !ok {
 			http.Error(w, "invalid or expired session", http.StatusNotFound)
 			return
+		}
+	}
+	if role == signaling.RoleAgent {
+		if tenantID == "" {
+			if b, err := s.db.GetAgentBinding(deviceID); err == nil {
+				tenantID = b.TenantID
+			}
+		}
+		if s.cfg.RequireTenant && tenantID == "" {
+			http.Error(w, "tenantId required", http.StatusForbidden)
+			return
+		}
+		if tenantID != "" {
+			if _, err := s.db.GetTenant(tenantID); err != nil {
+				http.Error(w, "unknown tenant", http.StatusForbidden)
+				return
+			}
+			_ = s.db.UpsertAgentBinding(deviceID, tenantID, hostname)
 		}
 	}
 
@@ -218,6 +332,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		s.hub.RegisterAgent(deviceID, peer)
 		s.registry.Register(rendezvous.AgentInfo{
 			DeviceID: deviceID,
+			TenantID: tenantID,
 			Hostname: hostname,
 		})
 		_ = peer.Send(signaling.Message{
@@ -226,6 +341,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			Payload: mustRaw(map[string]any{
 				"publicKey":  s.PublicKey(),
 				"iceServers": s.ICEServers(),
+				"tenantId":   tenantID,
 			}),
 		})
 	} else {
@@ -275,9 +391,15 @@ func (s *Server) handleViewer(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) readLoop(peer *signaling.Peer) {
 	defer func() {
+		sessCode := peer.Session
+		role := peer.Role
 		s.hub.Unregister(peer)
-		if peer.Role == signaling.RoleAgent {
+		if role == signaling.RoleAgent {
 			s.registry.Remove(peer.DeviceID)
+		}
+		// Viewer leave ends the Access ticket so Active Sessions does not grow forever.
+		if role == signaling.RoleViewer && sessCode != "" {
+			s.sessions.Delete(sessCode)
 		}
 		_ = peer.Conn.Close()
 	}()

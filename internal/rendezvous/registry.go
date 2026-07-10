@@ -7,6 +7,7 @@ import (
 
 type AgentInfo struct {
 	DeviceID   string    `json:"deviceId"`
+	TenantID   string    `json:"tenantId,omitempty"`
 	Hostname   string    `json:"hostname"`
 	Connected  time.Time `json:"connected"`
 	LastSeen   time.Time `json:"lastSeen"`
@@ -68,4 +69,16 @@ func (r *Registry) Get(deviceID string) (AgentInfo, bool) {
 		return AgentInfo{}, false
 	}
 	return *a, true
+}
+
+func (r *Registry) ListByTenant(tenantID string) []AgentInfo {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]AgentInfo, 0)
+	for _, a := range r.agents {
+		if a.TenantID == tenantID {
+			out = append(out, *a)
+		}
+	}
+	return out
 }

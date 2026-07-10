@@ -43,6 +43,9 @@ func (a *Agent) connectOnce() error {
 	q.Set("role", "agent")
 	q.Set("deviceId", a.cfg.DeviceID)
 	q.Set("hostname", a.cfg.Hostname)
+	if a.cfg.TenantID != "" {
+		q.Set("tenantId", a.cfg.TenantID)
+	}
 	u.RawQuery = q.Encode()
 
 	dialer := websocket.DefaultDialer

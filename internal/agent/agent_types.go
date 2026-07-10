@@ -15,6 +15,7 @@ var h264Capability = webrtc.RTPCodecCapability{
 type Config struct {
 	ServerURL   string
 	DeviceID    string
+	TenantID    string
 	Hostname    string
 	Monitor     int
 	Width       int
