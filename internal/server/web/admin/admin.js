@@ -1,5 +1,6 @@
 let selectedTenant = null;
 let issuedCode = "";
+let issuedEnrollCode = "";
 let tenantsCache = [];
 
 async function api(path, opts = {}) {
@@ -54,7 +55,12 @@ function setTab(name) {
   document.querySelectorAll(".tab").forEach((t) => {
     t.classList.toggle("active", t.id === `tab-${name}`);
   });
-  const titles = { tenants: "Tenants", accounts: "Access codes", agents: "Agents" };
+  const titles = {
+    tenants: "Tenants",
+    accounts: "Access codes",
+    enrollments: "Enrollments",
+    agents: "Agents",
+  };
   document.getElementById("page-title").textContent = titles[name] || name;
 }
 
@@ -130,7 +136,17 @@ document.getElementById("tenant-form").onsubmit = async (ev) => {
 document.getElementById("account-tenant").onchange = async (ev) => {
   selectedTenant = ev.target.value || null;
   document.getElementById("issued").hidden = true;
+  syncTenantSelects();
   await loadAccounts();
+  await loadEnrollments();
+};
+
+document.getElementById("enroll-tenant").onchange = async (ev) => {
+  selectedTenant = ev.target.value || null;
+  document.getElementById("issued-enroll").hidden = true;
+  syncTenantSelects();
+  await loadAccounts();
+  await loadEnrollments();
 };
 
 document.getElementById("issue-form").onsubmit = async (ev) => {
@@ -156,6 +172,36 @@ document.getElementById("issue-form").onsubmit = async (ev) => {
   }
 };
 
+document.getElementById("enroll-form").onsubmit = async (ev) => {
+  ev.preventDefault();
+  if (!selectedTenant) {
+    toast("Select a tenant first");
+    return;
+  }
+  try {
+    const label = document.getElementById("enroll-label").value.trim();
+    const ttlHours = Number(document.getElementById("enroll-ttl").value) || 168;
+    const body = await api(`/api/admin/tenants/${selectedTenant}/enrollments`, {
+      method: "POST",
+      body: JSON.stringify({ label, ttlHours }),
+    });
+    issuedEnrollCode = body.enrollmentCode;
+    const hint =
+      body.agentHint ||
+      `connect-agent.exe -server wss://${location.host}/ws -enroll ${issuedEnrollCode}`;
+    document.getElementById("issued-enroll").hidden = false;
+    document.getElementById("issued-enroll-code").textContent = issuedEnrollCode;
+    document.getElementById("issued-enroll-hint").textContent = hint.replace("HOST", location.host);
+    document.getElementById("issued-enroll-ttl").textContent =
+      `One-time use · expires ${fmtTime(body.expiresAt)} · not shown again.`;
+    document.getElementById("enroll-label").value = "";
+    toast("Enrollment code issued — copy it now");
+    await loadEnrollments();
+  } catch (e) {
+    toast(e.message);
+  }
+};
+
 document.getElementById("copy-code").onclick = async () => {
   if (!issuedCode) return;
   try {
@@ -166,11 +212,22 @@ document.getElementById("copy-code").onclick = async () => {
   }
 };
 
+document.getElementById("copy-enroll").onclick = async () => {
+  if (!issuedEnrollCode) return;
+  try {
+    await navigator.clipboard.writeText(issuedEnrollCode);
+    toast("Copied");
+  } catch {
+    toast(issuedEnrollCode);
+  }
+};
+
 async function refreshAll() {
   tenantsCache = (await api("/api/admin/tenants")) || [];
   renderTenants();
-  fillTenantSelect();
+  fillTenantSelects();
   await loadAccounts();
+  await loadEnrollments();
   await loadAgents();
 }
 
@@ -199,18 +256,30 @@ function renderTenants() {
     if (!row) return;
     selectedTenant = row.dataset.id;
     document.getElementById("issued").hidden = true;
+    document.getElementById("issued-enroll").hidden = true;
     renderTenants();
-    fillTenantSelect();
+    fillTenantSelects();
     loadAccounts();
+    loadEnrollments();
   };
 }
 
-function fillTenantSelect() {
-  const sel = document.getElementById("account-tenant");
-  sel.innerHTML = tenantsCache.length
+function fillTenantSelects() {
+  const opts = tenantsCache.length
     ? tenantsCache.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join("")
     : '<option value="">No tenants</option>';
-  if (selectedTenant) sel.value = selectedTenant;
+  for (const id of ["account-tenant", "enroll-tenant"]) {
+    const sel = document.getElementById(id);
+    sel.innerHTML = opts;
+    if (selectedTenant) sel.value = selectedTenant;
+  }
+}
+
+function syncTenantSelects() {
+  for (const id of ["account-tenant", "enroll-tenant"]) {
+    const sel = document.getElementById(id);
+    if (selectedTenant) sel.value = selectedTenant;
+  }
 }
 
 async function loadAccounts() {
@@ -250,6 +319,49 @@ async function loadAccounts() {
     };
   } catch (e) {
     body.innerHTML = `<tr><td colspan="4" class="empty">${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+async function loadEnrollments() {
+  const body = document.getElementById("enroll-body");
+  if (!selectedTenant) {
+    body.innerHTML = '<tr><td colspan="5" class="empty">Create a tenant first</td></tr>';
+    return;
+  }
+  try {
+    const list = (await api(`/api/admin/tenants/${selectedTenant}/enrollments`)) || [];
+    body.innerHTML = list.length
+      ? list
+          .map(
+            (e) => `<tr>
+          <td>${escapeHtml(e.label || "—")}</td>
+          <td>${escapeHtml(e.status)}</td>
+          <td class="mono">${escapeHtml(e.deviceId || "—")}</td>
+          <td class="hint">${escapeHtml(fmtTime(e.createdAt))}${
+              e.expiresAt ? `<br><span title="Expires">→ ${escapeHtml(fmtTime(e.expiresAt))}</span>` : ""
+            }</td>
+          <td>${
+            e.status === "pending"
+              ? `<button type="button" class="btn-danger" data-revoke-enroll="${escapeHtml(e.id)}">Revoke</button>`
+              : ""
+          }</td>
+        </tr>`
+          )
+          .join("")
+      : '<tr><td colspan="5" class="empty">No enrollment codes for this tenant</td></tr>';
+    body.onclick = async (ev) => {
+      const btn = ev.target.closest("[data-revoke-enroll]");
+      if (!btn) return;
+      try {
+        await api(`/api/admin/enrollments/${btn.dataset.revokeEnroll}/revoke`, { method: "POST" });
+        toast("Enrollment revoked");
+        await loadEnrollments();
+      } catch (err) {
+        toast(err.message);
+      }
+    };
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(e.message)}</td></tr>`;
   }
 }
 

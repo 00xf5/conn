@@ -106,6 +106,19 @@ CREATE TABLE IF NOT EXISTS agent_bindings (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_agent_tenant ON agent_bindings(tenant_id);
+CREATE TABLE IF NOT EXISTS enrollment_codes (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  code_hash TEXT NOT NULL,
+  label TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL,
+  device_id TEXT,
+  redeemed_at TEXT,
+  expires_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_enroll_tenant ON enrollment_codes(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_enroll_status ON enrollment_codes(status);
 `)
 	return err
 }

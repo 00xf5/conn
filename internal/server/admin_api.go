@@ -124,55 +124,8 @@ func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAdminAccessAccounts(w http.ResponseWriter, r *http.Request) {
-	if !s.requireAdmin(w, r) {
-		return
-	}
-	path := strings.TrimPrefix(r.URL.Path, "/api/admin/tenants/")
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	// /api/admin/tenants/{id}/access-accounts
-	if len(parts) != 2 || parts[1] != "access-accounts" {
-		http.NotFound(w, r)
-		return
-	}
-	tenantID := parts[0]
-	switch r.Method {
-	case http.MethodGet:
-		list, err := s.db.ListAccessAccounts(tenantID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if list == nil {
-			list = []store.AccessAccount{}
-		}
-		writeJSON(w, list)
-	case http.MethodPost:
-		var body struct {
-			Label string `json:"label"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		code, err := auth.GenerateAccessCode()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		hash, err := auth.HashAccessCode(code)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		acc, err := s.db.CreateAccessAccount(tenantID, body.Label, hash, nil)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		writeJSON(w, map[string]any{
-			"account":    acc,
-			"accessCode": code, // shown once
-		})
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
+	// Legacy name kept for clarity; routing is via handleAdminTenantSubroutes.
+	s.handleAdminTenantSubroutes(w, r)
 }
 
 func (s *Server) handleAdminRevokeAccess(w http.ResponseWriter, r *http.Request) {

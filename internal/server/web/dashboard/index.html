@@ -55,6 +55,7 @@
       <section class="list-pane">
         <div class="list-toolbar">
           <input id="filter" type="search" placeholder="Filter machines…" autocomplete="off" />
+          <button type="button" class="add-machine-btn" id="btn-add-machine">Add machine</button>
         </div>
         <div class="list-head">
           <span class="col-status"></span>
@@ -97,6 +98,47 @@
           <p class="detail-note" id="detail-note"></p>
         </div>
       </aside>
+    </div>
+  </div>
+
+  <div id="enroll-modal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-labelledby="enroll-title">
+      <header class="modal-head">
+        <h2 id="enroll-title">Add machine</h2>
+        <button type="button" class="modal-close" id="enroll-close" aria-label="Close">×</button>
+      </header>
+      <p class="modal-help">Issue a one-time enrollment code, then run the agent on the host PC.</p>
+      <form id="enroll-issue-form" class="modal-form">
+        <input id="enroll-label" type="text" placeholder="Label (optional)" autocomplete="off" />
+        <select id="enroll-ttl" title="How long the code stays valid" aria-label="TTL">
+          <option value="1">1 hour</option>
+          <option value="6">6 hours</option>
+          <option value="24">1 day</option>
+          <option value="72">3 days</option>
+          <option value="168" selected>7 days</option>
+          <option value="336">14 days</option>
+          <option value="720">30 days</option>
+          <option value="2160">90 days</option>
+        </select>
+        <button type="submit" id="enroll-issue-btn">Issue enrollment code</button>
+      </form>
+      <div id="enroll-result" class="enroll-result" hidden>
+        <label>Enrollment code</label>
+        <div class="enroll-code-row">
+          <code id="enroll-code"></code>
+          <button type="button" class="secondary-btn" id="enroll-copy-code">Copy</button>
+        </div>
+        <label>Run on the host</label>
+        <div class="enroll-code-row">
+          <code id="enroll-cmd" class="enroll-cmd"></code>
+          <button type="button" class="secondary-btn" id="enroll-copy-cmd">Copy</button>
+        </div>
+        <p class="modal-note" id="enroll-ttl-note">One-time use. After enroll, the machine appears in this list when the agent is online.</p>
+      </div>
+      <div class="enroll-list-wrap">
+        <div class="enroll-list-title">Recent enrollments</div>
+        <div id="enroll-list" class="enroll-list"></div>
+      </div>
     </div>
   </div>
 

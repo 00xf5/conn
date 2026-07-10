@@ -357,4 +357,100 @@ document.querySelector(".mode-tabs").onclick = (ev) => {
   });
 };
 
+let lastEnrollCode = "";
+let lastEnrollCmd = "";
+
+function enrollCmd(code) {
+  return `connect-agent.exe -server wss://${location.host}/ws -enroll ${code}`;
+}
+
+function showEnrollModal(on) {
+  document.getElementById("enroll-modal").hidden = !on;
+  if (on) {
+    document.getElementById("enroll-result").hidden = true;
+    document.getElementById("enroll-label").value = "";
+    loadEnrollments().catch((e) => toast(e.message));
+  }
+}
+
+async function loadEnrollments() {
+  const el = document.getElementById("enroll-list");
+  try {
+    const list = (await api("/api/enrollments")) || [];
+    if (!list.length) {
+      el.innerHTML = '<div class="enroll-empty">No enrollment codes yet</div>';
+      return;
+    }
+    el.innerHTML = list
+      .slice(0, 12)
+      .map((e) => {
+        const revoke =
+          e.status === "pending"
+            ? `<button type="button" class="link-btn" data-revoke-enroll="${escapeHtml(e.id)}">Revoke</button>`
+            : "";
+        return `<div class="enroll-row">
+          <span>${escapeHtml(e.label || "—")}</span>
+          <span class="mono">${escapeHtml(e.status)}${e.deviceId ? " · " + escapeHtml(shortId(e.deviceId)) : ""}</span>
+          ${revoke}
+        </div>`;
+      })
+      .join("");
+  } catch (err) {
+    el.innerHTML = `<div class="enroll-empty">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+document.getElementById("btn-add-machine").onclick = () => showEnrollModal(true);
+document.getElementById("enroll-close").onclick = () => showEnrollModal(false);
+document.getElementById("enroll-modal").onclick = (ev) => {
+  if (ev.target.id === "enroll-modal") showEnrollModal(false);
+};
+
+document.getElementById("enroll-issue-form").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const btn = document.getElementById("enroll-issue-btn");
+  btn.disabled = true;
+  try {
+    const label = document.getElementById("enroll-label").value.trim();
+    const ttlHours = Number(document.getElementById("enroll-ttl").value) || 168;
+    const body = await api("/api/enrollments", {
+      method: "POST",
+      body: JSON.stringify({ label, ttlHours }),
+    });
+    lastEnrollCode = body.enrollmentCode;
+    lastEnrollCmd =
+      (body.agentHint || enrollCmd(lastEnrollCode)).replace("HOST", location.host);
+    document.getElementById("enroll-code").textContent = lastEnrollCode;
+    document.getElementById("enroll-cmd").textContent = lastEnrollCmd;
+    document.getElementById("enroll-ttl-note").textContent =
+      `One-time use · expires ${fmtTime(body.expiresAt)}. After enroll, the machine appears when the agent is online.`;
+    document.getElementById("enroll-result").hidden = false;
+    toast("Enrollment code issued — copy it now");
+    await loadEnrollments();
+  } catch (e) {
+    toast(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("enroll-copy-code").onclick = () => {
+  if (lastEnrollCode) copyText(lastEnrollCode);
+};
+document.getElementById("enroll-copy-cmd").onclick = () => {
+  if (lastEnrollCmd) copyText(lastEnrollCmd);
+};
+
+document.getElementById("enroll-list").onclick = async (ev) => {
+  const btn = ev.target.closest("[data-revoke-enroll]");
+  if (!btn) return;
+  try {
+    await api(`/api/enrollments/${btn.dataset.revokeEnroll}/revoke`, { method: "POST" });
+    toast("Enrollment revoked");
+    await loadEnrollments();
+  } catch (e) {
+    toast(e.message);
+  }
+};
+
 boot();

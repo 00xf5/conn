@@ -22,8 +22,9 @@ const (
 	CookieAdmin = "connect_admin"
 	CookieTech  = "connect_tech"
 
-	AccessCodeLen = 20
-	accessAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	AccessCodeLen      = 20
+	EnrollmentCodeLen  = 16
+	accessAlphabet     = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 )
 
 type TokenClaims struct {
@@ -97,15 +98,27 @@ func (t *TokenSigner) Parse(token string) (TokenClaims, error) {
 }
 
 func GenerateAccessCode() (string, error) {
-	b := make([]byte, AccessCodeLen)
+	return formatGroupedCode(AccessCodeLen)
+}
+
+// GenerateEnrollmentCode returns a one-time host enrollment code (ENR-…).
+func GenerateEnrollmentCode() (string, error) {
+	s, err := formatGroupedCode(EnrollmentCodeLen)
+	if err != nil {
+		return "", err
+	}
+	return "ENR-" + s, nil
+}
+
+func formatGroupedCode(n int) (string, error) {
+	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
-	out := make([]byte, AccessCodeLen)
+	out := make([]byte, n)
 	for i := range b {
 		out[i] = accessAlphabet[int(b[i])%len(accessAlphabet)]
 	}
-	// Format XXXX-XXXX-XXXX-XXXX-XXXX for readability
 	s := string(out)
 	var parts []string
 	for i := 0; i < len(s); i += 4 {
@@ -122,6 +135,19 @@ func NormalizeAccessCode(code string) string {
 	code = strings.ToUpper(strings.TrimSpace(code))
 	code = strings.ReplaceAll(code, "-", "")
 	code = strings.ReplaceAll(code, " ", "")
+	code = strings.TrimPrefix(code, "ENR")
+	return code
+}
+
+func NormalizeEnrollmentCode(code string) string {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	code = strings.ReplaceAll(code, " ", "")
+	if strings.HasPrefix(code, "ENR-") {
+		code = strings.TrimPrefix(code, "ENR-")
+	} else if strings.HasPrefix(code, "ENR") {
+		code = strings.TrimPrefix(code, "ENR")
+	}
+	code = strings.ReplaceAll(code, "-", "")
 	return code
 }
 
@@ -134,7 +160,21 @@ func HashAccessCode(code string) (string, error) {
 	return string(h), err
 }
 
+func HashEnrollmentCode(code string) (string, error) {
+	norm := NormalizeEnrollmentCode(code)
+	if len(norm) < 12 {
+		return "", fmt.Errorf("enrollment code too short")
+	}
+	h, err := bcrypt.GenerateFromPassword([]byte(norm), bcrypt.DefaultCost)
+	return string(h), err
+}
+
 func CheckAccessCode(hash, code string) bool {
 	norm := NormalizeAccessCode(code)
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(norm)) == nil
+}
+
+func CheckEnrollmentCode(hash, code string) bool {
+	norm := NormalizeEnrollmentCode(code)
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(norm)) == nil
 }

@@ -183,12 +183,14 @@ Public / ticket-auth:
 
 Agents must not join a global pool after multi-tenant ships.
 
-**POC-acceptable options (pick one in implementation; document in release notes):**
+**One-time enrollment code (shipped):**
 
-1. **Config field** — `tenantId` in `%LOCALAPPDATA%\Connect\config.json` (admin-provided)  
-2. **Enrollment code** — one-time code from Admin redeemable by agent on first connect; server maps device → tenant  
+1. Admin (`/admin/` → Enrollments) or tech (Host → **Add machine**) issues `ENR-…` code (configurable TTL, default 7 days, shown once).
+2. On the host: `connect-agent.exe -server wss://HOST/ws -enroll ENR-…`
+3. Agent `POST /api/agent/enroll` → server binds `deviceId` → `tenantId`, marks code redeemed.
+4. Agent writes `tenantId` into `%LOCALAPPDATA%\Connect\config.json` and registers on WS.
 
-Recommended long-term: (2). Acceptable first cut: (1) for internal testing.
+Fallback for lab: `"tenantId"` in config or `-tenant` flag.
 
 Register WS query/body must include `tenantId` (or enrollment redemption before `registered`).
 
@@ -319,6 +321,7 @@ Existing WS + ICE; add tenant on register. Media stack unchanged.
 ### Phase M4 — Agent tenant binding
 
 - [x] `tenantId` in agent config / `-tenant` flag; WS register + SQLite binding
+- [x] One-time enrollment codes (`ENR-…`): Admin + Host **Add machine**, agent `-enroll`
 - [ ] Optional: reject unbound agents with `CONNECT_REQUIRE_TENANT=1` (flag exists; enable in prod)
 
 ### Phase M5 — Harden
@@ -336,8 +339,8 @@ Existing WS + ICE; add tenant on register. Media stack unchanged.
 
 - Set `CONNECT_ADMIN_TOKEN` before production (otherwise a one-shot token is logged at startup).
 - SQLite file: `data/connect.db` (override with `-db`).
-- Bind agents with `"tenantId": "<uuid>"` in config or `-tenant`.
-- Access codes are **not** session tickets (`/v/CODE`).
+- Bind agents with enrollment (`-enroll ENR-…`) or `"tenantId"` / `-tenant`.
+- Access codes are **not** session tickets (`/v/CODE`). Enrollment codes are **not** Access codes.
 ---
 
 ## 14. Acceptance criteria (do not ship M3 without)

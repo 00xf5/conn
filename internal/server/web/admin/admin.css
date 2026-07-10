@@ -210,6 +210,18 @@ tr.selected td { background: #eaf1ff; }
   font-weight: 700;
   letter-spacing: 0.02em;
 }
+.enroll-hint {
+  flex: 1 1 100%;
+  margin: 0;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid #c5d8ff;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
 
 .badge {
   display: inline-flex;

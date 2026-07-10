@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 	"runtime"
 
 	"connect/internal/agent"
@@ -12,6 +13,7 @@ func main() {
 	serverURL := flag.String("server", "", "connectd WebSocket URL (overrides config.json)")
 	deviceID := flag.String("device", "", "device ID (auto-generated if empty)")
 	tenantID := flag.String("tenant", "", "tenant ID (binds agent to Access tenant)")
+	enroll := flag.String("enroll", "", "one-time enrollment code (ENR-…); binds tenant and saves config")
 	width := flag.Int("width", 0, "stream width (default from config or 854)")
 	height := flag.Int("height", 0, "stream height (default from config or 480)")
 	fps := flag.Int("fps", 0, "capture FPS (default from config or 20)")
@@ -47,11 +49,34 @@ func main() {
 		cfg = agent.NormalizeConfig(cfg)
 	}
 
+	if *enroll != "" {
+		if cfg.ServerURL == "" {
+			log.Fatal("connect-agent: -enroll requires -server or serverUrl in config")
+		}
+		// Stable device id before redeem so binding survives restarts.
+		probe := agent.New(cfg)
+		cfg.DeviceID = probe.DeviceID()
+		host := cfg.Hostname
+		if host == "" {
+			host, _ = os.Hostname()
+		}
+		tid, tname, err := agent.EnrollWithCode(cfg.ServerURL, *enroll, cfg.DeviceID, host, cfg.InsecureTLS)
+		if err != nil {
+			log.Fatalf("connect-agent: enroll: %v", err)
+		}
+		cfg.TenantID = tid
+		cfg.Hostname = host
+		if err := agent.SaveConfigFile(cfg); err != nil {
+			log.Fatalf("connect-agent: save config: %v", err)
+		}
+		log.Printf("connect-agent: enrolled tenant=%s (%s); config saved", tname, tid)
+	}
+
 	a := agent.New(cfg)
 
 	if *console {
 		enableConsole()
-		log.Printf("connect-agent starting (device=%s)", a.DeviceID())
+		log.Printf("connect-agent starting (device=%s tenant=%s)", a.DeviceID(), cfg.TenantID)
 		if err := a.Run(); err != nil {
 			log.Fatal(err)
 		}
@@ -60,12 +85,12 @@ func main() {
 
 	if runtime.GOOS == "windows" {
 		logPath := setupFileLog()
-		log.Printf("connect-agent starting (device=%s)", a.DeviceID())
+		log.Printf("connect-agent starting (device=%s tenant=%s)", a.DeviceID(), cfg.TenantID)
 		runTray(a, logPath)
 		return
 	}
 
-	log.Printf("connect-agent starting (device=%s)", a.DeviceID())
+	log.Printf("connect-agent starting (device=%s tenant=%s)", a.DeviceID(), cfg.TenantID)
 	if err := a.Run(); err != nil {
 		log.Fatal(err)
 	}
