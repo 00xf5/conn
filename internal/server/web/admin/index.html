@@ -3,67 +3,105 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Connect — Admin</title>
+  <title>Connect Admin</title>
   <link rel="stylesheet" href="/admin/admin.css" />
 </head>
 <body>
-  <div id="login" class="gate">
-    <form id="login-form" class="card">
-      <h1>Connect Admin</h1>
-      <p class="muted">Platform bootstrap token</p>
-      <input id="admin-token" type="password" autocomplete="current-password" placeholder="CONNECT_ADMIN_TOKEN" required />
-      <button type="submit">Sign in</button>
+  <div id="login" class="login-screen">
+    <form id="login-form" class="login-box">
+      <div class="login-brand">Connect</div>
+      <h1>Admin sign in</h1>
+      <p class="login-help">Enter the platform admin token from <code>CONNECT_ADMIN_TOKEN</code>.</p>
+      <label for="admin-token">Admin token</label>
+      <input id="admin-token" type="password" autocomplete="current-password" required autofocus />
+      <button type="submit" id="login-btn">Sign in</button>
       <p id="login-err" class="err" hidden></p>
     </form>
   </div>
 
-  <div id="app" class="app" hidden>
-    <header class="bar">
-      <strong>Connect Admin</strong>
-      <span class="spacer"></span>
-      <button type="button" id="btn-logout" class="ghost">Logout</button>
-    </header>
-    <main class="grid">
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Tenants</h2>
-          <form id="tenant-form" class="inline">
-            <input id="tenant-name" placeholder="Tenant name" required />
-            <button type="submit">Create</button>
+  <div id="app" class="shell" hidden>
+    <aside class="sidebar">
+      <div class="sidebar-brand">Connect Admin</div>
+      <nav class="sidebar-nav">
+        <button type="button" class="nav-btn active" data-tab="tenants">Tenants</button>
+        <button type="button" class="nav-btn" data-tab="accounts">Access codes</button>
+        <button type="button" class="nav-btn" data-tab="agents">Agents</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div id="admin-status" class="sidebar-status">Signed in</div>
+        <button type="button" id="btn-logout" class="btn-secondary">Sign out</button>
+      </div>
+    </aside>
+
+    <div class="content">
+      <header class="content-bar">
+        <h1 id="page-title">Tenants</h1>
+        <button type="button" id="btn-refresh" class="btn-secondary">Refresh</button>
+      </header>
+
+      <section id="tab-tenants" class="tab active">
+        <div class="toolbar">
+          <form id="tenant-form" class="toolbar-form">
+            <input id="tenant-name" placeholder="New tenant name" required />
+            <button type="submit">Create tenant</button>
           </form>
         </div>
-        <ul id="tenant-list" class="list"></ul>
+        <div class="table-card">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>ID</th><th>Status</th><th>Created</th></tr>
+            </thead>
+            <tbody id="tenant-body">
+              <tr><td colspan="4" class="empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Access accounts</h2>
-          <span id="tenant-label" class="muted">Select a tenant</span>
+      <section id="tab-accounts" class="tab">
+        <div class="toolbar">
+          <label class="field">
+            <span>Tenant</span>
+            <select id="account-tenant"></select>
+          </label>
+          <form id="issue-form" class="toolbar-form">
+            <input id="issue-label" placeholder="Label (optional)" />
+            <button type="submit">Issue access code</button>
+          </form>
         </div>
-        <form id="issue-form" class="inline" hidden>
-          <input id="issue-label" placeholder="Label (optional)" />
-          <button type="submit">Issue access code</button>
-        </form>
         <div id="issued" class="issued" hidden>
-          <div>Access code (copy now — shown once)</div>
+          <strong>Copy this access code now</strong>
           <code id="issued-code"></code>
-          <button type="button" id="copy-code" class="ghost">Copy</button>
+          <button type="button" id="copy-code" class="btn-secondary">Copy</button>
+          <span class="hint">It will not be shown again.</span>
         </div>
-        <table class="table">
-          <thead><tr><th>Label</th><th>Status</th><th>Created</th><th></th></tr></thead>
-          <tbody id="account-body"></tbody>
-        </table>
+        <div class="table-card">
+          <table>
+            <thead>
+              <tr><th>Label</th><th>Status</th><th>Created</th><th></th></tr>
+            </thead>
+            <tbody id="account-body">
+              <tr><td colspan="4" class="empty">Select a tenant</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      <section class="panel wide">
-        <div class="panel-head"><h2>Agents</h2></div>
-        <table class="table">
-          <thead><tr><th>Online</th><th>Hostname</th><th>Tenant</th><th>Device</th></tr></thead>
-          <tbody id="agent-body"></tbody>
-        </table>
+      <section id="tab-agents" class="tab">
+        <div class="table-card">
+          <table>
+            <thead>
+              <tr><th>Status</th><th>Hostname</th><th>Tenant</th><th>Device</th><th>Last seen</th></tr>
+            </thead>
+            <tbody id="agent-body">
+              <tr><td colspan="5" class="empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
-    </main>
+    </div>
   </div>
+
   <div id="toast" class="toast" hidden></div>
   <script src="/admin/admin.js"></script>
 </body>

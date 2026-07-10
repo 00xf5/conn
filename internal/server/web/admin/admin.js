@@ -1,5 +1,6 @@
 let selectedTenant = null;
 let issuedCode = "";
+let tenantsCache = [];
 
 async function api(path, opts = {}) {
   const res = await fetch(path, {
@@ -7,9 +8,20 @@ async function api(path, opts = {}) {
     headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
     ...opts,
   });
-  if (!res.ok) throw new Error((await res.text()) || res.statusText);
-  if (res.status === 204) return null;
-  return res.json();
+  const text = await res.text();
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+  }
+  if (!res.ok) {
+    const msg = typeof data === "string" ? data : data?.error || text || res.statusText;
+    throw new Error(msg.trim() || res.statusText);
+  }
+  return data;
 }
 
 function toast(msg) {
@@ -17,151 +29,9 @@ function toast(msg) {
   el.hidden = false;
   el.textContent = msg;
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => { el.hidden = true; }, 2800);
-}
-
-function showApp(on) {
-  document.getElementById("login").hidden = on;
-  document.getElementById("app").hidden = !on;
-}
-
-async function boot() {
-  try {
-    await api("/api/admin/me");
-    showApp(true);
-    await refresh();
-  } catch {
-    showApp(false);
-  }
-}
-
-document.getElementById("login-form").onsubmit = async (ev) => {
-  ev.preventDefault();
-  const err = document.getElementById("login-err");
-  err.hidden = true;
-  try {
-    await api("/api/admin/login", {
-      method: "POST",
-      body: JSON.stringify({ token: document.getElementById("admin-token").value }),
-    });
-    showApp(true);
-    await refresh();
-  } catch (e) {
-    err.hidden = false;
-    err.textContent = e.message;
-  }
-};
-
-document.getElementById("btn-logout").onclick = async () => {
-  await api("/api/admin/logout", { method: "POST" });
-  showApp(false);
-};
-
-document.getElementById("tenant-form").onsubmit = async (ev) => {
-  ev.preventDefault();
-  const name = document.getElementById("tenant-name").value.trim();
-  const t = await api("/api/admin/tenants", { method: "POST", body: JSON.stringify({ name }) });
-  document.getElementById("tenant-name").value = "";
-  selectedTenant = t.id;
-  toast("Tenant created");
-  await refresh();
-};
-
-document.getElementById("issue-form").onsubmit = async (ev) => {
-  ev.preventDefault();
-  if (!selectedTenant) return;
-  const label = document.getElementById("issue-label").value.trim();
-  const body = await api(`/api/admin/tenants/${selectedTenant}/access-accounts`, {
-    method: "POST",
-    body: JSON.stringify({ label }),
-  });
-  issuedCode = body.accessCode;
-  document.getElementById("issued").hidden = false;
-  document.getElementById("issued-code").textContent = issuedCode;
-  document.getElementById("issue-label").value = "";
-  toast("Access code issued");
-  await loadAccounts();
-};
-
-document.getElementById("copy-code").onclick = async () => {
-  if (!issuedCode) return;
-  await navigator.clipboard.writeText(issuedCode);
-  toast("Copied");
-};
-
-async function refresh() {
-  const tenants = await api("/api/admin/tenants");
-  const ul = document.getElementById("tenant-list");
-  if (!tenants.length) {
-    ul.innerHTML = '<li class="muted">No tenants yet</li>';
-    selectedTenant = null;
-  } else {
-    if (!selectedTenant || !tenants.some((t) => t.id === selectedTenant)) {
-      selectedTenant = tenants[0].id;
-    }
-    ul.innerHTML = tenants
-      .map((t) => `<li data-id="${t.id}" class="${t.id === selectedTenant ? "active" : ""}"><strong>${escapeHtml(t.name)}</strong><div class="muted mono">${escapeHtml(t.id.slice(0, 8))}…</div></li>`)
-      .join("");
-  }
-  ul.onclick = (ev) => {
-    const li = ev.target.closest("[data-id]");
-    if (!li) return;
-    selectedTenant = li.dataset.id;
-    document.getElementById("issued").hidden = true;
-    refresh();
-  };
-  document.getElementById("issue-form").hidden = !selectedTenant;
-  document.getElementById("tenant-label").textContent = selectedTenant
-    ? tenants.find((t) => t.id === selectedTenant)?.name || selectedTenant
-    : "Select a tenant";
-  await loadAccounts();
-  await loadAgents(tenants);
-}
-
-async function loadAccounts() {
-  const body = document.getElementById("account-body");
-  if (!selectedTenant) {
-    body.innerHTML = "";
-    return;
-  }
-  const list = await api(`/api/admin/tenants/${selectedTenant}/access-accounts`);
-  body.innerHTML = list.length
-    ? list
-        .map(
-          (a) => `<tr>
-        <td>${escapeHtml(a.label || "—")}</td>
-        <td>${escapeHtml(a.status)}</td>
-        <td class="muted">${escapeHtml(new Date(a.createdAt).toLocaleString())}</td>
-        <td>${a.status === "revoked" ? "" : `<button type="button" class="ghost" data-revoke="${a.id}">Revoke</button>`}</td>
-      </tr>`
-        )
-        .join("")
-    : '<tr><td colspan="4" class="muted">No access accounts</td></tr>';
-  body.onclick = async (ev) => {
-    const btn = ev.target.closest("[data-revoke]");
-    if (!btn) return;
-    await api(`/api/admin/access-accounts/${btn.dataset.revoke}/revoke`, { method: "POST" });
-    toast("Revoked");
-    await loadAccounts();
-  };
-}
-
-async function loadAgents(tenants) {
-  const byTen = Object.fromEntries((tenants || []).map((t) => [t.id, t.name]));
-  const agents = await api("/api/admin/agents");
-  const body = document.getElementById("agent-body");
-  body.innerHTML = agents.length
-    ? agents
-        .map(
-          (a) => `<tr>
-        <td><span class="dot${a.online ? " on" : ""}"></span> ${a.online ? "Online" : "Offline"}</td>
-        <td>${escapeHtml(a.hostname || "—")}</td>
-        <td>${escapeHtml(byTen[a.tenantId] || a.tenantId || "—")}</td>
-        <td class="mono">${escapeHtml((a.deviceId || "").slice(0, 8))}…</td>
-      </tr>`
-        )
-        .join("")
-    : '<tr><td colspan="4" class="muted">No agents</td></tr>';
+  toast._t = setTimeout(() => {
+    el.hidden = true;
+  }, 3000);
 }
 
 function escapeHtml(s) {
@@ -170,6 +40,247 @@ function escapeHtml(s) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function showApp(authed) {
+  document.getElementById("login").hidden = !!authed;
+  document.getElementById("app").hidden = !authed;
+}
+
+function setTab(name) {
+  document.querySelectorAll(".nav-btn").forEach((b) => {
+    b.classList.toggle("active", b.dataset.tab === name);
+  });
+  document.querySelectorAll(".tab").forEach((t) => {
+    t.classList.toggle("active", t.id === `tab-${name}`);
+  });
+  const titles = { tenants: "Tenants", accounts: "Access codes", agents: "Agents" };
+  document.getElementById("page-title").textContent = titles[name] || name;
+}
+
+async function boot() {
+  showApp(false);
+  try {
+    await api("/api/admin/me");
+    showApp(true);
+    await refreshAll();
+  } catch {
+    showApp(false);
+  }
+}
+
+document.getElementById("login-form").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const err = document.getElementById("login-err");
+  const btn = document.getElementById("login-btn");
+  err.hidden = true;
+  btn.disabled = true;
+  try {
+    await api("/api/admin/login", {
+      method: "POST",
+      body: JSON.stringify({ token: document.getElementById("admin-token").value.trim() }),
+    });
+    document.getElementById("admin-token").value = "";
+    showApp(true);
+    setTab("tenants");
+    await refreshAll();
+  } catch (e) {
+    err.hidden = false;
+    err.textContent = e.message || "Sign in failed";
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("btn-logout").onclick = async () => {
+  try {
+    await api("/api/admin/logout", { method: "POST" });
+  } catch {
+    /* still clear UI */
+  }
+  showApp(false);
+};
+
+document.querySelector(".sidebar-nav").onclick = (ev) => {
+  const btn = ev.target.closest("[data-tab]");
+  if (!btn) return;
+  setTab(btn.dataset.tab);
+};
+
+document.getElementById("btn-refresh").onclick = () => refreshAll().catch((e) => toast(e.message));
+
+document.getElementById("tenant-form").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const name = document.getElementById("tenant-name").value.trim();
+  if (!name) return;
+  try {
+    const t = await api("/api/admin/tenants", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+    document.getElementById("tenant-name").value = "";
+    selectedTenant = t.id;
+    toast(`Tenant “${t.name}” created`);
+    await refreshAll();
+  } catch (e) {
+    toast(e.message);
+  }
+};
+
+document.getElementById("account-tenant").onchange = async (ev) => {
+  selectedTenant = ev.target.value || null;
+  document.getElementById("issued").hidden = true;
+  await loadAccounts();
+};
+
+document.getElementById("issue-form").onsubmit = async (ev) => {
+  ev.preventDefault();
+  if (!selectedTenant) {
+    toast("Select a tenant first");
+    return;
+  }
+  try {
+    const label = document.getElementById("issue-label").value.trim();
+    const body = await api(`/api/admin/tenants/${selectedTenant}/access-accounts`, {
+      method: "POST",
+      body: JSON.stringify({ label }),
+    });
+    issuedCode = body.accessCode;
+    document.getElementById("issued").hidden = false;
+    document.getElementById("issued-code").textContent = issuedCode;
+    document.getElementById("issue-label").value = "";
+    toast("Access code issued — copy it now");
+    await loadAccounts();
+  } catch (e) {
+    toast(e.message);
+  }
+};
+
+document.getElementById("copy-code").onclick = async () => {
+  if (!issuedCode) return;
+  try {
+    await navigator.clipboard.writeText(issuedCode);
+    toast("Copied");
+  } catch {
+    toast(issuedCode);
+  }
+};
+
+async function refreshAll() {
+  tenantsCache = (await api("/api/admin/tenants")) || [];
+  renderTenants();
+  fillTenantSelect();
+  await loadAccounts();
+  await loadAgents();
+}
+
+function renderTenants() {
+  const body = document.getElementById("tenant-body");
+  if (!tenantsCache.length) {
+    body.innerHTML = '<tr><td colspan="4" class="empty">No tenants yet — create one above</td></tr>';
+    return;
+  }
+  if (!selectedTenant || !tenantsCache.some((t) => t.id === selectedTenant)) {
+    selectedTenant = tenantsCache[0].id;
+  }
+  body.innerHTML = tenantsCache
+    .map((t) => {
+      const sel = t.id === selectedTenant ? " selected" : "";
+      return `<tr class="${sel}" data-id="${escapeHtml(t.id)}">
+        <td><strong>${escapeHtml(t.name)}</strong></td>
+        <td class="mono" title="${escapeHtml(t.id)}">${escapeHtml(t.id)}</td>
+        <td>${escapeHtml(t.status)}</td>
+        <td class="hint">${escapeHtml(fmtTime(t.createdAt))}</td>
+      </tr>`;
+    })
+    .join("");
+  body.onclick = (ev) => {
+    const row = ev.target.closest("[data-id]");
+    if (!row) return;
+    selectedTenant = row.dataset.id;
+    document.getElementById("issued").hidden = true;
+    renderTenants();
+    fillTenantSelect();
+    loadAccounts();
+  };
+}
+
+function fillTenantSelect() {
+  const sel = document.getElementById("account-tenant");
+  sel.innerHTML = tenantsCache.length
+    ? tenantsCache.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join("")
+    : '<option value="">No tenants</option>';
+  if (selectedTenant) sel.value = selectedTenant;
+}
+
+async function loadAccounts() {
+  const body = document.getElementById("account-body");
+  if (!selectedTenant) {
+    body.innerHTML = '<tr><td colspan="4" class="empty">Create a tenant first</td></tr>';
+    return;
+  }
+  try {
+    const list = (await api(`/api/admin/tenants/${selectedTenant}/access-accounts`)) || [];
+    body.innerHTML = list.length
+      ? list
+          .map(
+            (a) => `<tr>
+          <td>${escapeHtml(a.label || "—")}</td>
+          <td>${escapeHtml(a.status)}</td>
+          <td class="hint">${escapeHtml(fmtTime(a.createdAt))}</td>
+          <td>${
+            a.status === "revoked"
+              ? ""
+              : `<button type="button" class="btn-danger" data-revoke="${escapeHtml(a.id)}">Revoke</button>`
+          }</td>
+        </tr>`
+          )
+          .join("")
+      : '<tr><td colspan="4" class="empty">No access codes for this tenant</td></tr>';
+    body.onclick = async (ev) => {
+      const btn = ev.target.closest("[data-revoke]");
+      if (!btn) return;
+      try {
+        await api(`/api/admin/access-accounts/${btn.dataset.revoke}/revoke`, { method: "POST" });
+        toast("Access code revoked");
+        await loadAccounts();
+      } catch (e) {
+        toast(e.message);
+      }
+    };
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="4" class="empty">${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+async function loadAgents() {
+  const body = document.getElementById("agent-body");
+  const byTen = Object.fromEntries(tenantsCache.map((t) => [t.id, t.name]));
+  try {
+    const agents = (await api("/api/admin/agents")) || [];
+    body.innerHTML = agents.length
+      ? agents
+          .map(
+            (a) => `<tr>
+          <td><span class="badge"><span class="dot${a.online ? " on" : ""}"></span>${a.online ? "Online" : "Offline"}</span></td>
+          <td>${escapeHtml(a.hostname || "—")}</td>
+          <td>${escapeHtml(byTen[a.tenantId] || a.tenantId || "—")}</td>
+          <td class="mono" title="${escapeHtml(a.deviceId || "")}">${escapeHtml(a.deviceId || "—")}</td>
+          <td class="hint">${escapeHtml(a.lastSeen ? fmtTime(a.lastSeen) : "—")}</td>
+        </tr>`
+          )
+          .join("")
+      : '<tr><td colspan="5" class="empty">No agents registered</td></tr>';
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+function fmtTime(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString();
 }
 
 boot();

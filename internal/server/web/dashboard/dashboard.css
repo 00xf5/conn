@@ -1,4 +1,6 @@
 /* ScreenConnect-style Host page: light 3-pane console */
+[hidden] { display: none !important; }
+
 .gate {
   min-height: 100vh;
   display: grid;
