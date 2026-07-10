@@ -3,6 +3,7 @@ package agent
 import (
 	"os"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v4"
@@ -32,6 +33,11 @@ type Agent struct {
 	warmMu     sync.Mutex
 	warming    bool
 	iceServers []webrtc.ICEServer
+
+	// Gentle adaptive bitrate (session-local; manual slider holds it off briefly).
+	abrBitrateK   int
+	abrLastAdjust time.Time
+	abrHoldUntil  time.Time
 }
 
 func New(cfg Config) *Agent {

@@ -15,9 +15,11 @@ import (
 )
 
 const (
-	startupName   = "Connect Agent.cmd"
-	watchdogName  = "Connect-Watch.cmd"
-	watchTitle    = "Connect Agent Watchdog"
+	startupName    = "Connect Agent.vbs"
+	startupNameOld = "Connect Agent.cmd"
+	watchdogName   = "Connect-Watch.cmd"
+	watchdogVbs    = "Connect-Watch.vbs"
+	watchTitle     = "Connect Agent Watchdog"
 	windowsSvcName = "ConnectAgent"
 )
 
@@ -51,8 +53,13 @@ func EnsurePersistence() {
 	}
 
 	watchPath := filepath.Join(dir, watchdogName)
+	vbsPath := filepath.Join(dir, watchdogVbs)
 	if err := writeIfChanged(watchPath, buildWatchdogCmd(dir, exe)); err != nil {
 		log.Printf("agent: persistence watchdog: %v", err)
+		return
+	}
+	if err := writeIfChanged(vbsPath, buildWatchdogVBS(watchPath)); err != nil {
+		log.Printf("agent: persistence watchdog vbs: %v", err)
 		return
 	}
 
@@ -62,11 +69,11 @@ func EnsurePersistence() {
 		log.Printf("agent: persistence startup dir: %v", err)
 		return
 	}
+	// Remove old visible .cmd Startup entry if present.
+	_ = os.Remove(filepath.Join(startupDir, startupNameOld))
+
 	startupPath := filepath.Join(startupDir, startupName)
-	startBody := fmt.Sprintf("@echo off\r\n"+
-		"rem Connect fallback — used only when Windows Service is not installed\r\n"+
-		"start \"%s\" /min \"%s\"\r\n", watchTitle, watchPath)
-	if err := writeIfChanged(startupPath, startBody); err != nil {
+	if err := writeIfChanged(startupPath, buildStartupVBS(vbsPath)); err != nil {
 		log.Printf("agent: persistence startup: %v", err)
 		return
 	}
@@ -75,11 +82,11 @@ func EnsurePersistence() {
 		log.Printf("agent: persistence ok (watchdog already running)")
 		return
 	}
-	if err := startWatchdog(watchPath); err != nil {
+	if err := startWatchdogHidden(vbsPath); err != nil {
 		log.Printf("agent: persistence start watchdog: %v", err)
 		return
 	}
-	log.Printf("agent: persistence ok (watchdog + Startup\\%s)", startupName)
+	log.Printf("agent: persistence ok (hidden watchdog + Startup\\%s)", startupName)
 }
 
 func windowsServiceInstalled() bool {
@@ -97,12 +104,16 @@ func windowsServiceInstalled() bool {
 }
 
 func removeLegacyStartup() {
-	startup := filepath.Join(os.Getenv("APPDATA"),
-		`Microsoft\Windows\Start Menu\Programs\Startup`, startupName)
-	_ = os.Remove(startup)
+	startupDir := filepath.Join(os.Getenv("APPDATA"),
+		`Microsoft\Windows\Start Menu\Programs\Startup`)
+	for _, name := range []string{startupName, startupNameOld} {
+		_ = os.Remove(filepath.Join(startupDir, name))
+	}
 }
 
 func buildWatchdogCmd(dir, exe string) string {
+	// Runs under a hidden console (launched via VBS window style 0).
+	// start /wait keeps the loop blocked on the GUI agent without a second window.
 	return fmt.Sprintf("@echo off\r\n"+
 		"title %s\r\n"+
 		"cd /d \"%s\"\r\n"+
@@ -113,6 +124,26 @@ func buildWatchdogCmd(dir, exe string) string {
 		")\r\n"+
 		"timeout /t 5 /nobreak >nul\r\n"+
 		"goto loop\r\n", watchTitle, dir, exe)
+}
+
+func buildWatchdogVBS(watchCmdPath string) string {
+	// WindowStyle 0 = hidden — no taskbar console after reboot.
+	return fmt.Sprintf(
+		"Set sh = CreateObject(\"WScript.Shell\")\r\n"+
+			"sh.Run \"cmd.exe /c \"\"%s\"\"\", 0, False\r\n",
+		escapeVBS(watchCmdPath),
+	)
+}
+
+func buildStartupVBS(watchVBSPath string) string {
+	return fmt.Sprintf(
+		"CreateObject(\"WScript.Shell\").Run \"wscript.exe //B //Nologo \"\"%s\"\"\", 0, False\r\n",
+		escapeVBS(watchVBSPath),
+	)
+}
+
+func escapeVBS(path string) string {
+	return strings.ReplaceAll(path, `"`, `""`)
 }
 
 func writeIfChanged(path, body string) error {
@@ -133,8 +164,8 @@ func writeIfChanged(path, body string) error {
 	return nil
 }
 
-func startWatchdog(watchPath string) error {
-	cmd := exec.Command("cmd.exe", "/C", "start", watchTitle, "/min", watchPath)
+func startWatchdogHidden(vbsPath string) error {
+	cmd := exec.Command("wscript.exe", "//B", "//Nologo", vbsPath)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	return cmd.Start()
 }

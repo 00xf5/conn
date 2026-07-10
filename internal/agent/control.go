@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/pion/webrtc/v4"
 )
@@ -80,6 +81,9 @@ func (a *Agent) controlSetBitrate(kbps int) error {
 	kbps = ProfileFromConfig(a.cfg).ClampBitrate(kbps)
 	a.mu.Lock()
 	a.cfg.BitrateK = kbps
+	a.abrBitrateK = kbps
+	a.abrHoldUntil = time.Now().Add(abrManualHold)
+	a.abrLastAdjust = time.Now()
 	enc := a.enc
 	a.mu.Unlock()
 	if enc != nil {

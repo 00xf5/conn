@@ -50,6 +50,7 @@ func (a *Agent) startSession(sessionCode string, audioOnly bool) {
 	gen := a.sessGen
 	a.activeSess = sessionCode
 	a.pendingICE = nil
+	a.resetABRLocked()
 	a.mu.Unlock()
 
 	if audioOnly {

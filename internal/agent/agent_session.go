@@ -70,32 +70,7 @@ func (a *Agent) handleStatsJSON(data []byte) {
 	if err := json.Unmarshal(data, &stats); err != nil {
 		return
 	}
-	a.mu.Lock()
-	enc := a.enc
-	if _, native := enc.(*hostPipelineEncoder); native {
-		// Native HW pipeline: bitrate tweaks on every stats tick stall encode.
-		a.mu.Unlock()
-		return
-	}
-	a.mu.Unlock()
-	if enc == nil {
-		return
-	}
-	kbps := a.cfg.BitrateK
-	if stats.PacketLoss > 0.05 {
-		kbps = int(float64(kbps) * 0.85)
-	} else if stats.PacketLoss < 0.01 && stats.RTT < 100 {
-		kbps = int(float64(kbps) * 1.1)
-	}
-	kbps = ProfileFromConfig(a.cfg).ClampBitrate(kbps)
-	_ = enc.SetBitrate(kbps)
-	a.mu.Lock()
-	sess := a.activeSess
-	a.mu.Unlock()
-	if sess != "" && (stats.PacketLoss > 0.02 || stats.RTT > 200 || stats.Mobile) {
-		log.Printf("agent: viewer stats session=%s mobile=%t rtt=%.0fms loss=%.1f%%",
-			sess, stats.Mobile, stats.RTT, stats.PacketLoss*100)
-	}
+	a.adaptBitrateFromStats(stats.PacketLoss, stats.RTT, stats.Mobile)
 }
 
 func (a *Agent) handleInput(data []byte) {

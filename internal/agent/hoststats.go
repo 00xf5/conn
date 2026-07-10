@@ -66,6 +66,7 @@ func (a *Agent) hostStatsLoop(dc *webrtc.DataChannel, session string) {
 			active := a.activeSess == session
 			enc := a.enc
 			cfg := a.cfg
+			liveBR := a.liveBitrateLocked()
 			a.mu.Unlock()
 			if !active {
 				return
@@ -74,7 +75,11 @@ func (a *Agent) hostStatsLoop(dc *webrtc.DataChannel, session string) {
 			if enc != nil {
 				name = enc.Name()
 			}
-			payload, err := json.Marshal(buildHostSnapshot(cfg, name))
+			snap := buildHostSnapshot(cfg, name)
+			if liveBR > 0 {
+				snap.BitrateK = liveBR
+			}
+			payload, err := json.Marshal(snap)
 			if err != nil {
 				continue
 			}

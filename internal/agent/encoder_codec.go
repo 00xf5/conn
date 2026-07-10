@@ -12,7 +12,7 @@ func (c EncoderCodec) label() string {
 }
 
 func gdiGrabVideoFilter(prof StreamProfile) string {
-	return fmt.Sprintf("scale=%d:%d:flags=fast_bilinear,fps=%d", prof.Width, prof.Height, prof.FPS)
+	return fmt.Sprintf("scale=%d:%d:flags=bilinear,fps=%d", prof.Width, prof.Height, prof.FPS)
 }
 
 func (c EncoderCodec) ffmpegEncodeArgs(prof StreamProfile, outW, outH int) []string {

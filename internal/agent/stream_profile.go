@@ -21,18 +21,18 @@ type StreamProfile struct {
 	BitrateMax   int
 }
 
-// DefaultStreamProfile is the frozen LAN baseline (854×480 @ 20fps, 2 Mbps).
+// DefaultStreamProfile is the product baseline (1280×720 @ 20fps, 3.5 Mbps).
 func DefaultStreamProfile() StreamProfile {
 	return StreamProfile{
-		Width:        854,
-		Height:       480,
+		Width:        1280,
+		Height:       720,
 		FPS:          20,
-		BitrateK:     2000,
+		BitrateK:     3500,
 		GOP:          40,
 		KeyIntMin:    20,
 		WarmPrime:    1200 * time.Millisecond,
-	StallTimeout: 15 * time.Second,
-		BitrateMin:   800,
+		StallTimeout: 15 * time.Second,
+		BitrateMin:   1000,
 		BitrateMax:   12000,
 	}
 }
@@ -84,8 +84,18 @@ func alignStreamDimensions(w, h int) (int, int) {
 }
 
 // NormalizeConfig fills zero fields from DefaultStreamProfile.
+// Soft-upgrades the previous product baseline (854×480 @ 2 Mbps) so existing
+// hosts pick up the sharper profile without wiping intentional custom settings.
 func NormalizeConfig(cfg Config) Config {
 	p := DefaultStreamProfile()
+	if (cfg.Width == 854 || cfg.Width == 0) && (cfg.Height == 480 || cfg.Height == 0) {
+		if cfg.BitrateK == 0 || cfg.BitrateK == 2000 || cfg.BitrateK == 2500 {
+			// Clear old baseline so defaults become 1280×720 @ 3500 kbps.
+			cfg.Width = 0
+			cfg.Height = 0
+			cfg.BitrateK = 0
+		}
+	}
 	if cfg.FPS <= 0 {
 		cfg.FPS = p.FPS
 	}

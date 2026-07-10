@@ -21,6 +21,8 @@ Connect.webrtc = {
     let micTrack = null;
     let micStream = null;
     let micEnabled = false;
+    let prevVideoLost = 0;
+    let prevVideoRecv = 0;
 
     function getDC() { return dc; }
 
@@ -219,6 +221,8 @@ Connect.webrtc = {
         clearInterval(statsTimer);
         statsTimer = null;
       }
+      prevVideoLost = 0;
+      prevVideoRecv = 0;
       if (pc) {
         pc.close();
         pc = null;
@@ -314,7 +318,14 @@ Connect.webrtc = {
         rep.forEach((s) => {
           if (s.type === 'candidate-pair' && s.state === 'succeeded') rtt = s.currentRoundTripTime || 0;
           if (s.type === 'inbound-rtp' && s.kind === 'video') {
-            loss = s.packetsLost / Math.max(1, s.packetsReceived);
+            const lost = s.packetsLost || 0;
+            const recv = s.packetsReceived || 0;
+            const dLost = Math.max(0, lost - prevVideoLost);
+            const dRecv = Math.max(0, recv - prevVideoRecv);
+            prevVideoLost = lost;
+            prevVideoRecv = recv;
+            const total = dLost + dRecv;
+            loss = total > 0 ? dLost / total : 0;
             frames = s.framesDecoded || 0;
           }
         });

@@ -61,7 +61,7 @@ func newDXGIFFmpegEncoder(cfg Config, codec EncoderCodec) (*dxgiFFmpegEncoder, e
 		"-i", "pipe:0",
 	}
 	if w != streamW || h != streamH {
-		args = append(args, "-vf", fmt.Sprintf("scale=%d:%d:flags=fast_bilinear", streamW, streamH))
+		args = append(args, "-vf", fmt.Sprintf("scale=%d:%d:flags=bilinear", streamW, streamH))
 	}
 	args = append(args, codec.ffmpegEncodeArgs(prof, streamW, streamH)...)
 
