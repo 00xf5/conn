@@ -292,8 +292,23 @@ func (s *Server) handleDownloadSetupCmd(w http.ResponseWriter, r *http.Request) 
 	if !strings.HasSuffix(wss, "/ws") {
 		wss = strings.TrimRight(wss, "/") + "/ws"
 	}
-	// Escape for cmd.exe: double quotes in paths; keep code simple.
 	zipURL := base + "/download/agent.zip"
+
+	// Success = config.json has tenantId. GUI subsystem exit codes are unreliable
+	// ($null -ne 0 is true in PowerShell and caused false "Enrollment failed").
+	psEnroll := "$ErrorActionPreference='Stop';" +
+		"$exe=$env:EXE;$dir=Split-Path -Parent $exe;$cfg=Join-Path $dir 'config.json';" +
+		"if(Test-Path -LiteralPath $cfg){try{$j=Get-Content -LiteralPath $cfg -Raw|ConvertFrom-Json;if($j.tenantId){Write-Host Already enrolled;exit 0}}catch{}};" +
+		"$p=Start-Process -FilePath $exe -WorkingDirectory $dir -Wait -PassThru -ArgumentList @('-server',$env:SERVER,'-enroll',$env:CODE,'-quit-after-enroll');" +
+		"if(Test-Path -LiteralPath $cfg){try{$j=Get-Content -LiteralPath $cfg -Raw|ConvertFrom-Json;if($j.tenantId){exit 0}}catch{}};" +
+		"if($null -ne $p -and $null -ne $p.ExitCode -and [int]$p.ExitCode -ne 0){exit [int]$p.ExitCode};" +
+		"exit 1"
+	psSvc := "try{" +
+		"$p=Start-Process -FilePath $env:EXE -Verb RunAs -Wait -PassThru -ArgumentList @('-install-service');" +
+		"if($null -ne $p -and $null -ne $p.ExitCode -and [int]$p.ExitCode -ne 0){exit [int]$p.ExitCode};" +
+		"exit 0" +
+		"}catch{exit 1}"
+
 	body := fmt.Sprintf("@echo off\r\n"+
 		"setlocal\r\n"+
 		"title Connect Install\r\n"+
@@ -325,14 +340,15 @@ func (s *Server) handleDownloadSetupCmd(w http.ResponseWriter, r *http.Request) 
 		"  exit /b 1\r\n"+
 		")\r\n"+
 		"echo Enrolling this PC (no admin needed)...\r\n"+
-		"powershell -NoProfile -Command \"$p = Start-Process -Wait -PassThru -FilePath '%%EXE%%' -ArgumentList '-server','%%SERVER%%','-enroll','%%CODE%%','-quit-after-enroll'; if ($null -eq $p -or $p.ExitCode -ne 0) { exit 1 }\"\r\n"+
+		"powershell -NoProfile -ExecutionPolicy Bypass -Command \"%s\"\r\n"+
 		"if errorlevel 1 (\r\n"+
-		"  echo Enrollment failed.\r\n"+
+		"  echo Enrollment failed. Check %%DEST%%\\enroll.log or issue a fresh enrollment code.\r\n"+
+		"  if exist \"%%DEST%%\\enroll.log\" type \"%%DEST%%\\enroll.log\"\r\n"+
 		"  pause\r\n"+
 		"  exit /b 1\r\n"+
 		")\r\n"+
 		"echo Installing Windows Service (UAC prompt may appear)...\r\n"+
-		"powershell -NoProfile -Command \"$p = Start-Process -Wait -Verb RunAs -PassThru -FilePath '%%EXE%%' -ArgumentList '-install-service'; if ($null -eq $p -or $p.ExitCode -ne 0) { exit 1 }\"\r\n"+
+		"powershell -NoProfile -ExecutionPolicy Bypass -Command \"%s\"\r\n"+
 		"if errorlevel 1 (\r\n"+
 		"  echo Service install skipped — starting agent with Startup fallback...\r\n"+
 		"  start \"\" \"%%EXE%%\"\r\n"+
@@ -340,7 +356,7 @@ func (s *Server) handleDownloadSetupCmd(w http.ResponseWriter, r *http.Request) 
 		"  echo OK: ConnectAgent Windows Service is installed and running.\r\n"+
 		")\r\n"+
 		"timeout /t 4 >nul\r\n",
-		wss, code, zipURL)
+		wss, code, zipURL, psEnroll, psSvc)
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", `attachment; filename="Connect-Install.cmd"`)
@@ -429,19 +445,36 @@ if (-not (Test-Path $Exe)) {
 if (-not (Test-Path $Exe)) { throw "connect-agent.exe missing from package" }
 
 Write-Host "Enrolling this PC (no admin needed)..."
-$enroll = Start-Process -FilePath $Exe -ArgumentList @('-server', $Server, '-enroll', $Code, '-quit-after-enroll') -Wait -PassThru
-if ($null -eq $enroll -or $enroll.ExitCode -ne 0) {
-  throw "Enrollment failed (exit $($enroll.ExitCode))"
+$dir = Split-Path -Parent $Exe
+$cfg = Join-Path $dir 'config.json'
+function Test-Enrolled {
+  if (-not (Test-Path -LiteralPath $cfg)) { return $false }
+  try {
+    $j = Get-Content -LiteralPath $cfg -Raw | ConvertFrom-Json
+    return [bool]$j.tenantId
+  } catch { return $false }
+}
+if (Test-Enrolled) {
+  Write-Host "Already enrolled — skipping redeem."
+} else {
+  $enroll = Start-Process -FilePath $Exe -WorkingDirectory $dir -ArgumentList @('-server', $Server, '-enroll', $Code, '-quit-after-enroll') -Wait -PassThru
+  if (-not (Test-Enrolled)) {
+    $code = 1
+    if ($null -ne $enroll -and $null -ne $enroll.ExitCode) { $code = [int]$enroll.ExitCode }
+    $log = Join-Path $dir 'enroll.log'
+    if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log | Write-Host }
+    throw "Enrollment failed (exit $code). Issue a fresh enrollment code if this one was already used."
+  }
 }
 
 Write-Host "Installing Windows Service (UAC may prompt)..."
 try {
   $p = Start-Process -FilePath $Exe -ArgumentList @('-install-service') -Verb RunAs -Wait -PassThru
-  if ($null -eq $p -or $p.ExitCode -ne 0) { throw "exit $($p.ExitCode)" }
+  if ($null -ne $p -and $null -ne $p.ExitCode -and [int]$p.ExitCode -ne 0) { throw "exit $($p.ExitCode)" }
   Write-Host "OK: ConnectAgent Windows Service is installed and running."
 } catch {
   Write-Host "Service install skipped — starting agent with Startup fallback..."
-  Start-Process -FilePath $Exe -WorkingDirectory (Split-Path $Exe)
+  Start-Process -FilePath $Exe -WorkingDirectory $dir
 }
 `, baseLit, wssLit, codeLit, avail)
 }

@@ -75,8 +75,9 @@ func main() {
 		enableConsole()
 	}
 	if *enroll != "" {
+		enrollLog := setupEnrollLog()
 		if cfg.ServerURL == "" {
-			log.Fatal("connect-agent: -enroll requires -server or serverUrl in config")
+			fatalEnroll(enrollLog, "connect-agent: -enroll requires -server or serverUrl in config")
 		}
 		probe := agent.New(cfg)
 		cfg.DeviceID = probe.DeviceID()
@@ -86,16 +87,16 @@ func main() {
 		}
 		tid, tname, err := agent.EnrollWithCode(cfg.ServerURL, *enroll, cfg.DeviceID, host, cfg.InsecureTLS)
 		if err != nil {
-			log.Fatalf("connect-agent: enroll: %v", err)
+			fatalEnroll(enrollLog, "connect-agent: enroll: %v", err)
 		}
 		cfg.TenantID = tid
 		cfg.Hostname = host
 		if err := agent.SaveConfigFile(cfg); err != nil {
-			log.Fatalf("connect-agent: save config: %v", err)
+			fatalEnroll(enrollLog, "connect-agent: save config: %v", err)
 		}
 		log.Printf("connect-agent: enrolled tenant=%s (%s); config saved", tname, tid)
 		if *quitAfterEnroll && !*installSvc {
-			return
+			os.Exit(0)
 		}
 	}
 
