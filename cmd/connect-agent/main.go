@@ -24,6 +24,7 @@ func main() {
 	service := flag.Bool("service", false, "run as Windows Service supervisor (SCM)")
 	installSvc := flag.Bool("install-service", false, "install + start Windows Service (Administrator)")
 	uninstallSvc := flag.Bool("uninstall-service", false, "stop + remove Windows Service (Administrator)")
+	quitAfterEnroll := flag.Bool("quit-after-enroll", false, "exit after successful -enroll (installer use)")
 	flag.Parse()
 
 	// SCM entry — must not take the interactive single-instance mutex.
@@ -41,8 +42,6 @@ func main() {
 		log.Printf("connect-agent: service %q removed", serviceNameOrFallback())
 		return
 	}
-
-	exitIfAlreadyRunning()
 
 	cli := agent.Config{
 		ServerURL:   *serverURL,
@@ -68,6 +67,9 @@ func main() {
 		cfg = agent.NormalizeConfig(cfg)
 	}
 
+	// Enroll / install-service must run BEFORE the single-instance mutex.
+	// Otherwise a service-relaunched agent holds the mutex and this process
+	// exits 0 without enrolling — install looks successful but dashboard stays empty.
 	if *enroll != "" {
 		if cfg.ServerURL == "" {
 			log.Fatal("connect-agent: -enroll requires -server or serverUrl in config")
@@ -88,6 +90,9 @@ func main() {
 			log.Fatalf("connect-agent: save config: %v", err)
 		}
 		log.Printf("connect-agent: enrolled tenant=%s (%s); config saved", tname, tid)
+		if *quitAfterEnroll && !*installSvc {
+			return
+		}
 	}
 
 	if *installSvc {
@@ -98,6 +103,8 @@ func main() {
 		// Service launches the interactive agent in the user session.
 		return
 	}
+
+	exitIfAlreadyRunning()
 
 	a := agent.New(cfg)
 	// Fallback persistence when Service is not installed (non-admin hosts).

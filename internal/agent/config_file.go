@@ -58,8 +58,15 @@ func LoadConfigFile() (Config, bool) {
 
 func configSearchPaths() []string {
 	var paths []string
+	// Prefer exe directory (same place SaveConfigFile writes).
+	if dir := DataDir(); dir != "" && dir != "." {
+		paths = append(paths, filepath.Join(dir, "config.json"))
+	}
 	if local := os.Getenv("LOCALAPPDATA"); local != "" {
-		paths = append(paths, filepath.Join(local, "Connect", "config.json"))
+		p := filepath.Join(local, "Connect", "config.json")
+		if len(paths) == 0 || paths[0] != p {
+			paths = append(paths, p)
+		}
 	}
 	paths = append(paths, "config.json")
 	return paths

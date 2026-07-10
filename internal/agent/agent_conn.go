@@ -152,16 +152,22 @@ func (a *Agent) send(msg signalingEnvelope) error {
 }
 
 func loadOrCreateDeviceID() string {
-	dir := os.Getenv("LOCALAPPDATA")
-	if dir == "" {
-		dir = "data"
-	} else {
-		dir = filepath.Join(dir, "Connect")
-	}
+	dir := DataDir()
 	_ = os.MkdirAll(dir, 0o755)
 	path := filepath.Join(dir, "device.id")
 	if b, err := os.ReadFile(path); err == nil && len(b) > 0 {
 		return strings.TrimSpace(string(b))
+	}
+	// Migrate legacy device.id from LOCALAPPDATA\Connect if present.
+	if local := os.Getenv("LOCALAPPDATA"); local != "" {
+		legacy := filepath.Join(local, "Connect", "device.id")
+		if legacy != path {
+			if b, err := os.ReadFile(legacy); err == nil && len(b) > 0 {
+				id := strings.TrimSpace(string(b))
+				_ = os.WriteFile(path, []byte(id), 0o600)
+				return id
+			}
+		}
 	}
 	id := uuid.NewString()
 	_ = os.WriteFile(path, []byte(id), 0o600)

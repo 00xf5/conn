@@ -14,15 +14,12 @@ import (
 	"time"
 )
 
-// ConfigPath returns the preferred writable config.json path.
+// ConfigPath returns the preferred writable config.json path (next to the exe).
 func ConfigPath() string {
-	if local := os.Getenv("LOCALAPPDATA"); local != "" {
-		return filepath.Join(local, "Connect", "config.json")
-	}
-	return "config.json"
+	return filepath.Join(DataDir(), "config.json")
 }
 
-// SaveConfigFile writes cfg to LOCALAPPDATA Connect config (no BOM).
+// SaveConfigFile writes cfg next to the agent executable (no BOM).
 func SaveConfigFile(cfg Config) error {
 	path := ConfigPath()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

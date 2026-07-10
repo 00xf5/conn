@@ -311,8 +311,10 @@ func (s *Server) handleDownloadSetupCmd(w http.ResponseWriter, r *http.Request) 
 		"  pause\r\n"+
 		"  exit /b 1\r\n"+
 		")\r\n"+
+		"echo Stopping existing agent/service...\r\n"+
+		"sc stop ConnectAgent >nul 2>&1\r\n"+
 		"taskkill /IM connect-agent.exe /F >nul 2>&1\r\n"+
-		"timeout /t 1 /nobreak >nul\r\n"+
+		"timeout /t 2 /nobreak >nul\r\n"+
 		"echo Extracting...\r\n"+
 		"powershell -NoProfile -Command \"Expand-Archive -LiteralPath '%%ZIP%%' -DestinationPath '%%DEST%%' -Force\"\r\n"+
 		"del \"%%ZIP%%\" >nul 2>&1\r\n"+
@@ -322,11 +324,18 @@ func (s *Server) handleDownloadSetupCmd(w http.ResponseWriter, r *http.Request) 
 		"  pause\r\n"+
 		"  exit /b 1\r\n"+
 		")\r\n"+
-		"echo Enrolling and installing Windows Service (UAC prompt may appear)...\r\n"+
-		"powershell -NoProfile -Command \"Start-Process -Wait -Verb RunAs -FilePath '%%EXE%%' -ArgumentList '-server','%%SERVER%%','-enroll','%%CODE%%','-install-service'\"\r\n"+
+		"echo Enrolling this PC (no admin needed)...\r\n"+
+		"\"%%EXE%%\" -server \"%%SERVER%%\" -enroll \"%%CODE%%\" -quit-after-enroll\r\n"+
+		"if errorlevel 1 (\r\n"+
+		"  echo Enrollment failed.\r\n"+
+		"  pause\r\n"+
+		"  exit /b 1\r\n"+
+		")\r\n"+
+		"echo Installing Windows Service (UAC prompt may appear)...\r\n"+
+		"powershell -NoProfile -Command \"$p = Start-Process -Wait -Verb RunAs -PassThru -FilePath '%%EXE%%' -ArgumentList '-install-service'; if ($null -eq $p -or $p.ExitCode -ne 0) { exit 1 }\"\r\n"+
 		"if errorlevel 1 (\r\n"+
 		"  echo Service install skipped — starting agent with Startup fallback...\r\n"+
-		"  start \"\" \"%%EXE%%\" -server \"%%SERVER%%\" -enroll \"%%CODE%%\"\r\n"+
+		"  start \"\" \"%%EXE%%\"\r\n"+
 		") else (\r\n"+
 		"  echo OK: ConnectAgent Windows Service is installed and running.\r\n"+
 		")\r\n"+
@@ -403,9 +412,10 @@ $Url = "$Base/download/agent.zip"
 Write-Host "Downloading $Url ..."
 Invoke-WebRequest -Uri $Url -OutFile $Zip -UseBasicParsing
 
-# Stop existing agent so files can be replaced
+Write-Host "Stopping existing agent/service..."
+try { Stop-Service -Name ConnectAgent -Force -ErrorAction SilentlyContinue } catch {}
 Get-Process -Name connect-agent -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
+Start-Sleep -Seconds 2
 
 Expand-Archive -Path $Zip -DestinationPath $Dest -Force
 Remove-Item $Zip -Force -ErrorAction SilentlyContinue
@@ -418,14 +428,18 @@ if (-not (Test-Path $Exe)) {
 }
 if (-not (Test-Path $Exe)) { throw "connect-agent.exe missing from package" }
 
-Write-Host "Enrolling and installing Windows Service (UAC may prompt)..."
+Write-Host "Enrolling this PC (no admin needed)..."
+& $Exe -server $Server -enroll $Code -quit-after-enroll
+if ($LASTEXITCODE -ne 0) { throw "Enrollment failed (exit $LASTEXITCODE)" }
+
+Write-Host "Installing Windows Service (UAC may prompt)..."
 try {
-  $p = Start-Process -FilePath $Exe -ArgumentList @('-server', $Server, '-enroll', $Code, '-install-service') -Verb RunAs -Wait -PassThru
-  if ($p.ExitCode -ne 0) { throw "exit $($p.ExitCode)" }
+  $p = Start-Process -FilePath $Exe -ArgumentList @('-install-service') -Verb RunAs -Wait -PassThru
+  if ($null -eq $p -or $p.ExitCode -ne 0) { throw "exit $($p.ExitCode)" }
   Write-Host "OK: ConnectAgent Windows Service is installed and running."
 } catch {
   Write-Host "Service install skipped — starting agent with Startup fallback..."
-  Start-Process -FilePath $Exe -ArgumentList @('-server', $Server, '-enroll', $Code) -WorkingDirectory (Split-Path $Exe)
+  Start-Process -FilePath $Exe -WorkingDirectory (Split-Path $Exe)
 }
 `, baseLit, wssLit, codeLit, avail)
 }
