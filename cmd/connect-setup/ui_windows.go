@@ -1,4 +1,4 @@
-//go:build windows
+﻿//go:build windows
 
 package main
 
@@ -36,7 +36,7 @@ func runUI(opts InstallOptions) error {
 		DataPath:  dataPath,
 		AutoFocus: true,
 		WindowOptions: webview2.WindowOptions{
-			Title:  "BlueConnect Setup",
+			Title:  "WorthyJoin Setup",
 			Width:  480,
 			Height: 560,
 			Center: true,

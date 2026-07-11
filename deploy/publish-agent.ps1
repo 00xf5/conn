@@ -1,4 +1,4 @@
-# Build connect-agent.zip + BlueConnect-Setup.exe for Host install links.
+﻿# Build connect-agent.zip + WorthyJoin-Setup.exe for Host install links.
 # Requires Windows + CGO/gcc + ffmpeg.exe.
 #
 #   .\deploy\publish-agent.ps1
@@ -6,7 +6,7 @@
 #
 # Outputs (default):
 #   data\agent\agent.zip
-#   data\agent\BlueConnect-Setup.exe
+#   data\agent\WorthyJoin-Setup.exe
 
 param(
   [string]$OutZip = "",
@@ -97,20 +97,20 @@ if (-not $SkipBuild) {
     throw "go build connect-agent failed"
   }
 
-  Write-Host "Building BlueConnect-Setup.exe..."
-  $setupOut = Join-Path $OutDir "BlueConnect-Setup.exe"
+  Write-Host "Building WorthyJoin-Setup.exe..."
+  $setupOut = Join-Path $OutDir "WorthyJoin-Setup.exe"
   & go build -trimpath "-ldflags=-s -w -H=windowsgui" -o $setupOut ./cmd/connect-setup
   if ($LASTEXITCODE -ne 0) {
     throw "go build connect-setup failed"
   }
   Write-Host "  setup: $setupOut"
 } else {
-  $setupSrc = Join-Path $Root "BlueConnect-Setup.exe"
-  $setupOut = Join-Path $OutDir "BlueConnect-Setup.exe"
+  $setupSrc = Join-Path $Root "WorthyJoin-Setup.exe"
+  $setupOut = Join-Path $OutDir "WorthyJoin-Setup.exe"
   if (Test-Path -LiteralPath $setupSrc) {
     Copy-Item -LiteralPath $setupSrc -Destination $setupOut -Force
   } elseif (-not (Test-Path -LiteralPath $setupOut)) {
-    Write-Host "WARNING: BlueConnect-Setup.exe missing - build without -SkipBuild"
+    Write-Host "WARNING: WorthyJoin-Setup.exe missing - build without -SkipBuild"
   }
 }
 
@@ -150,11 +150,11 @@ Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $OutZip -Force
 Remove-Item -LiteralPath $Stage -Recurse -Force
 
 # Keep Setup.exe next to agent.zip (same CONNECT_AGENT_DIR on the server).
-$setupFinal = Join-Path $OutDir "BlueConnect-Setup.exe"
+$setupFinal = Join-Path $OutDir "WorthyJoin-Setup.exe"
 if (Test-Path -LiteralPath $setupFinal) {
   $setupParent = Split-Path -Parent $OutZip
   if ($setupParent -and ((Resolve-Path $setupParent).Path -ne (Resolve-Path $OutDir).Path)) {
-    Copy-Item -LiteralPath $setupFinal -Destination (Join-Path $setupParent "BlueConnect-Setup.exe") -Force
+    Copy-Item -LiteralPath $setupFinal -Destination (Join-Path $setupParent "WorthyJoin-Setup.exe") -Force
   }
 }
 
@@ -187,9 +187,11 @@ Write-Host ('Wrote {0} ({1} MB)' -f $OutZip, $sizeMb)
 if (Test-Path -LiteralPath $setupFinal) {
   $setupMb = [math]::Round((Get-Item -LiteralPath $setupFinal).Length / 1MB, 1)
   Write-Host ('Wrote {0} ({1} MB)' -f $setupFinal, $setupMb)
+  # Compat alias for older VPS copies / docs
+  Copy-Item -LiteralPath $setupFinal -Destination (Join-Path $OutDir "BlueConnect-Setup.exe") -Force
 }
 Write-Host ""
 Write-Host "Next:"
 Write-Host "  Local: restart connectd (serves /download/agent.zip + /download/setup.exe from data\agent)"
-Write-Host "  VPS:   copy agent.zip AND BlueConnect-Setup.exe into the agent dir, or Admin-upload zip + scp Setup.exe"
-Write-Host "  Hosts: open /install?code=... then Download BlueConnect (Setup.exe)"
+Write-Host "  VPS:   copy agent.zip AND WorthyJoin-Setup.exe into the agent dir, or Admin-upload zip + scp Setup.exe"
+Write-Host "  Hosts: open /install?code=... then Download WorthyJoin (Setup.exe)"

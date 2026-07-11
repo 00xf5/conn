@@ -1,4 +1,4 @@
-package server
+﻿package server
 
 import (
 	"fmt"
@@ -22,7 +22,16 @@ func (s *Server) agentZipPath() string {
 }
 
 func (s *Server) setupExePath() string {
-	return filepath.Join(s.agentDir(), "BlueConnect-Setup.exe")
+	// Prefer new brand name; fall back to older BlueConnect-Setup.exe on VPS.
+	primary := filepath.Join(s.agentDir(), "WorthyJoin-Setup.exe")
+	if st, err := os.Stat(primary); err == nil && st.Size() > 0 {
+		return primary
+	}
+	legacy := filepath.Join(s.agentDir(), "BlueConnect-Setup.exe")
+	if st, err := os.Stat(legacy); err == nil && st.Size() > 0 {
+		return legacy
+	}
+	return primary
 }
 
 func (s *Server) agentPackageAvailable() bool {
@@ -232,16 +241,16 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 		)
 		if available && setupExe {
 			primaryBtn = fmt.Sprintf(
-				`<a class="btn" href="%s">Download BlueConnect</a>`,
+				`<a class="btn" href="%s">Download WorthyJoin</a>`,
 				htmlEscape(base+"/download/setup.exe"),
 			)
 		} else if available {
 			primaryBtn = fmt.Sprintf(
-				`<a class="btn" href="%s">Download BlueConnect</a>`,
+				`<a class="btn" href="%s">Download WorthyJoin</a>`,
 				htmlEscape(base+"/download/setup.cmd?code="+code),
 			)
 		} else {
-			primaryBtn = `<span class="btn muted-btn">Download BlueConnect (package missing)</span>`
+			primaryBtn = `<span class="btn muted-btn">Download WorthyJoin (package missing)</span>`
 		}
 		if available {
 			legacy = fmt.Sprintf(
@@ -253,7 +262,7 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 		codeBlock = `<p class="muted">Open this page from the install link your tech sent.</p>`
 		if available && setupExe {
 			primaryBtn = fmt.Sprintf(
-				`<a class="btn" href="%s">Download BlueConnect</a>`,
+				`<a class="btn" href="%s">Download WorthyJoin</a>`,
 				htmlEscape(base+"/download/setup.exe"),
 			)
 		}
@@ -266,7 +275,7 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Install BlueConnect</title>
+<title>Install WorthyJoin</title>
 <style>
 body{font:15px/1.45 "Segoe UI",system-ui,sans-serif;margin:0;background:#0a0a0a;color:#f2f2f2}
 .wrap{max-width:440px;margin:48px auto;padding:0 16px}
@@ -294,14 +303,14 @@ h1{margin:0;font-size:22px;letter-spacing:-.03em}
 </head>
 <body>
 <div class="wrap"><div class="card">
-<div class="brand"><span class="mark">★</span><div><h1>BlueConnect</h1></div></div>
+<div class="brand"><span class="mark">★</span><div><h1>WorthyJoin</h1></div></div>
 <p class="muted">Install on this Windows PC in a few clicks.</p>
 %s
 %s
 <div class="actions">%s</div>
 %s
 <ol class="steps">
-<li>Click <strong>Download BlueConnect</strong>.</li>
+<li>Click <strong>Download WorthyJoin</strong>.</li>
 <li>Open the file you downloaded. If Windows warns, choose <strong>More info</strong> → <strong>Run anyway</strong>.</li>
 <li>Paste your enrollment code if asked, then click <strong>Install</strong>.</li>
 <li>Allow Windows prompts if they appear — this PC shows online in the Host console.</li>
@@ -329,11 +338,11 @@ func (s *Server) handleDownloadSetupExe(w http.ResponseWriter, r *http.Request) 
 	}
 	path := s.setupExePath()
 	if _, err := os.Stat(path); err != nil {
-		http.Error(w, "BlueConnect-Setup.exe not published yet — run deploy/publish-agent.ps1", http.StatusNotFound)
+		http.Error(w, "WorthyJoin-Setup.exe not published yet — run deploy/publish-agent.ps1", http.StatusNotFound)
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", `attachment; filename="BlueConnect-Setup.exe"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="WorthyJoin-Setup.exe"`)
 	w.Header().Set("Cache-Control", "no-store")
 	http.ServeFile(w, r, path)
 }
@@ -373,7 +382,7 @@ func (s *Server) handleDownloadSetupCmd(w http.ResponseWriter, r *http.Request) 
 
 	body := fmt.Sprintf("@echo off\r\n"+
 		"setlocal\r\n"+
-		"title BlueConnect Install\r\n"+
+		"title WorthyJoin Install\r\n"+
 		"echo Connect installer\r\n"+
 		"echo.\r\n"+
 		"set \"DEST=%%LOCALAPPDATA%%\\Connect\"\r\n"+

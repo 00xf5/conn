@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"archive/zip"
@@ -100,17 +100,17 @@ func runInstall(opts InstallOptions, progress ProgressFunc) error {
 		return fmt.Errorf("create install folder: %w", err)
 	}
 
-	progress("Downloading", "Getting BlueConnect…")
-	zipPath := filepath.Join(os.TempDir(), fmt.Sprintf("blueconnect-setup-%d.zip", time.Now().UnixNano()))
+	progress("Downloading", "Getting WorthyJoin…")
+	zipPath := filepath.Join(os.TempDir(), fmt.Sprintf("WorthyJoin-Setup-%d.zip", time.Now().UnixNano()))
 	defer os.Remove(zipPath)
 	if err := downloadFile(agentURL, zipPath); err != nil {
 		return fmt.Errorf("download failed — check your network or ask your tech to publish the agent package: %w", err)
 	}
 
-	progress("Preparing", "Stopping any previous agent…")
+	progress("Preparing", "Stopping any previous agent/service…")
 	stopExistingAgent()
 
-	progress("Installing", "Setting up BlueConnect on this PC…")
+	progress("Installing", "Updating WorthyJoin files (enrollment kept)…")
 	if err := unzipTo(zipPath, dest); err != nil {
 		return fmt.Errorf("install failed: %w", err)
 	}
@@ -120,8 +120,9 @@ func runInstall(opts InstallOptions, progress ProgressFunc) error {
 		return fmt.Errorf("install incomplete — agent missing. Ask your tech to re-publish the package")
 	}
 
+	// Preserve existing enrollment (config.json is not in the zip). Only redeem a new code if needed.
 	if enrolled() {
-		progress("Enrolling", "Already enrolled on this PC…")
+		progress("Enrolling", "Already enrolled — keeping this PC’s identity…")
 	} else {
 		progress("Enrolling", "Linking this PC…")
 		cmd := exec.Command(exe, "-server", server, "-enroll", code, "-quit-after-enroll")
@@ -157,7 +158,7 @@ func downloadFile(url, dest string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "BlueConnect-Setup")
+	req.Header.Set("User-Agent", "WorthyJoin-Setup")
 	res, err := client.Do(req)
 	if err != nil {
 		return err

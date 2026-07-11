@@ -1,4 +1,4 @@
-# BlueConnect
+﻿# WorthyJoin
 
 Self-hosted remote desktop (**worthyjoin.online**): **Go signaling server**, **Windows host agent**, **browser viewer**.
 
@@ -30,7 +30,7 @@ $env:CONNECT_ENCODER_GDIGRAB = "1"
 
 ## End users (one download)
 
-Ship a single folder or zip for ops — hosts only download **BlueConnect-Setup.exe** from the install link (zip stays on the server):
+Ship a single folder or zip for ops — hosts only download **WorthyJoin-Setup.exe** from the install link (zip stays on the server):
 
 ```
 Connect/

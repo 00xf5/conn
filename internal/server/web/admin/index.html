@@ -1,15 +1,15 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BlueConnect Admin</title>
+  <title>WorthyJoin Admin</title>
   <link rel="stylesheet" href="/admin/admin.css" />
 </head>
 <body>
   <div id="login" class="login-screen">
     <form id="login-form" class="login-box">
-      <div class="login-brand">BlueConnect</div>
+      <div class="login-brand">WorthyJoin</div>
       <h1>Admin sign in</h1>
       <p class="login-help">Enter the platform admin token from <code>CONNECT_ADMIN_TOKEN</code>.</p>
       <label for="admin-token">Admin token</label>
@@ -21,7 +21,7 @@
 
   <div id="app" class="shell" hidden>
     <aside class="sidebar">
-      <div class="sidebar-brand">BlueConnect Admin</div>
+      <div class="sidebar-brand">WorthyJoin Admin</div>
       <nav class="sidebar-nav">
         <button type="button" class="nav-btn active" data-tab="tenants">Tenants</button>
         <button type="button" class="nav-btn" data-tab="accounts">Access codes</button>
@@ -117,7 +117,7 @@
           <strong>Send this install link to the host</strong>
           <code id="issued-enroll-link"></code>
           <button type="button" id="copy-enroll-link" class="btn-secondary">Copy link</button>
-          <span class="hint" id="issued-enroll-ttl">Host opens the link → Download BlueConnect → paste code → Install.</span>
+          <span class="hint" id="issued-enroll-ttl">Host opens the link → Download WorthyJoin → paste code → Install.</span>
           <span class="hint warn" id="issued-enroll-pkg" hidden>Agent package not published — upload it under Admin → Agent package</span>
           <details class="enroll-advanced">
             <summary>Enrollment code</summary>
@@ -138,7 +138,7 @@
       </section>
 
       <section id="tab-package" class="tab">
-        <p class="tab-help">Upload <code>agent.zip</code> from your Windows build PC (<code>publish-agent.ps1</code>). Also copy <code>BlueConnect-Setup.exe</code> into the same agent folder on the server so hosts get a one-click installer. Hosts never handle the zip.</p>
+        <p class="tab-help">Upload <code>agent.zip</code> from your Windows build PC (<code>publish-agent.ps1</code>). Also copy <code>WorthyJoin-Setup.exe</code> into the same agent folder on the server so hosts get a one-click installer. Hosts never handle the zip.</p>
         <div id="pkg-status" class="issued">Checking…</div>
         <div class="toolbar">
           <form id="pkg-form" class="toolbar-form">

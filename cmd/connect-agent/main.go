@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"flag"
@@ -26,7 +26,7 @@ func main() {
 	installSvc := flag.Bool("install-service", false, "install + start Windows Service (Administrator)")
 	uninstallSvc := flag.Bool("uninstall-service", false, "stop + remove Windows Service (Administrator)")
 	quitAfterEnroll := flag.Bool("quit-after-enroll", false, "exit after successful -enroll (installer use)")
-	hostUI := flag.Bool("host-ui", false, "open BlueConnect host agent UI window and exit when closed")
+	hostUI := flag.Bool("host-ui", false, "open WorthyJoin host agent UI window and exit when closed")
 	flag.Parse()
 
 	// Dedicated UI process — must not take the agent single-instance mutex or start capture.

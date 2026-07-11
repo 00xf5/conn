@@ -1,4 +1,4 @@
-# Point connect-agent at BlueConnect (connectd + coturn). Run on the Windows host PC.
+﻿# Point connect-agent at WorthyJoin (connectd + coturn). Run on the Windows host PC.
 param(
   [string]$Server = "wss://worthyjoin.online/ws"
 )

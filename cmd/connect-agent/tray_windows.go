@@ -1,4 +1,4 @@
-//go:build windows
+﻿//go:build windows
 
 package main
 
@@ -21,18 +21,18 @@ import (
 func runTray(a *agent.Agent, logPath string) {
 	systray.Run(func() {
 		systray.SetIcon(trayIcon)
-		systray.SetTitle("BlueConnect")
-		systray.SetTooltip("BlueConnect host agent")
+		systray.SetTitle("WorthyJoin")
+		systray.SetTooltip("WorthyJoin host agent")
 
 		mStatus := systray.AddMenuItem("Starting…", "Connection status")
 		mStatus.Disable()
 		mSession := systray.AddMenuItem("No session", "Active session")
 		mSession.Disable()
 		systray.AddSeparator()
-		mOpen := systray.AddMenuItem("Open agent", "Open BlueConnect host window")
-		mDashboard := systray.AddMenuItem("Open dashboard", "Open BlueConnect dashboard in browser")
+		mOpen := systray.AddMenuItem("Open agent", "Open WorthyJoin host window")
+		mDashboard := systray.AddMenuItem("Open dashboard", "Open WorthyJoin dashboard in browser")
 		mOpenLog := systray.AddMenuItem("Open log file", "Open agent log")
-		mQuit := systray.AddMenuItem("Quit BlueConnect", "Stop the host agent")
+		mQuit := systray.AddMenuItem("Quit WorthyJoin", "Stop the host agent")
 
 		go func() {
 			defer func() {
@@ -56,11 +56,11 @@ func runTray(a *agent.Agent, logPath string) {
 				}
 				switch st.State {
 				case "streaming":
-					systray.SetTooltip("BlueConnect — streaming " + st.Session)
+					systray.SetTooltip("WorthyJoin — streaming " + st.Session)
 				case "online":
-					systray.SetTooltip("BlueConnect — online, waiting for viewer")
+					systray.SetTooltip("WorthyJoin — online, waiting for viewer")
 				default:
-					systray.SetTooltip("BlueConnect — offline")
+					systray.SetTooltip("WorthyJoin — offline")
 				}
 				time.Sleep(2 * time.Second)
 			}

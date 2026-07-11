@@ -9,6 +9,7 @@ type AgentInfo struct {
 	DeviceID   string    `json:"deviceId"`
 	TenantID   string    `json:"tenantId,omitempty"`
 	Hostname   string    `json:"hostname"`
+	Online     bool      `json:"online"`
 	Connected  time.Time `json:"connected"`
 	LastSeen   time.Time `json:"lastSeen"`
 	Encoder    string    `json:"encoder,omitempty"`
@@ -38,6 +39,7 @@ func (r *Registry) Register(info AgentInfo) {
 		info.Connected = now
 	}
 	info.LastSeen = now
+	info.Online = true
 	r.agents[info.DeviceID] = &info
 }
 

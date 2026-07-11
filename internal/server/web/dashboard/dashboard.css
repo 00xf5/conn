@@ -1,4 +1,4 @@
-/* BlueConnect Host — matte black, list + machine profile */
+﻿/* WorthyJoin Host — matte black, list + machine profile */
 [hidden] { display: none !important; }
 
 :root {
@@ -70,22 +70,6 @@ body {
   font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.03em;
-}
-.godfather-mark {
-  font-family: var(--credit);
-  font-style: italic;
-  font-weight: 500;
-  font-size: 11px;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  color: #c4a574;
-  opacity: 0.92;
-  white-space: nowrap;
-  user-select: none;
-}
-.gate-brand-text .godfather-mark {
-  font-size: 12px;
-  letter-spacing: 0.1em;
 }
 .gate-sub { margin: 0; color: var(--ink-dim); line-height: 1.45; }
 .gate-card input {
@@ -176,11 +160,6 @@ body {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.03em;
-}
-.host-brand-text .godfather-mark {
-  font-size: 10px;
-  letter-spacing: 0.09em;
-  color: #b8956a;
 }
 
 .mode-tabs {
@@ -377,6 +356,8 @@ body {
   background: var(--select);
   border-color: rgba(59, 130, 246, 0.35);
 }
+.session-row.offline .name { color: var(--ink-dim); }
+.session-row.offline { opacity: 0.85; }
 .session-row .name {
   font-weight: 650;
   font-size: 14px;

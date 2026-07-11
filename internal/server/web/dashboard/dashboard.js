@@ -1,4 +1,4 @@
-let agents = [];
+﻿let agents = [];
 let sessions = [];
 let selectedId = null;
 let group = "all";
@@ -70,8 +70,15 @@ function agentById(id) {
   return agents.find((a) => a.deviceId === id);
 }
 
+function agentOnline(a) {
+  return !!(a && a.online !== false && a.online !== 0);
+}
+
 function filteredAgents() {
   let list = agents.slice();
+  if (group === "online") {
+    list = list.filter((a) => agentOnline(a));
+  }
   const q = filterText.trim().toLowerCase();
   if (q) {
     list = list.filter((a) => {
@@ -79,9 +86,12 @@ function filteredAgents() {
       return hay.includes(q);
     });
   }
-  return list.sort((a, b) =>
-    String(a.hostname || a.deviceId).localeCompare(String(b.hostname || b.deviceId))
-  );
+  return list.sort((a, b) => {
+    const ao = agentOnline(a) ? 0 : 1;
+    const bo = agentOnline(b) ? 0 : 1;
+    if (ao !== bo) return ao - bo;
+    return String(a.hostname || a.deviceId).localeCompare(String(b.hostname || b.deviceId));
+  });
 }
 
 function vuBars(level) {
@@ -100,7 +110,9 @@ function renderList() {
   const rows = filteredAgents();
 
   document.getElementById("count-all").textContent = String(agents.length);
-  document.getElementById("count-online").textContent = String(agents.length);
+  document.getElementById("count-online").textContent = String(
+    agents.filter((a) => agentOnline(a)).length
+  );
   document.getElementById("count-sessions").textContent = String(sessions.length);
 
   if (group === "sessions") {
@@ -109,8 +121,9 @@ function renderList() {
       .map((s) => {
         const host = agentById(s.deviceId)?.hostname || shortId(s.deviceId);
         const selected = selectedId === s.deviceId ? " selected" : "";
+        const on = agentOnline(agentById(s.deviceId));
         return `<div class="session-row${selected}" role="option" data-device="${escapeHtml(s.deviceId)}" data-session="${escapeHtml(s.code)}" tabindex="0">
-          <span><span class="dot${agentById(s.deviceId) ? " on" : ""}"></span></span>
+          <span><span class="dot${on ? " on" : ""}" title="${on ? "Online" : "Offline"}"></span></span>
           <span class="listen-cell"></span>
           <span class="name">${escapeHtml(host)}</span>
           <span class="guest mono">${escapeHtml(s.code)}</span>
@@ -131,22 +144,30 @@ function renderList() {
     empty.hidden = false;
     empty.textContent = agents.length
       ? "No machines match this filter."
-      : "No agents online — start connect-agent on the host PC.";
+      : "No machines enrolled yet — use Add machine.";
     return;
   }
   empty.hidden = true;
   list.innerHTML = rows
     .map((a) => {
       const selected = selectedId === a.deviceId ? " selected" : "";
-      const listening = window.ConnectListen && ConnectListen.isUnmuted(a.deviceId);
+      const on = agentOnline(a);
+      const listening = on && window.ConnectListen && ConnectListen.isUnmuted(a.deviceId);
       const listenCls = listening ? " on" : "";
-      const listenTitle = listening ? "Mute host audio" : "Listen to host mic (muted by default)";
+      const listenTitle = !on
+        ? "Host offline"
+        : listening
+          ? "Mute host audio"
+          : "Listen to host mic (muted by default)";
       const listenLabel = listening ? "🔊" : "🔇";
-      return `<div class="session-row${selected}" role="option" data-device="${escapeHtml(a.deviceId)}" tabindex="0">
-        <span><span class="dot on" title="Online"></span></span>
+      const listenBtn = on
+        ? `<button type="button" class="btn-listen${listenCls}" data-listen="${escapeHtml(a.deviceId)}" title="${listenTitle}" aria-pressed="${listening ? "true" : "false"}">${listenLabel}</button>`
+        : "";
+      return `<div class="session-row${selected}${on ? "" : " offline"}" role="option" data-device="${escapeHtml(a.deviceId)}" tabindex="0">
+        <span><span class="dot${on ? " on" : ""}" title="${on ? "Online" : "Offline"}"></span></span>
         <span class="listen-cell">
-          ${vuBars(a.audioLevel)}
-          <button type="button" class="btn-listen${listenCls}" data-listen="${escapeHtml(a.deviceId)}" title="${listenTitle}" aria-pressed="${listening ? "true" : "false"}">${listenLabel}</button>
+          ${on ? vuBars(a.audioLevel) : ""}
+          ${listenBtn}
         </span>
         <span class="name" title="${escapeHtml(a.hostname || "host")}">${escapeHtml(a.hostname || "host")}</span>
         <span class="guest">${escapeHtml(shortId(a.deviceId))}</span>
@@ -171,19 +192,23 @@ function renderDetail() {
   body.hidden = false;
 
   if (a) {
+    const on = agentOnline(a);
     document.getElementById("detail-name").textContent = a.hostname || "host";
-    document.getElementById("detail-status").innerHTML =
-      '<span class="dot on"></span> Online';
+    document.getElementById("detail-status").innerHTML = on
+      ? '<span class="dot on"></span> Online'
+      : '<span class="dot"></span> Offline';
     document.getElementById("detail-guest").textContent = a.hostname || "—";
     document.getElementById("detail-device").textContent = a.deviceId;
     document.getElementById("detail-seen").textContent = fmtTime(a.lastSeen);
     document.getElementById("detail-pipe").textContent =
       [a.encoder, a.resolution].filter(Boolean).join(" · ") || "—";
-    document.getElementById("detail-conn").textContent = fmtTime(a.connected);
-    document.getElementById("btn-join").disabled = joining;
+    document.getElementById("detail-conn").textContent = on ? fmtTime(a.connected) : "—";
+    document.getElementById("btn-join").disabled = !on || joining;
     document.getElementById("btn-join").textContent = joining ? "Joining…" : "Join";
-    document.getElementById("detail-note").textContent =
-      "Join opens a remote session in this browser. Share link creates a ticket for another device.";
+    document.getElementById("btn-share").disabled = !on;
+    document.getElementById("detail-note").textContent = on
+      ? "Join opens a remote session in this browser. Share link creates a ticket for another device."
+      : "This machine is offline. It stays listed so you can find it when it reconnects.";
   } else {
     const sess = sessions.find((s) => s.deviceId === selectedId);
     document.getElementById("detail-name").textContent = sess ? sess.code : "Session";
@@ -222,7 +247,7 @@ async function joinSelected() {
     location.href = `/v/${existing.code}`;
     return;
   }
-  if (!a) {
+  if (!a || !agentOnline(a)) {
     toast("Machine offline");
     return;
   }
@@ -250,7 +275,7 @@ async function joinSelected() {
 
 async function shareSelected() {
   if (!selectedId) return;
-  if (!agentById(selectedId)) {
+  if (!agentById(selectedId) || !agentOnline(agentById(selectedId))) {
     const sess = sessions.find((s) => s.deviceId === selectedId);
     if (sess) {
       await copyText(new URL(`/v/${sess.code}`, location.origin).href);
@@ -283,12 +308,14 @@ async function refresh() {
     ]);
     agents = a;
     sessions = s;
+    // Keep selection when a machine goes offline (still in the merged list).
     if (selectedId && !agentById(selectedId) && group !== "sessions") {
       selectedId = agents[0]?.deviceId || null;
     }
     if (!selectedId && agents[0]) selectedId = agents[0].deviceId;
+    const onlineN = agents.filter((x) => agentOnline(x)).length;
     document.getElementById("health").textContent =
-      `${agents.length} online · ${(health.publicKey || "").slice(0, 10)}…`;
+      `${onlineN} online / ${agents.length} · ${(health.publicKey || "").slice(0, 10)}…`;
     renderList();
     renderDetail();
   } catch (err) {
@@ -479,7 +506,7 @@ document.getElementById("enroll-issue-form").onsubmit = async (ev) => {
     document.getElementById("enroll-code").textContent = lastEnrollCode;
     document.getElementById("enroll-link").textContent = lastEnrollLink;
     document.getElementById("enroll-ttl-note").textContent =
-      `Expires ${fmtTime(body.expiresAt)}. Host opens link → Download BlueConnect → paste code → Install.`;
+      `Expires ${fmtTime(body.expiresAt)}. Host opens link → Download WorthyJoin → paste code → Install.`;
     document.getElementById("enroll-pkg-warn").hidden = body.packageReady !== false;
     document.getElementById("enroll-result").hidden = false;
     toast("Install link ready — send it to the host");

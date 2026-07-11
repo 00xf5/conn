@@ -1,4 +1,4 @@
-//go:build windows
+﻿//go:build windows
 
 package main
 
@@ -16,7 +16,7 @@ import (
 
 const (
 	serviceName    = "ConnectAgent"
-	serviceDisplay = "BlueConnect Host Agent"
+	serviceDisplay = "WorthyJoin Host Agent"
 	serviceDesc    = "Connect remote access host agent supervisor. Keeps the interactive capture agent running across reboot, lock, and crash."
 )
 

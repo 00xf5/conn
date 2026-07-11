@@ -254,7 +254,38 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeJSON(w, s.registry.ListByTenant(claims.TenantID))
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	writeJSON(w, s.listTenantAgents(claims.TenantID))
+}
+
+// listTenantAgents merges live registry presence with persisted bindings so
+// offline machines stay on the Host dashboard (ScreenConnect-style).
+func (s *Server) listTenantAgents(tenantID string) []rendezvous.AgentInfo {
+	online := s.registry.ListByTenant(tenantID)
+	bindings, _ := s.db.ListAgentBindingsByTenant(tenantID)
+	seen := make(map[string]bool, len(online))
+	out := make([]rendezvous.AgentInfo, 0, len(online)+len(bindings))
+	for _, a := range online {
+		a.Online = true
+		out = append(out, a)
+		seen[a.DeviceID] = true
+	}
+	for _, b := range bindings {
+		if seen[b.DeviceID] {
+			continue
+		}
+		out = append(out, rendezvous.AgentInfo{
+			DeviceID: b.DeviceID,
+			TenantID: b.TenantID,
+			Hostname: b.Hostname,
+			Online:   false,
+			LastSeen: b.UpdatedAt,
+		})
+	}
+	return out
 }
 
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {

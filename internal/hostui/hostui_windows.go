@@ -1,4 +1,4 @@
-//go:build windows
+﻿//go:build windows
 
 package hostui
 
@@ -96,7 +96,7 @@ func runWindow() error {
 		DataPath:  dataPath,
 		AutoFocus: true,
 		WindowOptions: webview2.WindowOptions{
-			Title:  "BlueConnect — Host agent",
+			Title:  "WorthyJoin — Host agent",
 			Width:  1100,
 			Height: 720,
 			Center: true,
@@ -130,7 +130,7 @@ func buildShellHTML() string {
 }
 
 func acquireUIMutex() (release func(), ok bool) {
-	name, err := syscall.UTF16PtrFromString("Local\\BlueConnectHostUI")
+	name, err := syscall.UTF16PtrFromString("Local\\WorthyJoinHostUI")
 	if err != nil {
 		return func() {}, true
 	}
@@ -149,7 +149,7 @@ func acquireUIMutex() (release func(), ok bool) {
 }
 
 func uiAlreadyRunning() bool {
-	name, err := syscall.UTF16PtrFromString("Local\\BlueConnectHostUI")
+	name, err := syscall.UTF16PtrFromString("Local\\WorthyJoinHostUI")
 	if err != nil {
 		return false
 	}
