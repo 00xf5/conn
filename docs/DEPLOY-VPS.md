@@ -2,13 +2,13 @@
 
 **Topology:** Windows PC runs `connect-agent` (capture + encode). VPS runs **connectd** (signaling) + **coturn** (TURN relay) behind **Caddy** (HTTPS/WSS).
 
-Official domain: **blueconnect.online**. One VPS, one domain, UDP relay for cellular viewers.
+Official domain: **worthyjoin.online**. One VPS, one domain, UDP relay for cellular viewers.
 
 ## Prerequisites
 
 - Linux VPS (Ubuntu 22.04+ recommended), 1 GB RAM minimum
 - Docker Engine + Compose plugin
-- DNS `A` record: `blueconnect.online` → VPS public IP
+- DNS `A` record: `worthyjoin.online` → VPS public IP
 - Phase A + Phase B passed on LAN ([PHASE-A.md](PHASE-A.md))
 
 ## Firewall (VPS)
@@ -25,7 +25,7 @@ Official domain: **blueconnect.online**. One VPS, one domain, UDP relay for cell
 ```bash
 git clone <your-repo> connect && cd connect/deploy
 cp .env.example .env
-nano .env   # DOMAIN=blueconnect.online, VPS_PUBLIC_IP, TURN_SECRET
+nano .env   # DOMAIN=worthyjoin.online, VPS_PUBLIC_IP, TURN_SECRET
 chmod +x setup-vps.sh
 ./setup-vps.sh
 ```
@@ -34,16 +34,16 @@ chmod +x setup-vps.sh
 
 | Variable | Example | Notes |
 |----------|---------|-------|
-| `DOMAIN` | `blueconnect.online` | Must match DNS + TLS cert |
+| `DOMAIN` | `worthyjoin.online` | Must match DNS + TLS cert |
 | `VPS_PUBLIC_IP` | `203.0.113.10` | **Required for coturn** — relay fails without this |
 | `TURN_SECRET` | long random string | Same value in connectd + coturn (auto-generated in `coturn.conf`) |
 
 ## 2. Verify VPS
 
 ```bash
-curl -s "https://blueconnect.online/api/health" | jq .
+curl -s "https://worthyjoin.online/api/health" | jq .
 # turnExternal: true, iceServers: 2+
-curl -s "https://blueconnect.online/api/ice" | jq .
+curl -s "https://worthyjoin.online/api/ice" | jq .
 # should include turn:... with username + credential
 ```
 
@@ -55,13 +55,13 @@ On a Windows build PC:
 .\deploy\publish-agent.ps1 -OutZip .\agent.zip
 ```
 
-Then open **Admin → Agent package** at `https://blueconnect.online/admin/` and upload `agent.zip` (no SSH/SCP).
+Then open **Admin → Agent package** at `https://worthyjoin.online/admin/` and upload `agent.zip` (no SSH/SCP).
 
 Host install (from dashboard link) enrolls the machine and installs the **ConnectAgent** Windows Service (UAC). The service supervisor keeps the interactive capture agent alive across reboot, lock, and crash. If UAC is denied, Startup-folder watchdog is used as fallback.
 
 ## 4. Enroll hosts (recommended)
 
-1. Tech signs into `https://blueconnect.online/dashboard/` with an Access code  
+1. Tech signs into `https://worthyjoin.online/dashboard/` with an Access code  
 2. **Add machine** → copy **install link** → send to the host PC  
 3. Host opens the link (or pastes the PowerShell one-liner) → agent downloads, enrolls, appears online  
 
@@ -78,7 +78,7 @@ Or copy `deploy/config.vps-agent.example.json` → `%LOCALAPPDATA%\Connect\confi
 
 | Network | URL |
 |---------|-----|
-| Any browser | `https://blueconnect.online/dashboard/` |
+| Any browser | `https://worthyjoin.online/dashboard/` |
 | Phone on cellular | Same URL — TURN relay via coturn |
 
 Create session code on dashboard → connect from phone with Wi‑Fi **off** to prove TURN.
@@ -93,8 +93,8 @@ Viewer/Agent ←WSS→ connectd (VPS)
 
 connectd advertises ICE servers via `/api/ice`:
 
-- `stun:blueconnect.online:3478` (coturn)
-- `turn:blueconnect.online:3478?transport=udp` with time-limited credentials (HMAC from `TURN_SECRET`)
+- `stun:worthyjoin.online:3478` (coturn)
+- `turn:worthyjoin.online:3478?transport=udp` with time-limited credentials (HMAC from `TURN_SECRET`)
 
 Embedded TURN in connectd is **disabled** on VPS (`CONNECT_NO_TURN=1`). coturn runs as a separate container with `network_mode: host`.
 
@@ -116,7 +116,7 @@ After VPS is up and agent registered:
 |---------|-----|
 | `turnExternal: false` in health | Check `CONNECT_TURN_URL` + `CONNECT_TURN_SECRET` in docker-compose / `.env`, restart connectd |
 | ICE failed on cellular | Open UDP 3478 + relay range; verify `external-ip` in `coturn.conf` matches VPS public IP |
-| Agent offline on dashboard | Agent `serverUrl` must be `wss://blueconnect.online/ws`; check agent.log for WS errors |
+| Agent offline on dashboard | Agent `serverUrl` must be `wss://worthyjoin.online/ws`; check agent.log for WS errors |
 | Video bad on VPS but LAN OK | Encoder issue on PC — re-run Phase A; do not debug encode on VPS |
 
 ## Related

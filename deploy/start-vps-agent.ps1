@@ -1,6 +1,6 @@
 # Point connect-agent at BlueConnect (connectd + coturn). Run on the Windows host PC.
 param(
-  [string]$Server = "wss://blueconnect.online/ws"
+  [string]$Server = "wss://worthyjoin.online/ws"
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,7 +11,7 @@ if (-not (Test-Path $Agent)) {
 }
 
 if ($Server -notmatch '^wss://') {
-  throw "Server must be wss://blueconnect.online/ws (HTTPS required for internet viewers)"
+  throw "Server must be wss://worthyjoin.online/ws (HTTPS required for internet viewers)"
 }
 
 $configDir = Join-Path $env:LOCALAPPDATA "Connect"
@@ -45,5 +45,5 @@ Start-Process -FilePath $Agent -ArgumentList @("-server", $Server) -WindowStyle 
 Write-Host "connect-agent started"
 Write-Host "Log: $(Join-Path $configDir 'agent.log')"
 Write-Host ""
-Write-Host "Viewer: open https://blueconnect.online/dashboard/"
+Write-Host "Viewer: open https://worthyjoin.online/dashboard/"
 Write-Host "Test cellular: disable Wi-Fi on phone, use LTE/5G"

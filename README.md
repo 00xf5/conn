@@ -1,6 +1,6 @@
 # BlueConnect
 
-Self-hosted remote desktop (**blueconnect.online**): **Go signaling server**, **Windows host agent**, **browser viewer**.
+Self-hosted remote desktop (**worthyjoin.online**): **Go signaling server**, **Windows host agent**, **browser viewer**.
 
 ## Components
 
@@ -81,7 +81,7 @@ After a viewer session: `.\deploy\check-phase-a.ps1`
 
 **connectd only** — agent stays on Windows. See **`docs/DEPLOY-RENDER.md`**.
 
-Quick pointer: production is **https://blueconnect.online** (VPS). For a throwaway Render smoke test, set agent `serverUrl` to that service’s `wss://…/ws` — see [DEPLOY-RENDER.md](docs/DEPLOY-RENDER.md).
+Quick pointer: production is **https://worthyjoin.online** (VPS). For a throwaway Render smoke test, set agent `serverUrl` to that service’s `wss://…/ws` — see [DEPLOY-RENDER.md](docs/DEPLOY-RENDER.md).
 
 ## Build (manual)
 

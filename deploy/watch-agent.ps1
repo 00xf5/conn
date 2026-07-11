@@ -1,6 +1,6 @@
 # Keep connect-agent alive: restart on crash or exit. Run in a dedicated PowerShell window.
 param(
-  [string]$Server = "wss://blueconnect.online/ws"
+  [string]$Server = "wss://worthyjoin.online/ws"
 )
 
 $ErrorActionPreference = "Stop"

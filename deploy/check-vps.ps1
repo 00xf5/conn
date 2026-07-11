@@ -1,6 +1,6 @@
 # Verify VPS connectd + coturn from Windows (run on host PC after setup-vps.sh).
 param(
-  [string]$Domain = "blueconnect.online"
+  [string]$Domain = "worthyjoin.online"
 )
 
 $ErrorActionPreference = "Stop"

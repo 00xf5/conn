@@ -1,6 +1,6 @@
 # Deploy connectd to Render (legacy / dev only)
 
-> **Production:** **https://blueconnect.online** on a VPS with coturn — see **[DEPLOY-VPS.md](DEPLOY-VPS.md)**.  
+> **Production:** **https://worthyjoin.online** on a VPS with coturn — see **[DEPLOY-VPS.md](DEPLOY-VPS.md)**.  
 > Render has no UDP TURN relay; cellular viewers will fail without a separate coturn VPS anyway.
 
 Signaling-only smoke test. **connect-agent stays on your Windows PC.**
