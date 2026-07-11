@@ -626,6 +626,12 @@ body {
 }
 .mono { font-family: var(--mono); font-size: 12px; color: #d4d4d4; }
 
+.detail-key-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
 .detail-note {
   margin: auto 22px 20px;
   color: var(--ink-faint);

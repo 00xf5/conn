@@ -42,7 +42,7 @@ func (s *Server) issueEnrollment(w http.ResponseWriter, r *http.Request, tenantI
 	}
 	ttl := enrollmentTTL(ttlHours)
 	exp := time.Now().UTC().Add(ttl)
-	rec, err := s.db.CreateEnrollment(tenantID, label, hash, &exp)
+	rec, err := s.db.CreateEnrollment(tenantID, label, hash, code, &exp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -264,10 +264,12 @@ func (s *Server) handleAgentEnroll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	hostKey, _ := s.ensureHostKey(deviceID)
 	writeJSON(w, map[string]any{
 		"ok":         true,
 		"tenantId":   rec.TenantID,
 		"tenantName": rec.TenantName,
 		"deviceId":   deviceID,
+		"hostKey":    hostKey,
 	})
 }

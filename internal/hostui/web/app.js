@@ -1,18 +1,19 @@
 (function () {
   const toast = document.getElementById('toast');
+  const viewUnlock = document.getElementById('view-unlock');
   const viewHome = document.getElementById('view-home');
   const viewMeet = document.getElementById('view-meet');
   const timerEl = document.getElementById('meet-timer');
   const hostName = document.getElementById('host-name');
+  const unlockHost = document.getElementById('unlock-host');
+  const unlockErr = document.getElementById('unlock-err');
+  const unlockKey = document.getElementById('unlock-key');
   let toastTimer = null;
   let meetSeconds = 0;
   let meetInterval = null;
   let muted = false;
   let camOff = false;
-
-  try {
-    hostName.textContent = (window.navigator && navigator.platform) ? navigator.platform : 'This PC';
-  } catch (_) {}
+  let unlocked = false;
 
   function showToast(msg) {
     if (!toast) return;
@@ -30,7 +31,27 @@
     return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
   }
 
+  function showUnlock() {
+    unlocked = false;
+    if (viewUnlock) viewUnlock.hidden = false;
+    if (viewHome) viewHome.hidden = true;
+    if (viewMeet) viewMeet.hidden = true;
+    if (unlockKey) {
+      unlockKey.value = '';
+      setTimeout(() => unlockKey.focus(), 50);
+    }
+    if (unlockErr) unlockErr.hidden = true;
+  }
+
+  function showHome() {
+    unlocked = true;
+    if (viewUnlock) viewUnlock.hidden = true;
+    if (viewHome) viewHome.hidden = false;
+    if (viewMeet) viewMeet.hidden = true;
+  }
+
   function openMeet() {
+    if (!unlocked) return;
     viewHome.hidden = true;
     viewMeet.hidden = false;
     meetSeconds = 0;
@@ -76,6 +97,58 @@
     showToast('Close the window with X to hide');
   }
 
+  async function bootUnlock() {
+    let status = { unlocked: false, hostname: '', deviceId: '' };
+    if (typeof window.hostUnlockStatus === 'function') {
+      try {
+        status = await window.hostUnlockStatus();
+      } catch (_) {}
+    }
+    const name = status.hostname || (navigator.platform || 'This PC');
+    if (hostName) hostName.textContent = name;
+    if (unlockHost) unlockHost.textContent = name;
+    if (status.unlocked) {
+      showHome();
+    } else {
+      showUnlock();
+    }
+  }
+
+  document.getElementById('unlock-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const btn = document.getElementById('btn-unlock');
+    const key = (unlockKey && unlockKey.value) || '';
+    if (unlockErr) unlockErr.hidden = true;
+    if (btn) btn.disabled = true;
+    try {
+      if (typeof window.hostUnlock !== 'function') {
+        throw new Error('Unlock is unavailable in this build');
+      }
+      const res = await window.hostUnlock(key);
+      if (res && res.ok === false) {
+        throw new Error(res.error || 'Unlock failed');
+      }
+      showHome();
+      showToast('Host app unlocked');
+    } catch (e) {
+      if (unlockErr) {
+        unlockErr.textContent = (e && e.message) || String(e);
+        unlockErr.hidden = false;
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
+
+  document.getElementById('btn-lock').addEventListener('click', async () => {
+    if (typeof window.hostLock === 'function') {
+      try { await window.hostLock(); } catch (_) {}
+    }
+    leaveMeet();
+    showUnlock();
+    showToast('Host app locked');
+  });
+
   document.getElementById('btn-connect').addEventListener('click', openMeet);
   document.getElementById('btn-leave').addEventListener('click', leaveMeet);
   document.getElementById('btn-leave-top').addEventListener('click', leaveMeet);
@@ -101,4 +174,6 @@
     }
     showToast('Coming soon');
   });
+
+  bootUnlock();
 })();

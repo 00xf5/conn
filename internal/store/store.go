@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS enrollment_codes (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   code_hash TEXT NOT NULL,
+  code_plain TEXT NOT NULL DEFAULT '',
   label TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL,
   device_id TEXT,
@@ -127,6 +128,9 @@ CREATE INDEX IF NOT EXISTS idx_enroll_status ON enrollment_codes(status);
 	}
 	// Best-effort column add for existing DBs (ignore if already present).
 	_, _ = db.sql.Exec(`ALTER TABLE access_accounts ADD COLUMN code_plain TEXT NOT NULL DEFAULT ''`)
+	_, _ = db.sql.Exec(`ALTER TABLE enrollment_codes ADD COLUMN code_plain TEXT NOT NULL DEFAULT ''`)
+	_, _ = db.sql.Exec(`ALTER TABLE agent_bindings ADD COLUMN host_key_hash TEXT NOT NULL DEFAULT ''`)
+	_, _ = db.sql.Exec(`ALTER TABLE agent_bindings ADD COLUMN host_key_plain TEXT NOT NULL DEFAULT ''`)
 	return nil
 }
 

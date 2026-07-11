@@ -199,6 +199,15 @@ function renderDetail() {
       : '<span class="dot"></span> Offline';
     document.getElementById("detail-guest").textContent = a.hostname || "—";
     document.getElementById("detail-device").textContent = a.deviceId;
+    const keyEl = document.getElementById("detail-host-key");
+    const keyActions = document.getElementById("detail-key-actions");
+    if (a.hostKey) {
+      keyEl.textContent = a.hostKey;
+      keyActions.hidden = false;
+    } else {
+      keyEl.textContent = "—";
+      keyActions.hidden = true;
+    }
     document.getElementById("detail-seen").textContent = fmtTime(a.lastSeen);
     document.getElementById("detail-pipe").textContent =
       [a.encoder, a.resolution].filter(Boolean).join(" · ") || "—";
@@ -207,14 +216,16 @@ function renderDetail() {
     document.getElementById("btn-join").textContent = joining ? "Joining…" : "Join";
     document.getElementById("btn-share").disabled = !on;
     document.getElementById("detail-note").textContent = on
-      ? "Join opens a remote session in this browser. Share link creates a ticket for another device."
-      : "This machine is offline. It stays listed so you can find it when it reconnects.";
+      ? "Join opens a remote session in this browser. Share link creates a ticket for another device. Give the Host key to the host person so they can open the WorthyJoin Host app."
+      : "This machine is offline. It stays listed so you can find it when it reconnects. Host key still works for the local Host app.";
   } else {
     const sess = sessions.find((s) => s.deviceId === selectedId);
     document.getElementById("detail-name").textContent = sess ? sess.code : "Session";
     document.getElementById("detail-status").textContent = "Ticket";
     document.getElementById("detail-guest").textContent = shortId(selectedId);
     document.getElementById("detail-device").textContent = selectedId || "—";
+    document.getElementById("detail-host-key").textContent = "—";
+    document.getElementById("detail-key-actions").hidden = true;
     document.getElementById("detail-seen").textContent = sess ? fmtTime(sess.expiresAt) : "—";
     document.getElementById("detail-pipe").textContent = "—";
     document.getElementById("detail-conn").textContent = sess ? fmtTime(sess.createdAt) : "—";
@@ -472,10 +483,16 @@ async function loadEnrollments() {
           e.status === "pending"
             ? `<button type="button" class="link-btn" data-revoke-enroll="${escapeHtml(e.id)}">Revoke</button>`
             : "";
+        const codeBtn = e.code
+          ? `<button type="button" class="link-btn" data-copy-enroll-code="${escapeHtml(e.code)}">Copy code</button>`
+          : "";
+        const linkBtn = e.code
+          ? `<button type="button" class="link-btn" data-copy-enroll-link="${escapeHtml(enrollLink(e.code))}">Copy link</button>`
+          : "";
         return `<div class="enroll-row">
-          <span>${escapeHtml(e.label || "—")}</span>
+          <span>${escapeHtml(e.label || "—")}${e.code ? `<br><code class="mono">${escapeHtml(e.code)}</code>` : ""}</span>
           <span class="mono">${escapeHtml(e.status)}${e.deviceId ? " · " + escapeHtml(shortId(e.deviceId)) : ""}</span>
-          ${revoke}
+          <span>${codeBtn} ${linkBtn} ${revoke}</span>
         </div>`;
       })
       .join("");
@@ -526,12 +543,50 @@ document.getElementById("enroll-copy-link").onclick = () => {
 };
 
 document.getElementById("enroll-list").onclick = async (ev) => {
+  const copyCode = ev.target.closest("[data-copy-enroll-code]");
+  if (copyCode) {
+    await copyText(copyCode.dataset.copyEnrollCode || "");
+    return;
+  }
+  const copyLink = ev.target.closest("[data-copy-enroll-link]");
+  if (copyLink) {
+    await copyText(copyLink.dataset.copyEnrollLink || "");
+    return;
+  }
   const btn = ev.target.closest("[data-revoke-enroll]");
   if (!btn) return;
   try {
     await api(`/api/enrollments/${btn.dataset.revokeEnroll}/revoke`, { method: "POST" });
     toast("Enrollment revoked");
     await loadEnrollments();
+  } catch (e) {
+    toast(e.message);
+  }
+};
+
+document.getElementById("btn-copy-host-key").onclick = async () => {
+  const a = agentById(selectedId);
+  if (!a?.hostKey) {
+    toast("No host key yet");
+    return;
+  }
+  await copyText(a.hostKey);
+  toast("Host key copied");
+};
+
+document.getElementById("btn-rotate-host-key").onclick = async () => {
+  if (!selectedId) return;
+  if (!confirm("Rotate host key? The host person will need the new key to open the Host app.")) return;
+  try {
+    const res = await api(`/api/agents/${encodeURIComponent(selectedId)}/host-key/rotate`, {
+      method: "POST",
+    });
+    const a = agentById(selectedId);
+    if (a && res.hostKey) a.hostKey = res.hostKey;
+    renderDetail();
+    await copyText(res.hostKey || "");
+    toast("New host key copied — ask the host to Lock and unlock with this key");
+    refresh().catch(() => {});
   } catch (e) {
     toast(e.message);
   }

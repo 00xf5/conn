@@ -171,6 +171,7 @@ func (s *Server) handleAdminAgents(w http.ResponseWriter, r *http.Request) {
 		Online    bool      `json:"online"`
 		LastSeen  time.Time `json:"lastSeen,omitempty"`
 		Connected time.Time `json:"connected,omitempty"`
+		HostKey   string    `json:"hostKey,omitempty"`
 	}
 	seen := map[string]bool{}
 	out := make([]row, 0, len(online)+len(bindings))
@@ -181,9 +182,10 @@ func (s *Server) handleAdminAgents(w http.ResponseWriter, r *http.Request) {
 				tid = b.TenantID
 			}
 		}
+		key, _ := s.ensureHostKey(a.DeviceID)
 		out = append(out, row{
 			DeviceID: a.DeviceID, TenantID: tid, Hostname: a.Hostname,
-			Online: true, LastSeen: a.LastSeen, Connected: a.Connected,
+			Online: true, LastSeen: a.LastSeen, Connected: a.Connected, HostKey: key,
 		})
 		seen[a.DeviceID] = true
 	}
@@ -191,8 +193,9 @@ func (s *Server) handleAdminAgents(w http.ResponseWriter, r *http.Request) {
 		if seen[b.DeviceID] {
 			continue
 		}
+		key, _ := s.ensureHostKey(b.DeviceID)
 		out = append(out, row{
-			DeviceID: b.DeviceID, TenantID: b.TenantID, Hostname: b.Hostname, Online: false,
+			DeviceID: b.DeviceID, TenantID: b.TenantID, Hostname: b.Hostname, Online: false, HostKey: key,
 		})
 	}
 	writeJSON(w, out)

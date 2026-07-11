@@ -32,8 +32,8 @@ var (
 	showMu sync.Mutex
 )
 
-// Show launches a dedicated host-ui process so WebView2 owns its own UI thread
-// (systray already initialized COM on the agent thread — nesting WebView2 there panics).
+// Show launches WorthyJoin-Host.exe when present (desktop GUI), otherwise
+// falls back to the same exe with -host-ui so older packages still work.
 func Show() {
 	showMu.Lock()
 	defer showMu.Unlock()
@@ -48,8 +48,16 @@ func Show() {
 		log.Printf("hostui: executable path: %v", err)
 		return
 	}
-	cmd := exec.Command(exe, "-host-ui")
-	cmd.Dir = filepath.Dir(exe)
+	dir := filepath.Dir(exe)
+	hostExe := filepath.Join(dir, "WorthyJoin-Host.exe")
+	var cmd *exec.Cmd
+	if st, err := os.Stat(hostExe); err == nil && !st.IsDir() {
+		cmd = exec.Command(hostExe)
+		cmd.Dir = dir
+	} else {
+		cmd = exec.Command(exe, "-host-ui")
+		cmd.Dir = dir
+	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		// DETACHED_PROCESS — independent of tray lifetime for the window message loop.
 		CreationFlags: 0x00000008,
@@ -96,7 +104,7 @@ func runWindow() error {
 		DataPath:  dataPath,
 		AutoFocus: true,
 		WindowOptions: webview2.WindowOptions{
-			Title:  "WorthyJoin — Host agent",
+			Title:  "WorthyJoin Host",
 			Width:  1100,
 			Height: 720,
 			Center: true,
@@ -114,6 +122,28 @@ func runWindow() error {
 	})
 	_ = w.Bind("hostHide", func() {
 		w.Dispatch(func() { w.Terminate() })
+	})
+	_ = w.Bind("hostUnlockStatus", func() map[string]any {
+		id := loadHostIdentity()
+		return map[string]any{
+			"unlocked": rememberedUnlocked(id.DeviceID),
+			"deviceId": id.DeviceID,
+			"hostname": id.Hostname,
+			"enrolled": id.Enrolled,
+		}
+	})
+	_ = w.Bind("hostUnlock", func(key string) map[string]any {
+		if err := unlockWithKey(key); err != nil {
+			log.Printf("hostui: unlock failed: %v", err)
+			return map[string]any{"ok": false, "error": err.Error()}
+		}
+		log.Printf("hostui: unlocked")
+		return map[string]any{"ok": true}
+	})
+	_ = w.Bind("hostLock", func() map[string]any {
+		clearUnlockFile()
+		log.Printf("hostui: locked")
+		return map[string]any{"ok": true}
 	})
 
 	log.Printf("hostui: window open")

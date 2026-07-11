@@ -364,6 +364,11 @@ async function loadEnrollments() {
           .map(
             (e) => `<tr>
           <td>${escapeHtml(e.label || "—")}</td>
+          <td class="mono">${
+            e.code
+              ? `${escapeHtml(e.code)} <button type="button" class="btn-secondary" data-copy-enroll="${escapeHtml(e.code)}">Copy</button>`
+              : "<span class=\"hint\">(issued before code storage)</span>"
+          }</td>
           <td>${escapeHtml(e.status)}</td>
           <td class="mono">${escapeHtml(e.deviceId || "—")}</td>
           <td class="hint">${escapeHtml(fmtTime(e.createdAt))}${
@@ -377,8 +382,18 @@ async function loadEnrollments() {
         </tr>`
           )
           .join("")
-      : '<tr><td colspan="5" class="empty">No enrollment codes for this tenant</td></tr>';
+      : '<tr><td colspan="6" class="empty">No enrollment codes for this tenant</td></tr>';
     body.onclick = async (ev) => {
+      const copyBtn = ev.target.closest("[data-copy-enroll]");
+      if (copyBtn) {
+        try {
+          await navigator.clipboard.writeText(copyBtn.dataset.copyEnroll || "");
+          toast("Enrollment code copied");
+        } catch {
+          toast(copyBtn.dataset.copyEnroll || "");
+        }
+        return;
+      }
       const btn = ev.target.closest("[data-revoke-enroll]");
       if (!btn) return;
       try {
@@ -407,13 +422,28 @@ async function loadAgents() {
           <td>${escapeHtml(a.hostname || "—")}</td>
           <td>${escapeHtml(byTen[a.tenantId] || a.tenantId || "—")}</td>
           <td class="mono" title="${escapeHtml(a.deviceId || "")}">${escapeHtml(a.deviceId || "—")}</td>
+          <td class="mono">${
+            a.hostKey
+              ? `${escapeHtml(a.hostKey)} <button type="button" class="link-btn" data-copy-host-key="${escapeHtml(a.hostKey)}">Copy</button>`
+              : "—"
+          }</td>
           <td class="hint">${escapeHtml(a.lastSeen ? fmtTime(a.lastSeen) : "—")}</td>
         </tr>`
           )
           .join("")
-      : '<tr><td colspan="5" class="empty">No agents registered</td></tr>';
+      : '<tr><td colspan="6" class="empty">No agents registered</td></tr>';
+    body.onclick = async (ev) => {
+      const copy = ev.target.closest("[data-copy-host-key]");
+      if (!copy) return;
+      try {
+        await navigator.clipboard.writeText(copy.dataset.copyHostKey || "");
+        toast("Host key copied");
+      } catch (e) {
+        toast(e.message);
+      }
+    };
   } catch (e) {
-    body.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(e.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(e.message)}</td></tr>`;
   }
 }
 

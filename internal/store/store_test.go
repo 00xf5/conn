@@ -69,7 +69,7 @@ func TestEnrollmentRedeemOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	exp := time.Now().UTC().Add(24 * time.Hour)
-	e, err := db.CreateEnrollment(ten.ID, "desk", "hash-enr", &exp)
+	e, err := db.CreateEnrollment(ten.ID, "desk", "hash-enr", "ENR-TEST-CODE", &exp)
 	if err != nil {
 		t.Fatal(err)
 	}

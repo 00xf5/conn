@@ -17,6 +17,7 @@ type EnrollmentCode struct {
 	TenantName string     `json:"tenantName,omitempty"`
 	Label      string     `json:"label"`
 	Status     string     `json:"status"`
+	Code       string     `json:"code,omitempty"` // plaintext kept for admin/tech copy
 	DeviceID   string     `json:"deviceId,omitempty"`
 	RedeemedAt *time.Time `json:"redeemedAt,omitempty"`
 	ExpiresAt  *time.Time `json:"expiresAt,omitempty"`
@@ -24,7 +25,7 @@ type EnrollmentCode struct {
 	CodeHash   string     `json:"-"`
 }
 
-func (db *DB) CreateEnrollment(tenantID, label, codeHash string, expiresAt *time.Time) (EnrollmentCode, error) {
+func (db *DB) CreateEnrollment(tenantID, label, codeHash, codePlain string, expiresAt *time.Time) (EnrollmentCode, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" || codeHash == "" {
 		return EnrollmentCode{}, fmt.Errorf("tenantId and code hash required")
@@ -37,6 +38,7 @@ func (db *DB) CreateEnrollment(tenantID, label, codeHash string, expiresAt *time
 		TenantID:  tenantID,
 		Label:     strings.TrimSpace(label),
 		Status:    StatusPending,
+		Code:      strings.TrimSpace(codePlain),
 		ExpiresAt: expiresAt,
 		CreatedAt: time.Now().UTC(),
 		CodeHash:  codeHash,
@@ -46,16 +48,16 @@ func (db *DB) CreateEnrollment(tenantID, label, codeHash string, expiresAt *time
 		exp = expiresAt.UTC().Format(time.RFC3339Nano)
 	}
 	_, err := db.sql.Exec(
-		`INSERT INTO enrollment_codes(id, tenant_id, code_hash, label, status, device_id, redeemed_at, expires_at, created_at)
-		 VALUES(?,?,?,?,?,NULL,NULL,?,?)`,
-		e.ID, e.TenantID, e.CodeHash, e.Label, e.Status, exp, e.CreatedAt.Format(time.RFC3339Nano),
+		`INSERT INTO enrollment_codes(id, tenant_id, code_hash, code_plain, label, status, device_id, redeemed_at, expires_at, created_at)
+		 VALUES(?,?,?,?,?,?,NULL,NULL,?,?)`,
+		e.ID, e.TenantID, e.CodeHash, e.Code, e.Label, e.Status, exp, e.CreatedAt.Format(time.RFC3339Nano),
 	)
 	return e, err
 }
 
 func (db *DB) ListEnrollments(tenantID string) ([]EnrollmentCode, error) {
 	rows, err := db.sql.Query(`
-SELECT e.id, e.tenant_id, e.label, e.status, e.device_id, e.redeemed_at, e.expires_at, e.created_at, t.name
+SELECT e.id, e.tenant_id, e.label, e.status, e.device_id, e.redeemed_at, e.expires_at, e.created_at, t.name, COALESCE(e.code_plain,'')
 FROM enrollment_codes e JOIN tenants t ON t.id=e.tenant_id
 WHERE e.tenant_id=? ORDER BY e.created_at DESC`, tenantID)
 	if err != nil {
@@ -103,7 +105,7 @@ func scanEnrollments(rows *sql.Rows) ([]EnrollmentCode, error) {
 	for rows.Next() {
 		var e EnrollmentCode
 		var device, redeemed, expires, created sql.NullString
-		if err := rows.Scan(&e.ID, &e.TenantID, &e.Label, &e.Status, &device, &redeemed, &expires, &created, &e.TenantName); err != nil {
+		if err := rows.Scan(&e.ID, &e.TenantID, &e.Label, &e.Status, &device, &redeemed, &expires, &created, &e.TenantName, &e.Code); err != nil {
 			return nil, err
 		}
 		e.CreatedAt, _ = time.Parse(time.RFC3339Nano, created.String)

@@ -101,7 +101,7 @@ func runInstall(opts InstallOptions, progress ProgressFunc) error {
 	}
 
 	progress("Downloading", "Getting WorthyJoin…")
-	zipPath := filepath.Join(os.TempDir(), fmt.Sprintf("WorthyJoin-Setup-%d.zip", time.Now().UnixNano()))
+	zipPath := filepath.Join(os.TempDir(), fmt.Sprintf("worthyjoin-setup-%d.zip", time.Now().UnixNano()))
 	defer os.Remove(zipPath)
 	if err := downloadFile(agentURL, zipPath); err != nil {
 		return fmt.Errorf("download failed — check your network or ask your tech to publish the agent package: %w", err)
@@ -140,6 +140,12 @@ func runInstall(opts InstallOptions, progress ProgressFunc) error {
 		}
 	}
 
+	progress("Shortcuts", "Adding Desktop shortcut…")
+	if err := createHostShortcuts(dest); err != nil {
+		// Non-fatal — Host app may still be launched from the install folder / tray.
+		progress("Shortcuts", "Shortcut skipped — Host app is in the install folder")
+	}
+
 	progress("Starting", "Updating Windows service…")
 	if err := runElevatedInstallService(exe, dest); err != nil {
 		progress("Starting", "Starting agent…")
@@ -148,7 +154,7 @@ func runInstall(opts InstallOptions, progress ProgressFunc) error {
 		_ = start.Start()
 	}
 
-	progress("Done", "This PC is ready. You can close this window.")
+	progress("Done", "This PC is ready. Use the WorthyJoin Host shortcut (ask your tech for the Host key).")
 	return nil
 }
 
@@ -202,47 +208,81 @@ func unzipTo(zipPath, dest string) error {
 		if err != nil {
 			return err
 		}
-		out, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, f.Mode())
-		if err != nil {
-			rc.Close()
-			return err
-		}
-		_, copyErr := io.Copy(out, rc)
-		closeErr := out.Close()
+		writeErr := writeFileReplace(rc, target, f.Mode())
 		rc.Close()
-		if copyErr != nil {
-			return copyErr
-		}
-		if closeErr != nil {
-			return closeErr
+		if writeErr != nil {
+			return writeErr
 		}
 	}
 	return nil
 }
 
+// writeFileReplace writes target; if the file is locked (running exe), renames it aside first.
+func writeFileReplace(src io.Reader, target string, mode os.FileMode) error {
+	if err := tryWriteFile(src, target, mode); err == nil {
+		return nil
+	}
+
+	// Windows often allows renaming a locked executable.
+	old := target + ".old"
+	_ = os.Remove(old)
+	if err := os.Rename(target, old); err != nil {
+		// Still locked for rename — one more stop attempt then retry rename.
+		stopExistingAgent()
+		_ = os.Remove(old)
+		if err2 := os.Rename(target, old); err2 != nil {
+			return fmt.Errorf("open %s: file in use — close WorthyJoin / ConnectAgent and try again", target)
+		}
+	}
+
+	if err := tryWriteFile(src, target, mode); err != nil {
+		_ = os.Rename(old, target) // best-effort rollback
+		return err
+	}
+	_ = os.Remove(old) // may fail if still mapped; leftover .old is harmless
+	return nil
+}
+
+func tryWriteFile(src io.Reader, target string, mode os.FileMode) error {
+	out, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(out, src)
+	closeErr := out.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
+}
+
 func stopExistingAgent() {
+	// Prefer stopping the Windows service cleanly, then force-kill any leftover processes.
 	_ = exec.Command("sc.exe", "stop", "ConnectAgent").Run()
-	_ = exec.Command("taskkill.exe", "/IM", "connect-agent.exe", "/F").Run()
-	// Wait until the service is stopped / exe unlocked so we can overwrite files.
-	for i := 0; i < 40; i++ {
+	_ = exec.Command("net.exe", "stop", "ConnectAgent", "/y").Run()
+
+	for i := 0; i < 60; i++ {
 		out, _ := exec.Command("sc.exe", "query", "ConnectAgent").CombinedOutput()
 		s := string(out)
-		if !strings.Contains(s, "RUNNING") && !strings.Contains(s, "STOP_PENDING") {
+		if strings.Contains(s, "STOPPED") || strings.Contains(s, "1060") || (!strings.Contains(s, "RUNNING") && !strings.Contains(s, "STOP_PENDING")) {
 			break
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
-	time.Sleep(500 * time.Millisecond)
+
+	_ = exec.Command("taskkill.exe", "/F", "/IM", "connect-agent.exe").Run()
+	_ = exec.Command("taskkill.exe", "/F", "/IM", "WorthyJoin-Host.exe").Run()
+	_ = exec.Command("taskkill.exe", "/F", "/IM", "WorthyJoin-Setup.exe").Run() // no-op if not us
+	// Host GUI is a separate WorthyJoin-Host.exe (legacy: connect-agent.exe -host-ui).
+	time.Sleep(750 * time.Millisecond)
 }
 
 func runElevatedInstallService(exe, dir string) error {
-	// Prefer direct call first (already admin).
 	cmd := exec.Command(exe, "-install-service")
 	cmd.Dir = dir
 	if err := cmd.Run(); err == nil {
 		return nil
 	}
-	// Elevate via PowerShell Start-Process -Verb RunAs (stop+reinstall handled inside -install-service).
 	ps := fmt.Sprintf(
 		"$p=Start-Process -FilePath %s -WorkingDirectory %s -Verb RunAs -Wait -PassThru -ArgumentList @('-install-service'); if($null -eq $p){exit 1}; if($null -eq $p.ExitCode){exit 0}; exit [int]$p.ExitCode",
 		powershellQuote(exe),

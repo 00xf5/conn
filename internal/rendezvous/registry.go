@@ -15,6 +15,7 @@ type AgentInfo struct {
 	Encoder    string    `json:"encoder,omitempty"`
 	Resolution string    `json:"resolution,omitempty"`
 	AudioLevel float64   `json:"audioLevel,omitempty"`
+	HostKey    string    `json:"hostKey,omitempty"` // permanent Host GUI unlock (tech copy)
 }
 
 type Registry struct {

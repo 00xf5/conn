@@ -97,6 +97,13 @@ if (-not $SkipBuild) {
     throw "go build connect-agent failed"
   }
 
+  Write-Host "Building WorthyJoin-Host.exe (CGO)..."
+  $hostOut = Join-Path $Root "WorthyJoin-Host.exe"
+  & go build -trimpath "-ldflags=-s -w -H=windowsgui" -o $hostOut ./cmd/connect-host
+  if ($LASTEXITCODE -ne 0) {
+    throw "go build connect-host failed"
+  }
+
   Write-Host "Building WorthyJoin-Setup.exe..."
   $setupOut = Join-Path $OutDir "WorthyJoin-Setup.exe"
   & go build -trimpath "-ldflags=-s -w -H=windowsgui" -o $setupOut ./cmd/connect-setup
@@ -118,6 +125,10 @@ $Exe = Join-Path $Root "connect-agent.exe"
 if (-not (Test-Path -LiteralPath $Exe)) {
   throw "connect-agent.exe not found - run without -SkipBuild or build first"
 }
+$HostExe = Join-Path $Root "WorthyJoin-Host.exe"
+if (-not (Test-Path -LiteralPath $HostExe)) {
+  throw "WorthyJoin-Host.exe not found - run without -SkipBuild or build first"
+}
 
 $Ff = Find-FFmpeg -Hint $FFmpegPath
 if (-not $Ff) {
@@ -129,6 +140,7 @@ $Stage = Join-Path $env:TEMP ("connect-agent-pkg-" + [guid]::NewGuid().ToString(
 $StageBin = Join-Path $Stage "bin"
 New-Item -ItemType Directory -Force -Path $StageBin | Out-Null
 Copy-Item -LiteralPath $Exe -Destination (Join-Path $Stage "connect-agent.exe") -Force
+Copy-Item -LiteralPath $HostExe -Destination (Join-Path $Stage "WorthyJoin-Host.exe") -Force
 Copy-Item -LiteralPath $Ff -Destination (Join-Path $StageBin "ffmpeg.exe") -Force
 
 if (-not $OutZip) {
@@ -161,14 +173,16 @@ if (Test-Path -LiteralPath $setupFinal) {
 if ($SignThumbprint) {
   Write-Host "Code-signing with thumbprint $SignThumbprint ..."
   Sign-ConnectBinary -Path $Exe -Thumbprint $SignThumbprint -TimestampUrl $SignTimestampUrl
+  Sign-ConnectBinary -Path $HostExe -Thumbprint $SignThumbprint -TimestampUrl $SignTimestampUrl
   if (Test-Path -LiteralPath $setupFinal) {
     Sign-ConnectBinary -Path $setupFinal -Thumbprint $SignThumbprint -TimestampUrl $SignTimestampUrl
   }
-  # Rebuild zip with signed agent.exe
+  # Rebuild zip with signed binaries
   $Stage2 = Join-Path $env:TEMP ("connect-agent-pkg-signed-" + [guid]::NewGuid().ToString())
   $Stage2Bin = Join-Path $Stage2 "bin"
   New-Item -ItemType Directory -Force -Path $Stage2Bin | Out-Null
   Copy-Item -LiteralPath $Exe -Destination (Join-Path $Stage2 "connect-agent.exe") -Force
+  Copy-Item -LiteralPath $HostExe -Destination (Join-Path $Stage2 "WorthyJoin-Host.exe") -Force
   Copy-Item -LiteralPath $Ff -Destination (Join-Path $Stage2Bin "ffmpeg.exe") -Force
   if (Test-Path -LiteralPath $OutZip) { Remove-Item -LiteralPath $OutZip -Force }
   Compress-Archive -Path (Join-Path $Stage2 "*") -DestinationPath $OutZip -Force

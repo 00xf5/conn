@@ -52,11 +52,12 @@ type Server struct {
 	tokens      *auth.TokenSigner
 	db          *store.DB
 	adminToken  string
-	loginLimit  *keyedLimiter
-	redeemLimit *keyedLimiter
-	upgrader    websocket.Upgrader
-	turnSecret  string
-	turnSrv     interface{ Close() error }
+	loginLimit   *keyedLimiter
+	redeemLimit  *keyedLimiter
+	hostKeyLimit *keyedLimiter
+	upgrader     websocket.Upgrader
+	turnSecret   string
+	turnSrv      interface{ Close() error }
 }
 
 func New(cfg Config) (*Server, error) {
@@ -109,9 +110,10 @@ func New(cfg Config) (*Server, error) {
 		tokens:      tokens,
 		db:          db,
 		adminToken:  loadAdminToken(cfg.AdminToken),
-		loginLimit:  newKeyedLimiter(20, time.Minute),
-		redeemLimit: newKeyedLimiter(30, time.Minute),
-		upgrader:    websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+		loginLimit:   newKeyedLimiter(20, time.Minute),
+		redeemLimit:  newKeyedLimiter(30, time.Minute),
+		hostKeyLimit: newKeyedLimiter(20, time.Minute),
+		upgrader:     websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
 	}
 
 	if cfg.EnableTURN {
@@ -154,6 +156,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/ice", s.handleICE)
 	mux.HandleFunc("/api/session", s.handleSession)
 	mux.HandleFunc("/api/agents", s.handleAgents)
+	mux.HandleFunc("/api/agents/", s.handleTechAgentSubroutes)
 	mux.HandleFunc("/api/sessions", s.handleSessions)
 	mux.HandleFunc("/api/me", s.handleMe)
 	mux.HandleFunc("/api/auth/redeem", s.handleAuthRedeem)
@@ -166,10 +169,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/admin/access-accounts/", s.handleAdminRevokeAccess)
 	mux.HandleFunc("/api/admin/enrollments/", s.handleAdminEnrollmentRevoke)
 	mux.HandleFunc("/api/admin/agents", s.handleAdminAgents)
+	mux.HandleFunc("/api/admin/agents/", s.handleAdminAgentSubroutes)
 	mux.HandleFunc("/api/admin/agent-package", s.handleAdminAgentPackage)
 	mux.HandleFunc("/api/enrollments", s.handleTechEnrollments)
 	mux.HandleFunc("/api/enrollments/", s.handleTechEnrollmentRevoke)
 	mux.HandleFunc("/api/agent/enroll", s.handleAgentEnroll)
+	mux.HandleFunc("/api/agent/host-key/verify", s.handleAgentHostKeyVerify)
 	mux.HandleFunc("/api/agent/package", s.handleAgentPackageInfo)
 	mux.HandleFunc("/download/agent.zip", s.handleDownloadAgent)
 	mux.HandleFunc("/download/setup.exe", s.handleDownloadSetupExe)
@@ -270,6 +275,9 @@ func (s *Server) listTenantAgents(tenantID string) []rendezvous.AgentInfo {
 	out := make([]rendezvous.AgentInfo, 0, len(online)+len(bindings))
 	for _, a := range online {
 		a.Online = true
+		if key, err := s.ensureHostKey(a.DeviceID); err == nil {
+			a.HostKey = key
+		}
 		out = append(out, a)
 		seen[a.DeviceID] = true
 	}
@@ -277,12 +285,14 @@ func (s *Server) listTenantAgents(tenantID string) []rendezvous.AgentInfo {
 		if seen[b.DeviceID] {
 			continue
 		}
+		key, _ := s.ensureHostKey(b.DeviceID)
 		out = append(out, rendezvous.AgentInfo{
 			DeviceID: b.DeviceID,
 			TenantID: b.TenantID,
 			Hostname: b.Hostname,
 			Online:   false,
 			LastSeen: b.UpdatedAt,
+			HostKey:  key,
 		})
 	}
 	return out
@@ -357,6 +367,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			_ = s.db.UpsertAgentBinding(deviceID, tenantID, hostname)
+			_, _ = s.ensureHostKey(deviceID)
 		}
 	}
 

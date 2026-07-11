@@ -22,9 +22,10 @@ const (
 	CookieAdmin = "connect_admin"
 	CookieTech  = "connect_tech"
 
-	AccessCodeLen      = 20
-	EnrollmentCodeLen  = 16
-	accessAlphabet     = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	AccessCodeLen     = 20
+	EnrollmentCodeLen = 16
+	HostKeyLen        = 16
+	accessAlphabet    = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 )
 
 type TokenClaims struct {
@@ -110,6 +111,15 @@ func GenerateEnrollmentCode() (string, error) {
 	return "ENR-" + s, nil
 }
 
+// GenerateHostKey returns a permanent Host GUI unlock key (HOST-…).
+func GenerateHostKey() (string, error) {
+	s, err := formatGroupedCode(HostKeyLen)
+	if err != nil {
+		return "", err
+	}
+	return "HOST-" + s, nil
+}
+
 func formatGroupedCode(n int) (string, error) {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
@@ -151,6 +161,18 @@ func NormalizeEnrollmentCode(code string) string {
 	return code
 }
 
+func NormalizeHostKey(code string) string {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	code = strings.ReplaceAll(code, " ", "")
+	if strings.HasPrefix(code, "HOST-") {
+		code = strings.TrimPrefix(code, "HOST-")
+	} else if strings.HasPrefix(code, "HOST") {
+		code = strings.TrimPrefix(code, "HOST")
+	}
+	code = strings.ReplaceAll(code, "-", "")
+	return code
+}
+
 func HashAccessCode(code string) (string, error) {
 	norm := NormalizeAccessCode(code)
 	if len(norm) < 12 {
@@ -169,6 +191,15 @@ func HashEnrollmentCode(code string) (string, error) {
 	return string(h), err
 }
 
+func HashHostKey(code string) (string, error) {
+	norm := NormalizeHostKey(code)
+	if len(norm) < 12 {
+		return "", fmt.Errorf("host key too short")
+	}
+	h, err := bcrypt.GenerateFromPassword([]byte(norm), bcrypt.DefaultCost)
+	return string(h), err
+}
+
 func CheckAccessCode(hash, code string) bool {
 	norm := NormalizeAccessCode(code)
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(norm)) == nil
@@ -176,5 +207,10 @@ func CheckAccessCode(hash, code string) bool {
 
 func CheckEnrollmentCode(hash, code string) bool {
 	norm := NormalizeEnrollmentCode(code)
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(norm)) == nil
+}
+
+func CheckHostKey(hash, code string) bool {
+	norm := NormalizeHostKey(code)
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(norm)) == nil
 }

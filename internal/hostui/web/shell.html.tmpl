@@ -24,8 +24,24 @@ __CSS__
       </div>
     </header>
 
+    <!-- UNLOCK -->
+    <main class="view view-unlock" id="view-unlock" hidden>
+      <div class="unlock-card">
+        <p class="eyebrow">Host access</p>
+        <h1>Unlock this PC’s Host app</h1>
+        <p class="lede">Ask your tech for the permanent Host key for this machine, then enter it below.</p>
+        <form id="unlock-form" class="unlock-form" autocomplete="off">
+          <label for="unlock-key">Host key</label>
+          <input id="unlock-key" type="text" spellcheck="false" autocomplete="off" placeholder="HOST-XXXX-XXXX-…" required />
+          <p class="unlock-err" id="unlock-err" hidden></p>
+          <button type="submit" class="cta" id="btn-unlock">Unlock</button>
+        </form>
+        <p class="unlock-meta">This PC · <strong id="unlock-host">—</strong></p>
+      </div>
+    </main>
+
     <!-- HOME -->
-    <main class="view view-home" id="view-home">
+    <main class="view view-home" id="view-home" hidden>
       <div class="home-hero">
         <p class="eyebrow">Remote session</p>
         <h1>Ready when you are</h1>
@@ -36,6 +52,7 @@ __CSS__
           <div><span>This PC</span><strong id="host-name">—</strong></div>
           <div><span>Mode</span><strong>Preview</strong></div>
         </div>
+        <button type="button" class="text-btn unlock-lock" id="btn-lock">Lock Host app</button>
       </div>
     </main>
 

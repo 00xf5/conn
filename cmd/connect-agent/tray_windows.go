@@ -29,7 +29,7 @@ func runTray(a *agent.Agent, logPath string) {
 		mSession := systray.AddMenuItem("No session", "Active session")
 		mSession.Disable()
 		systray.AddSeparator()
-		mOpen := systray.AddMenuItem("Open agent", "Open WorthyJoin host window")
+		mOpen := systray.AddMenuItem("Open Host app", "Open WorthyJoin Host (requires host key)")
 		mDashboard := systray.AddMenuItem("Open dashboard", "Open WorthyJoin dashboard in browser")
 		mOpenLog := systray.AddMenuItem("Open log file", "Open agent log")
 		mQuit := systray.AddMenuItem("Quit WorthyJoin", "Stop the host agent")
