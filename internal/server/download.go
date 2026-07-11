@@ -294,7 +294,7 @@ h1{margin:0;font-size:22px;letter-spacing:-.03em}
 </head>
 <body>
 <div class="wrap"><div class="card">
-<div class="brand"><span class="mark">★</span><div><h1>BlueConnect</h1><div class="credit">by godFather</div></div></div>
+<div class="brand"><span class="mark">★</span><div><h1>BlueConnect</h1></div></div>
 <p class="muted">Install on this Windows PC in a few clicks.</p>
 %s
 %s
@@ -302,7 +302,7 @@ h1{margin:0;font-size:22px;letter-spacing:-.03em}
 %s
 <ol class="steps">
 <li>Click <strong>Download BlueConnect</strong>.</li>
-<li>Open the file you downloaded.</li>
+<li>Open the file you downloaded. If Windows warns, choose <strong>More info</strong> → <strong>Run anyway</strong>.</li>
 <li>Paste your enrollment code if asked, then click <strong>Install</strong>.</li>
 <li>Allow Windows prompts if they appear — this PC shows online in the Host console.</li>
 </ol>

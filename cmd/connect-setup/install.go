@@ -139,10 +139,7 @@ func runInstall(opts InstallOptions, progress ProgressFunc) error {
 		}
 	}
 
-	progress("Starting", "Installing background service…")
-	svc := exec.Command(exe, "-install-service")
-	svc.Dir = dest
-	// UAC elevation: try RunAs via powershell when not elevated
+	progress("Starting", "Updating Windows service…")
 	if err := runElevatedInstallService(exe, dest); err != nil {
 		progress("Starting", "Starting agent…")
 		start := exec.Command(exe)
@@ -225,7 +222,16 @@ func unzipTo(zipPath, dest string) error {
 func stopExistingAgent() {
 	_ = exec.Command("sc.exe", "stop", "ConnectAgent").Run()
 	_ = exec.Command("taskkill.exe", "/IM", "connect-agent.exe", "/F").Run()
-	time.Sleep(2 * time.Second)
+	// Wait until the service is stopped / exe unlocked so we can overwrite files.
+	for i := 0; i < 40; i++ {
+		out, _ := exec.Command("sc.exe", "query", "ConnectAgent").CombinedOutput()
+		s := string(out)
+		if !strings.Contains(s, "RUNNING") && !strings.Contains(s, "STOP_PENDING") {
+			break
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	time.Sleep(500 * time.Millisecond)
 }
 
 func runElevatedInstallService(exe, dir string) error {
@@ -235,9 +241,9 @@ func runElevatedInstallService(exe, dir string) error {
 	if err := cmd.Run(); err == nil {
 		return nil
 	}
-	// Elevate via PowerShell Start-Process -Verb RunAs
+	// Elevate via PowerShell Start-Process -Verb RunAs (stop+reinstall handled inside -install-service).
 	ps := fmt.Sprintf(
-		"$p=Start-Process -FilePath %s -WorkingDirectory %s -Verb RunAs -Wait -PassThru -ArgumentList @('-install-service'); if($null -eq $p){exit 1}; exit $p.ExitCode",
+		"$p=Start-Process -FilePath %s -WorkingDirectory %s -Verb RunAs -Wait -PassThru -ArgumentList @('-install-service'); if($null -eq $p){exit 1}; if($null -eq $p.ExitCode){exit 0}; exit [int]$p.ExitCode",
 		powershellQuote(exe),
 		powershellQuote(dir),
 	)

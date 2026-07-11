@@ -200,9 +200,18 @@ func configureAndStartExisting(m *mgr.Mgr, exe string) error {
 		_ = s.UpdateConfig(cfg)
 	}
 	_ = setRecovery(s)
-	status, err := s.Query()
-	if err == nil && status.State == svc.Running {
-		return nil
+
+	// Always recycle so an upgrade picks up the new binary (seamless reinstall).
+	status, qerr := s.Query()
+	if qerr == nil && status.State != svc.Stopped && status.State != svc.StopPending {
+		_, _ = s.Control(svc.Stop)
+	}
+	for i := 0; i < 50; i++ {
+		st, err := s.Query()
+		if err != nil || st.State == svc.Stopped {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 	return s.Start("-service")
 }

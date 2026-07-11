@@ -11,7 +11,10 @@
 param(
   [string]$OutZip = "",
   [switch]$SkipBuild,
-  [string]$FFmpegPath = ""
+  [string]$FFmpegPath = "",
+  # Authenticode thumbprint (or set CONNECT_CODE_SIGN_THUMBPRINT). Required to reduce SmartScreen warnings.
+  [string]$SignThumbprint = $env:CONNECT_CODE_SIGN_THUMBPRINT,
+  [string]$SignTimestampUrl = "http://timestamp.digicert.com"
 )
 
 $ErrorActionPreference = "Stop"
@@ -43,6 +46,41 @@ function Find-FFmpeg {
   $sys = Get-Command "ffmpeg" -ErrorAction SilentlyContinue
   if ($sys) { return $sys.Source }
   return $null
+}
+
+function Find-SignTool {
+  $cmd = Get-Command signtool.exe -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+  $roots = @(
+    "${env:ProgramFiles(x86)}\Windows Kits\10\bin",
+    "${env:ProgramFiles}\Windows Kits\10\bin"
+  )
+  foreach ($root in $roots) {
+    if (-not (Test-Path -LiteralPath $root)) { continue }
+    $hit = Get-ChildItem -Path $root -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
+      Sort-Object FullName -Descending |
+      Select-Object -First 1 -ExpandProperty FullName
+    if ($hit) { return $hit }
+  }
+  return $null
+}
+
+function Sign-ConnectBinary {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$Thumbprint,
+    [string]$TimestampUrl
+  )
+  $tool = Find-SignTool
+  if (-not $tool) {
+    throw "signtool.exe not found. Install Windows SDK Signing Tools, or sign manually."
+  }
+  $tp = ($Thumbprint -replace "\s", "").ToUpperInvariant()
+  Write-Host ("  signing: {0}" -f $Path)
+  & $tool sign /fd SHA256 /td SHA256 /tr $TimestampUrl /sha1 $tp $Path
+  if ($LASTEXITCODE -ne 0) {
+    throw ("signtool failed for {0} (exit {1})" -f $Path, $LASTEXITCODE)
+  }
 }
 
 Write-Host "Connect - publish agent package"
@@ -118,6 +156,30 @@ if (Test-Path -LiteralPath $setupFinal) {
   if ($setupParent -and ((Resolve-Path $setupParent).Path -ne (Resolve-Path $OutDir).Path)) {
     Copy-Item -LiteralPath $setupFinal -Destination (Join-Path $setupParent "BlueConnect-Setup.exe") -Force
   }
+}
+
+if ($SignThumbprint) {
+  Write-Host "Code-signing with thumbprint $SignThumbprint ..."
+  Sign-ConnectBinary -Path $Exe -Thumbprint $SignThumbprint -TimestampUrl $SignTimestampUrl
+  if (Test-Path -LiteralPath $setupFinal) {
+    Sign-ConnectBinary -Path $setupFinal -Thumbprint $SignThumbprint -TimestampUrl $SignTimestampUrl
+  }
+  # Rebuild zip with signed agent.exe
+  $Stage2 = Join-Path $env:TEMP ("connect-agent-pkg-signed-" + [guid]::NewGuid().ToString())
+  $Stage2Bin = Join-Path $Stage2 "bin"
+  New-Item -ItemType Directory -Force -Path $Stage2Bin | Out-Null
+  Copy-Item -LiteralPath $Exe -Destination (Join-Path $Stage2 "connect-agent.exe") -Force
+  Copy-Item -LiteralPath $Ff -Destination (Join-Path $Stage2Bin "ffmpeg.exe") -Force
+  if (Test-Path -LiteralPath $OutZip) { Remove-Item -LiteralPath $OutZip -Force }
+  Compress-Archive -Path (Join-Path $Stage2 "*") -DestinationPath $OutZip -Force
+  Remove-Item -LiteralPath $Stage2 -Recurse -Force
+  Write-Host "  signed package ready"
+} else {
+  Write-Host ""
+  Write-Host "NOTE: binaries are UNSIGNED. Browsers/SmartScreen will warn on Download."
+  Write-Host "      Buy an Authenticode code-signing cert, then re-run:"
+  Write-Host "      .\deploy\publish-agent.ps1 -SignThumbprint YOUR_CERT_THUMBPRINT"
+  Write-Host "      (or set CONNECT_CODE_SIGN_THUMBPRINT)"
 }
 
 $sizeMb = [math]::Round((Get-Item -LiteralPath $OutZip).Length / 1MB, 1)
