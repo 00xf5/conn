@@ -1,8 +1,12 @@
-# Build connect-agent.zip for Host install links (/download/agent.zip).
+# Build connect-agent.zip + BlueConnect-Setup.exe for Host install links.
 # Requires Windows + CGO/gcc + ffmpeg.exe.
 #
 #   .\deploy\publish-agent.ps1
 #   .\deploy\publish-agent.ps1 -OutZip .\agent.zip
+#
+# Outputs (default):
+#   data\agent\agent.zip
+#   data\agent\BlueConnect-Setup.exe
 
 param(
   [string]$OutZip = "",
@@ -43,13 +47,32 @@ function Find-FFmpeg {
 
 Write-Host "Connect - publish agent package"
 
+$OutDir = Join-Path $Root "data\agent"
+New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+
 if (-not $SkipBuild) {
   Write-Host "Building connect-agent.exe (CGO)..."
   $env:CGO_ENABLED = "1"
   $outExe = Join-Path $Root "connect-agent.exe"
   & go build -trimpath "-ldflags=-s -w -H=windowsgui" -o $outExe ./cmd/connect-agent
   if ($LASTEXITCODE -ne 0) {
-    throw "go build failed"
+    throw "go build connect-agent failed"
+  }
+
+  Write-Host "Building BlueConnect-Setup.exe..."
+  $setupOut = Join-Path $OutDir "BlueConnect-Setup.exe"
+  & go build -trimpath "-ldflags=-s -w -H=windowsgui" -o $setupOut ./cmd/connect-setup
+  if ($LASTEXITCODE -ne 0) {
+    throw "go build connect-setup failed"
+  }
+  Write-Host "  setup: $setupOut"
+} else {
+  $setupSrc = Join-Path $Root "BlueConnect-Setup.exe"
+  $setupOut = Join-Path $OutDir "BlueConnect-Setup.exe"
+  if (Test-Path -LiteralPath $setupSrc) {
+    Copy-Item -LiteralPath $setupSrc -Destination $setupOut -Force
+  } elseif (-not (Test-Path -LiteralPath $setupOut)) {
+    Write-Host "WARNING: BlueConnect-Setup.exe missing - build without -SkipBuild"
   }
 }
 
@@ -71,8 +94,6 @@ Copy-Item -LiteralPath $Exe -Destination (Join-Path $Stage "connect-agent.exe") 
 Copy-Item -LiteralPath $Ff -Destination (Join-Path $StageBin "ffmpeg.exe") -Force
 
 if (-not $OutZip) {
-  $OutDir = Join-Path $Root "data\agent"
-  New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
   $OutZip = Join-Path $OutDir "agent.zip"
 }
 
@@ -90,10 +111,23 @@ if (Test-Path -LiteralPath $OutZip) {
 Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $OutZip -Force
 Remove-Item -LiteralPath $Stage -Recurse -Force
 
+# Keep Setup.exe next to agent.zip (same CONNECT_AGENT_DIR on the server).
+$setupFinal = Join-Path $OutDir "BlueConnect-Setup.exe"
+if (Test-Path -LiteralPath $setupFinal) {
+  $setupParent = Split-Path -Parent $OutZip
+  if ($setupParent -and ((Resolve-Path $setupParent).Path -ne (Resolve-Path $OutDir).Path)) {
+    Copy-Item -LiteralPath $setupFinal -Destination (Join-Path $setupParent "BlueConnect-Setup.exe") -Force
+  }
+}
+
 $sizeMb = [math]::Round((Get-Item -LiteralPath $OutZip).Length / 1MB, 1)
-Write-Host "Wrote $OutZip ($sizeMb MB)"
+Write-Host ('Wrote {0} ({1} MB)' -f $OutZip, $sizeMb)
+if (Test-Path -LiteralPath $setupFinal) {
+  $setupMb = [math]::Round((Get-Item -LiteralPath $setupFinal).Length / 1MB, 1)
+  Write-Host ('Wrote {0} ({1} MB)' -f $setupFinal, $setupMb)
+}
 Write-Host ""
 Write-Host "Next:"
-Write-Host "  Local: restart connectd (serves /download/agent.zip from data\agent)"
-Write-Host "  VPS:   scp `"$OutZip`" user@vps:~/connect/deploy/agent/agent.zip"
-Write-Host "         then: docker compose up -d --force-recreate connectd"
+Write-Host "  Local: restart connectd (serves /download/agent.zip + /download/setup.exe from data\agent)"
+Write-Host "  VPS:   copy agent.zip AND BlueConnect-Setup.exe into the agent dir, or Admin-upload zip + scp Setup.exe"
+Write-Host "  Hosts: open /install?code=... then Download BlueConnect (Setup.exe)"

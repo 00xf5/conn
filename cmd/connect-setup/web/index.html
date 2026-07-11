@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BlueConnect Setup</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --pane: #141414;
+      --line: #2a2a2a;
+      --text: #f2f2f2;
+      --muted: #8a8a8a;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --danger: #f87171;
+      --ok: #22c55e;
+      --gold: #b8956a;
+      --font: "Segoe UI", "Helvetica Neue", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; height: 100%;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 28px 20px;
+    }
+    .card {
+      width: min(420px, 100%);
+      background: var(--pane);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 28px 26px;
+      display: grid;
+      gap: 14px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .mark {
+      width: 28px; height: 28px;
+      border-radius: 7px;
+      background: var(--accent);
+      display: grid; place-items: center;
+      color: #fff; font-weight: 700;
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: -0.03em;
+    }
+    .credit {
+      font-family: Georgia, serif;
+      font-style: italic;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: var(--gold);
+    }
+    .sub { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    input {
+      width: 100%;
+      margin-top: 6px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px 12px;
+      font: inherit;
+      background: #0a0a0a;
+      color: var(--text);
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .field { display: grid; gap: 0; }
+    .actions { display: grid; gap: 8px; margin-top: 4px; }
+    button.primary {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+    button.primary:disabled { opacity: 0.5; cursor: default; }
+    .status {
+      min-height: 1.3em;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .status.err { color: var(--danger); }
+    .status.ok { color: var(--ok); }
+    .progress {
+      height: 4px;
+      background: #222;
+      border-radius: 99px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress.on { display: block; }
+    .progress > i {
+      display: block;
+      height: 100%;
+      width: 35%;
+      background: var(--accent);
+      animation: slide 1.1s ease-in-out infinite;
+    }
+    @keyframes slide {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(320%); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="brand">
+        <span class="mark">★</span>
+        <div>
+          <h1>BlueConnect</h1>
+          <div class="credit">by godFather</div>
+        </div>
+      </div>
+      <p class="sub">Install on this Windows PC. Paste the enrollment code from your tech, then click Install.</p>
+      <div class="field">
+        <label for="code">Enrollment code</label>
+        <input id="code" type="text" autocomplete="off" spellcheck="false" placeholder="ENR-…" />
+      </div>
+      <div class="field" id="server-wrap" hidden>
+        <label for="server">Server</label>
+        <input id="server" type="text" />
+      </div>
+      <div class="progress" id="progress"><i></i></div>
+      <p class="status" id="status"></p>
+      <div class="actions">
+        <button type="button" class="primary" id="btn-install">Install BlueConnect</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const codeEl = document.getElementById('code');
+    const serverEl = document.getElementById('server');
+    const statusEl = document.getElementById('status');
+    const progressEl = document.getElementById('progress');
+    const btn = document.getElementById('btn-install');
+
+    const preset = window.__PRESET__ || {};
+    if (preset.code) codeEl.value = preset.code;
+    if (preset.server) serverEl.value = preset.server;
+    else serverEl.value = 'wss://worthyjoin.online/ws';
+
+    async function tryClipboard() {
+      if (codeEl.value.trim()) return;
+      try {
+        const t = (await navigator.clipboard.readText() || '').trim();
+        if (/^ENR-/i.test(t) || (t.length >= 12 && /[A-Z0-9-]{12,}/i.test(t))) {
+          codeEl.value = t;
+          statusEl.textContent = 'Code pasted from clipboard';
+        }
+      } catch (_) {}
+    }
+    tryClipboard();
+    codeEl.addEventListener('focus', tryClipboard);
+
+    function setBusy(on) {
+      btn.disabled = on;
+      progressEl.classList.toggle('on', on);
+    }
+
+    btn.onclick = async () => {
+      statusEl.className = 'status';
+      statusEl.textContent = '';
+      const code = codeEl.value.trim();
+      if (!code) {
+        statusEl.className = 'status err';
+        statusEl.textContent = 'Enter the enrollment code from your install link.';
+        return;
+      }
+      setBusy(true);
+      try {
+        const res = await window.setupInstall({
+          code,
+          server: serverEl.value.trim(),
+          agentUrl: preset.agentUrl || ''
+        });
+        if (res && res.ok) {
+          statusEl.className = 'status ok';
+          statusEl.textContent = res.message || 'Installed. This PC will appear online shortly.';
+          btn.textContent = 'Done';
+        } else {
+          statusEl.className = 'status err';
+          statusEl.textContent = (res && res.error) || 'Install failed';
+          setBusy(false);
+        }
+      } catch (e) {
+        statusEl.className = 'status err';
+        statusEl.textContent = String(e && e.message ? e.message : e);
+        setBusy(false);
+      }
+    };
+
+    window.setupProgress = (step, detail) => {
+      statusEl.className = 'status';
+      statusEl.textContent = detail || step;
+    };
+  </script>
+</body>
+</html>

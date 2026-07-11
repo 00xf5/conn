@@ -20,6 +20,7 @@
   --danger: #f87171;
   --font: "Plus Jakarta Sans", "Segoe UI", sans-serif;
   --display: "Outfit", "Plus Jakarta Sans", sans-serif;
+  --credit: "Cormorant Garamond", Georgia, "Times New Roman", serif;
   --mono: "Cascadia Code", Consolas, "Courier New", monospace;
   --radius: 12px;
   --radius-sm: 8px;
@@ -57,12 +58,34 @@ body {
   align-items: center;
   gap: 12px;
 }
+.gate-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
 .gate-card h1 {
   margin: 0;
   font-family: var(--display);
   font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.03em;
+}
+.godfather-mark {
+  font-family: var(--credit);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: #c4a574;
+  opacity: 0.92;
+  white-space: nowrap;
+  user-select: none;
+}
+.gate-brand-text .godfather-mark {
+  font-size: 12px;
+  letter-spacing: 0.1em;
 }
 .gate-sub { margin: 0; color: var(--ink-dim); line-height: 1.45; }
 .gate-card input {
@@ -141,11 +164,23 @@ body {
   min-width: 0;
   padding-right: 8px;
 }
+.host-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  line-height: 1.05;
+}
 .host-brand strong {
   font-family: var(--display);
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.03em;
+}
+.host-brand-text .godfather-mark {
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  color: #b8956a;
 }
 
 .mode-tabs {

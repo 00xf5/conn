@@ -117,7 +117,7 @@
           <strong>Send this install link to the host</strong>
           <code id="issued-enroll-link"></code>
           <button type="button" id="copy-enroll-link" class="btn-secondary">Copy link</button>
-          <span class="hint" id="issued-enroll-ttl">Host opens the link → Download agent → Download installer → double-click.</span>
+          <span class="hint" id="issued-enroll-ttl">Host opens the link → Download BlueConnect → paste code → Install.</span>
           <span class="hint warn" id="issued-enroll-pkg" hidden>Agent package not published — upload it under Admin → Agent package</span>
           <details class="enroll-advanced">
             <summary>Enrollment code</summary>
@@ -138,7 +138,7 @@
       </section>
 
       <section id="tab-package" class="tab">
-        <p class="tab-help">Upload <code>agent.zip</code> from your Windows build PC (from <code>publish-agent.ps1</code>). Hosts download it via install links — no SSH needed.</p>
+        <p class="tab-help">Upload <code>agent.zip</code> from your Windows build PC (<code>publish-agent.ps1</code>). Also copy <code>BlueConnect-Setup.exe</code> into the same agent folder on the server so hosts get a one-click installer. Hosts never handle the zip.</p>
         <div id="pkg-status" class="issued">Checking…</div>
         <div class="toolbar">
           <form id="pkg-form" class="toolbar-form">

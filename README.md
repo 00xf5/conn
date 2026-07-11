@@ -30,7 +30,7 @@ $env:CONNECT_ENCODER_GDIGRAB = "1"
 
 ## End users (one download)
 
-Ship a single folder or zip — no winget, no separate ffmpeg install:
+Ship a single folder or zip for ops — hosts only download **BlueConnect-Setup.exe** from the install link (zip stays on the server):
 
 ```
 Connect/

@@ -55,15 +55,15 @@ On a Windows build PC:
 .\deploy\publish-agent.ps1 -OutZip .\agent.zip
 ```
 
-Then open **Admin → Agent package** at `https://worthyjoin.online/admin/` and upload `agent.zip` (no SSH/SCP).
+Then open **Admin → Agent package** at `https://worthyjoin.online/admin/` and upload `agent.zip`. Also place `data/agent/BlueConnect-Setup.exe` on the server (same folder) so hosts can download a one-click Setup.exe.
 
-Host install (from dashboard link) enrolls the machine and installs the **ConnectAgent** Windows Service (UAC). The service supervisor keeps the interactive capture agent alive across reboot, lock, and crash. If UAC is denied, Startup-folder watchdog is used as fallback.
+Host install (from dashboard link): open link → **Download BlueConnect** → paste enrollment code → Install. The **ConnectAgent** Windows Service is installed (UAC). The service supervisor keeps the interactive capture agent alive across reboot, lock, and crash. If UAC is denied, Startup-folder watchdog is used as fallback.
 
 ## 4. Enroll hosts (recommended)
 
 1. Tech signs into `https://worthyjoin.online/dashboard/` with an Access code  
 2. **Add machine** → copy **install link** → send to the host PC  
-3. Host opens the link (or pastes the PowerShell one-liner) → agent downloads, enrolls, appears online  
+3. Host opens the link → Download BlueConnect → paste code → Install → PC appears online  
 
 Lab fallback (manual):
 

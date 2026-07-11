@@ -54,11 +54,13 @@ func (s *Server) issueEnrollment(w http.ResponseWriter, r *http.Request, tenantI
 		"expiresAt":      exp,
 		"ttlHours":       int(ttl / time.Hour),
 		"installUrl":     install,
+		"setupExeUrl":    s.publicBase(r) + "/download/setup.exe",
 		"setupCmdUrl":    s.publicBase(r) + "/download/setup.cmd?code=" + code,
 		"agentZipUrl":    s.publicBase(r) + "/download/agent.zip",
 		"installCommand": install,
-		"agentHint":      "Download from " + install,
+		"agentHint":      "Open " + install + " → Download BlueConnect → paste code → Install",
 		"packageReady":   s.agentPackageAvailable(),
+		"setupExeReady":  s.setupExeAvailable(),
 	})
 }
 

@@ -15,66 +15,107 @@ __CSS__
         <span class="mark" aria-hidden="true"></span>
         <div class="brand-text">
           <strong>BlueConnect</strong>
-          <span>Host agent</span>
+          <span class="credit">by godFather</span>
         </div>
       </div>
       <div class="top-right">
-        <span class="pill mock">Preview</span>
-        <button type="button" class="avatar" title="Account (coming soon)" data-stub="account" aria-label="Account"></button>
+        <span class="pill">Host</span>
+        <span class="online-dot" title="Agent online"></span>
+        <button type="button" class="icon-btn" id="btn-hide" title="Hide to tray">─</button>
       </div>
     </header>
 
-    <div class="body">
-      <nav class="rail" aria-label="Sections">
-        <button type="button" class="rail-btn active" data-stub="home" title="Home">⌂</button>
-        <button type="button" class="rail-btn" data-stub="status" title="Status">◎</button>
-        <button type="button" class="rail-btn" data-stub="settings" title="Settings">⚙</button>
-        <button type="button" class="rail-btn rail-bottom" data-stub="help" title="Help">?</button>
-      </nav>
-
-      <aside class="side">
-        <div class="side-title">This PC</div>
-        <button type="button" class="side-item active" data-stub="connection"><span>Connection</span></button>
-        <button type="button" class="side-item" data-stub="session"><span>Session</span></button>
-        <button type="button" class="side-item" data-stub="tools"><span>Tools</span></button>
-        <button type="button" class="side-item" data-stub="logs"><span>Logs</span></button>
-      </aside>
-
-      <main class="stage">
-        <section class="status-card">
-          <p class="eyebrow">Agent status</p>
-          <h1>Ready</h1>
-          <p class="status-sub">UI shell only — tray and service still run the real agent.</p>
-          <dl class="props">
-            <div><dt>Hostname</dt><dd>—</dd></div>
-            <div><dt>Server</dt><dd>worthyjoin.online</dd></div>
-            <div><dt>Session</dt><dd>None</dd></div>
-            <div><dt>Stream</dt><dd>1280×720 · placeholder</dd></div>
-          </dl>
-        </section>
-        <section class="activity">
-          <h2>Activity</h2>
-          <ul class="activity-list">
-            <li><span class="t">—</span> Host window opened (preview)</li>
-            <li><span class="t">—</span> No live events wired yet</li>
-          </ul>
-        </section>
-      </main>
-    </div>
-
-    <footer class="dock">
-      <div class="dock-left">
-        <button type="button" class="dock-btn" data-stub="mute" disabled>Mute</button>
-        <button type="button" class="dock-btn" data-stub="video" disabled>Video</button>
+    <!-- HOME -->
+    <main class="view view-home" id="view-home">
+      <div class="home-hero">
+        <p class="eyebrow">Remote session</p>
+        <h1>Ready when you are</h1>
+        <p class="lede">Start a multi-agent meeting room. Video tiles below are a UI preview — live streams wire in later.</p>
+        <button type="button" class="cta" id="btn-connect">Connect to other agents</button>
+        <div class="home-meta">
+          <div><span>Server</span><strong>worthyjoin.online</strong></div>
+          <div><span>This PC</span><strong id="host-name">—</strong></div>
+          <div><span>Mode</span><strong>Preview</strong></div>
+        </div>
       </div>
-      <div class="dock-center">
-        <button type="button" class="dock-btn accent" data-stub="dashboard">Open dashboard</button>
-        <button type="button" class="dock-btn" data-stub="log">Open log</button>
+    </main>
+
+    <!-- MEETING (Zoom-style mock) -->
+    <main class="view view-meet" id="view-meet" hidden>
+      <div class="meet-bar">
+        <div class="meet-bar-left">
+          <button type="button" class="text-btn" id="btn-leave-top">← Leave</button>
+          <span class="meet-title">Agent room · <em>mock</em></span>
+        </div>
+        <div class="meet-bar-right">
+          <span class="meet-timer" id="meet-timer">00:00</span>
+          <button type="button" class="chip-btn" data-stub="participants">6 participants</button>
+          <button type="button" class="chip-btn" data-stub="invite">Invite</button>
+        </div>
       </div>
-      <div class="dock-right">
-        <button type="button" class="dock-btn hide" id="btn-hide">Hide</button>
+
+      <div class="grid" id="tile-grid" aria-label="Meeting tiles">
+        <article class="tile self">
+          <div class="tile-bg t0"></div>
+          <div class="tile-avatar">You</div>
+          <div class="tile-foot">
+            <span class="tile-name">You · This PC</span>
+            <span class="tile-mic on" title="Mic on">🎙</span>
+          </div>
+        </article>
+        <article class="tile">
+          <div class="tile-bg t1"></div>
+          <div class="tile-avatar">AK</div>
+          <div class="tile-foot">
+            <span class="tile-name">Alex Kim</span>
+            <span class="tile-mic" title="Muted">🔇</span>
+          </div>
+        </article>
+        <article class="tile">
+          <div class="tile-bg t2"></div>
+          <div class="tile-avatar">MR</div>
+          <div class="tile-foot">
+            <span class="tile-name">Maya R.</span>
+            <span class="tile-mic on">🎙</span>
+          </div>
+        </article>
+        <article class="tile">
+          <div class="tile-bg t3"></div>
+          <div class="tile-avatar">JT</div>
+          <div class="tile-foot">
+            <span class="tile-name">Jordan T.</span>
+            <span class="tile-mic">🔇</span>
+          </div>
+        </article>
+        <article class="tile">
+          <div class="tile-bg t4"></div>
+          <div class="tile-avatar">SL</div>
+          <div class="tile-foot">
+            <span class="tile-name">Sam Lee</span>
+            <span class="tile-mic on">🎙</span>
+          </div>
+        </article>
+        <article class="tile">
+          <div class="tile-bg t5"></div>
+          <div class="tile-avatar">NP</div>
+          <div class="tile-foot">
+            <span class="tile-name">Nora P.</span>
+            <span class="tile-mic">🔇</span>
+          </div>
+        </article>
       </div>
-    </footer>
+
+      <footer class="controls">
+        <div class="controls-cluster">
+          <button type="button" class="ctrl" id="btn-mute" title="Mute"><span class="ctrl-ico">🎙</span><span>Mute</span></button>
+          <button type="button" class="ctrl" id="btn-cam" title="Stop video"><span class="ctrl-ico">📷</span><span>Stop video</span></button>
+          <button type="button" class="ctrl" data-stub="share"><span class="ctrl-ico">▣</span><span>Share</span></button>
+          <button type="button" class="ctrl" data-stub="chat"><span class="ctrl-ico">💬</span><span>Chat</span></button>
+          <button type="button" class="ctrl" data-stub="react"><span class="ctrl-ico">☺</span><span>React</span></button>
+        </div>
+        <button type="button" class="ctrl leave" id="btn-leave">Leave</button>
+      </footer>
+    </main>
   </div>
   <div id="toast" class="toast" hidden></div>
   <script>

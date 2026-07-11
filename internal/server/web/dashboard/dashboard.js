@@ -479,7 +479,7 @@ document.getElementById("enroll-issue-form").onsubmit = async (ev) => {
     document.getElementById("enroll-code").textContent = lastEnrollCode;
     document.getElementById("enroll-link").textContent = lastEnrollLink;
     document.getElementById("enroll-ttl-note").textContent =
-      `Expires ${fmtTime(body.expiresAt)}. Host opens link → download agent + installer → double-click.`;
+      `Expires ${fmtTime(body.expiresAt)}. Host opens link → Download BlueConnect → paste code → Install.`;
     document.getElementById("enroll-pkg-warn").hidden = body.packageReady !== false;
     document.getElementById("enroll-result").hidden = false;
     toast("Install link ready — send it to the host");

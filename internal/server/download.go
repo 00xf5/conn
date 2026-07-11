@@ -21,8 +21,17 @@ func (s *Server) agentZipPath() string {
 	return filepath.Join(s.agentDir(), "agent.zip")
 }
 
+func (s *Server) setupExePath() string {
+	return filepath.Join(s.agentDir(), "BlueConnect-Setup.exe")
+}
+
 func (s *Server) agentPackageAvailable() bool {
 	st, err := os.Stat(s.agentZipPath())
+	return err == nil && st.Size() > 0
+}
+
+func (s *Server) setupExeAvailable() bool {
+	st, err := os.Stat(s.setupExePath())
 	return err == nil && st.Size() > 0
 }
 
@@ -42,11 +51,13 @@ func (s *Server) handleAgentPackageInfo(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, map[string]any{
-		"available": true,
-		"size":      st.Size(),
-		"updatedAt": st.ModTime().UTC().Format(time.RFC3339),
-		"download":  "/download/agent.zip",
-		"install":   "/install",
+		"available":  true,
+		"size":       st.Size(),
+		"updatedAt":  st.ModTime().UTC().Format(time.RFC3339),
+		"download":   "/download/agent.zip",
+		"setupExe":   s.setupExeAvailable(),
+		"setupUrl":   "/download/setup.exe",
+		"install":    "/install",
 	})
 }
 
@@ -202,30 +213,50 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 	code := strings.TrimSpace(r.URL.Query().Get("code"))
 	base := s.publicBase(r)
 	available := s.agentPackageAvailable()
+	setupExe := s.setupExeAvailable()
 
-	status := `<p class="ok">Agent package ready — download below.</p>`
+	status := `<p class="ok">Ready to install on this Windows PC.</p>`
 	if !available {
-		status = `<p class="warn">Agent package is not on the server yet. Ask your admin to upload it (Admin → Agent package).</p>`
+		status = `<p class="warn">The install package is not on the server yet. Ask your admin to publish it (Admin → Agent package).</p>`
 	}
 
 	codeBlock := ""
-	setupBtn := ""
+	primaryBtn := ""
+	legacy := ""
 	if code != "" {
-		codeBlock = fmt.Sprintf(`<p class="code-label">Enrollment code</p><code class="big">%s</code>`, htmlEscape(code))
-		setupHref := htmlEscape(base + "/download/setup.cmd?code=" + code)
-		if available {
-			setupBtn = fmt.Sprintf(`<a class="btn" href="%s">Download installer (Connect-Install.cmd)</a>`, setupHref)
+		codeBlock = fmt.Sprintf(
+			`<p class="code-label">Your enrollment code</p>
+<code class="big" id="enroll-code">%s</code>
+<button type="button" class="btn secondary" id="copy-code">Copy code</button>`,
+			htmlEscape(code),
+		)
+		if available && setupExe {
+			primaryBtn = fmt.Sprintf(
+				`<a class="btn" href="%s">Download BlueConnect</a>`,
+				htmlEscape(base+"/download/setup.exe"),
+			)
+		} else if available {
+			primaryBtn = fmt.Sprintf(
+				`<a class="btn" href="%s">Download BlueConnect</a>`,
+				htmlEscape(base+"/download/setup.cmd?code="+code),
+			)
 		} else {
-			setupBtn = `<span class="btn muted-btn">Download installer (package missing)</span>`
+			primaryBtn = `<span class="btn muted-btn">Download BlueConnect (package missing)</span>`
+		}
+		if available {
+			legacy = fmt.Sprintf(
+				`<p class="legacy"><a href="%s">Having trouble? Use the legacy installer</a></p>`,
+				htmlEscape(base+"/download/setup.cmd?code="+code),
+			)
 		}
 	} else {
-		codeBlock = `<p class="muted">Open this page from an enrollment link your tech sent.</p>`
-	}
-
-	zipHref := htmlEscape(base + "/download/agent.zip")
-	zipBtn := ""
-	if available {
-		zipBtn = fmt.Sprintf(`<a class="btn secondary" href="%s">Download agent only (.zip)</a>`, zipHref)
+		codeBlock = `<p class="muted">Open this page from the install link your tech sent.</p>`
+		if available && setupExe {
+			primaryBtn = fmt.Sprintf(
+				`<a class="btn" href="%s">Download BlueConnect</a>`,
+				htmlEscape(base+"/download/setup.exe"),
+			)
+		}
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -237,43 +268,74 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Install BlueConnect</title>
 <style>
-body{font:15px/1.45 system-ui,Segoe UI,sans-serif;margin:0;background:#e8eaee;color:#1f2430}
-.wrap{max-width:520px;margin:48px auto;padding:0 16px}
-.card{background:#fff;border:1px solid #d0d4dc;border-radius:6px;padding:22px;display:grid;gap:12px}
-h1{margin:0;font-size:22px}
-.muted{color:#6b7280;margin:0}
-.ok{color:#1a9f4b;margin:0}
-.warn{color:#b45309;margin:0;background:#fff7ed;border:1px solid #fed7aa;padding:10px;border-radius:4px}
-.code-label{margin:0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6b7280}
-.big{font:700 16px Consolas,monospace;word-break:break-all;background:#f4f5f7;padding:10px;border-radius:4px;display:block}
-.steps{margin:0;padding-left:18px}
+body{font:15px/1.45 "Segoe UI",system-ui,sans-serif;margin:0;background:#0a0a0a;color:#f2f2f2}
+.wrap{max-width:440px;margin:48px auto;padding:0 16px}
+.card{background:#141414;border:1px solid #2a2a2a;border-radius:14px;padding:26px;display:grid;gap:14px}
+.brand{display:flex;align-items:center;gap:10px}
+.mark{width:28px;height:28px;border-radius:7px;background:#3b82f6;display:grid;place-items:center;color:#fff;font-weight:700}
+h1{margin:0;font-size:22px;letter-spacing:-.03em}
+.credit{font:italic 11px Georgia,serif;letter-spacing:.08em;color:#b8956a}
+.muted{color:#8a8a8a;margin:0}
+.ok{color:#22c55e;margin:0}
+.warn{color:#fbbf24;margin:0;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);padding:10px;border-radius:8px}
+.code-label{margin:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8a8a8a}
+.big{font:700 15px Consolas,monospace;word-break:break-all;background:#0a0a0a;border:1px solid #2a2a2a;padding:12px;border-radius:8px;display:block}
+.steps{margin:0;padding-left:18px;color:#a3a3a3}
 .steps li{margin:8px 0}
-.btn{display:inline-block;text-align:center;text-decoration:none;border:0;background:#0b5fff;color:#fff;font:inherit;font-weight:700;padding:12px 14px;border-radius:4px}
-.btn:hover{background:#094fd6}
-.btn.secondary{background:#fff;color:#1f2430;border:1px solid #b8bec9}
-.btn.secondary:hover{background:#f3f5f8}
-.muted-btn{background:#9aa1ad;pointer-events:none;display:inline-block;padding:12px 14px;border-radius:4px;color:#fff;font-weight:700}
+.btn{display:inline-block;text-align:center;text-decoration:none;border:0;background:#3b82f6;color:#fff;font:inherit;font-weight:700;padding:13px 14px;border-radius:8px;cursor:pointer}
+.btn:hover{background:#2563eb}
+.btn.secondary{background:#1a1a1a;color:#f2f2f2;border:1px solid #333}
+.btn.secondary:hover{background:#222}
+.muted-btn{background:#404040;pointer-events:none;display:inline-block;padding:13px 14px;border-radius:8px;color:#fff;font-weight:700}
 .actions{display:grid;gap:10px}
+.legacy{margin:0;font-size:12px;text-align:center}
+.legacy a{color:#8a8a8a}
 </style>
 </head>
 <body>
 <div class="wrap"><div class="card">
-<h1>Install BlueConnect</h1>
-<p class="muted">Normal download + double-click install on this Windows PC.</p>
+<div class="brand"><span class="mark">★</span><div><h1>BlueConnect</h1><div class="credit">by godFather</div></div></div>
+<p class="muted">Install on this Windows PC in a few clicks.</p>
 %s
 %s
-<div class="actions">
+<div class="actions">%s</div>
 %s
-%s
-</div>
 <ol class="steps">
-<li>Click <strong>Download installer</strong>.</li>
-<li>Double-click <strong>Connect-Install.cmd</strong> (downloads the agent, enrolls, starts).</li>
-<li>This PC appears in the Host console when online.</li>
+<li>Click <strong>Download BlueConnect</strong>.</li>
+<li>Open the file you downloaded.</li>
+<li>Paste your enrollment code if asked, then click <strong>Install</strong>.</li>
+<li>Allow Windows prompts if they appear — this PC shows online in the Host console.</li>
 </ol>
 <p class="muted">Windows only.</p>
 </div></div>
-</body></html>`, status, codeBlock, setupBtn, zipBtn)
+<script>
+(function(){
+  var btn=document.getElementById('copy-code');
+  var code=document.getElementById('enroll-code');
+  if(!btn||!code)return;
+  btn.onclick=async function(){
+    try{await navigator.clipboard.writeText(code.textContent.trim());btn.textContent='Copied';}
+    catch(e){btn.textContent='Select & copy manually';}
+  };
+})();
+</script>
+</body></html>`, status, codeBlock, primaryBtn, legacy)
+}
+
+func (s *Server) handleDownloadSetupExe(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	path := s.setupExePath()
+	if _, err := os.Stat(path); err != nil {
+		http.Error(w, "BlueConnect-Setup.exe not published yet — run deploy/publish-agent.ps1", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", `attachment; filename="BlueConnect-Setup.exe"`)
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeFile(w, r, path)
 }
 
 func (s *Server) handleDownloadSetupCmd(w http.ResponseWriter, r *http.Request) {
