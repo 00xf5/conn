@@ -181,10 +181,9 @@ document.getElementById("enroll-form").onsubmit = async (ev) => {
   }
   try {
     const label = document.getElementById("enroll-label").value.trim();
-    const ttlHours = Number(document.getElementById("enroll-ttl").value) || 168;
     const body = await api(`/api/admin/tenants/${selectedTenant}/enrollments`, {
       method: "POST",
-      body: JSON.stringify({ label, ttlHours }),
+      body: JSON.stringify({ label }),
     });
     issuedEnrollCode = body.enrollmentCode;
     const link = body.installUrl || `${location.origin}/install?code=${encodeURIComponent(issuedEnrollCode)}`;
@@ -192,7 +191,7 @@ document.getElementById("enroll-form").onsubmit = async (ev) => {
     document.getElementById("issued-enroll-code").textContent = issuedEnrollCode;
     document.getElementById("issued-enroll-link").textContent = link;
     document.getElementById("issued-enroll-ttl").textContent =
-      `Expires ${fmtTime(body.expiresAt)} · host opens link → download agent + installer.`;
+      "Valid until installed or revoked · host opens link → download agent + installer.";
     document.getElementById("issued-enroll-pkg").hidden = body.packageReady !== false;
     document.getElementById("enroll-label").value = "";
     window._issuedEnrollLink = link;
@@ -359,8 +358,10 @@ async function loadEnrollments() {
   }
   try {
     const list = (await api(`/api/admin/tenants/${selectedTenant}/enrollments`)) || [];
-    body.innerHTML = list.length
-      ? list
+    // Admin table: pending first (open codes), drop redeemed/revoked from the main list.
+    const open = list.filter((e) => e.status === "pending").slice(0, 20);
+    body.innerHTML = open.length
+      ? open
           .map(
             (e) => `<tr>
           <td>${escapeHtml(e.label || "—")}</td>
@@ -371,18 +372,12 @@ async function loadEnrollments() {
           }</td>
           <td>${escapeHtml(e.status)}</td>
           <td class="mono">${escapeHtml(e.deviceId || "—")}</td>
-          <td class="hint">${escapeHtml(fmtTime(e.createdAt))}${
-              e.expiresAt ? `<br><span title="Expires">→ ${escapeHtml(fmtTime(e.expiresAt))}</span>` : ""
-            }</td>
-          <td>${
-            e.status === "pending"
-              ? `<button type="button" class="btn-danger" data-revoke-enroll="${escapeHtml(e.id)}">Revoke</button>`
-              : ""
-          }</td>
+          <td class="hint">${escapeHtml(fmtTime(e.createdAt))}</td>
+          <td><button type="button" class="btn-danger" data-revoke-enroll="${escapeHtml(e.id)}">Revoke</button></td>
         </tr>`
           )
           .join("")
-      : '<tr><td colspan="6" class="empty">No enrollment codes for this tenant</td></tr>';
+      : '<tr><td colspan="6" class="empty">No open enrollment codes for this tenant</td></tr>';
     body.onclick = async (ev) => {
       const copyBtn = ev.target.closest("[data-copy-enroll]");
       if (copyBtn) {

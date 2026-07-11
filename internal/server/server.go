@@ -20,7 +20,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-//go:embed web/*
+//go:embed all:web
 var webFS embed.FS
 
 type Config struct {
@@ -177,6 +177,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/agent/host-key/verify", s.handleAgentHostKeyVerify)
 	mux.HandleFunc("/api/agent/package", s.handleAgentPackageInfo)
 	mux.HandleFunc("/download/agent.zip", s.handleDownloadAgent)
+	mux.HandleFunc("/download/install.zip", s.handleDownloadInstallZip)
 	mux.HandleFunc("/download/setup.exe", s.handleDownloadSetupExe)
 	mux.HandleFunc("/download/setup.cmd", s.handleDownloadSetupCmd)
 	mux.HandleFunc("/install", s.handleInstallPage)

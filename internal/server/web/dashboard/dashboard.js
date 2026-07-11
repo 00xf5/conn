@@ -472,17 +472,15 @@ async function loadEnrollments() {
   const el = document.getElementById("enroll-list");
   try {
     const list = (await api("/api/enrollments")) || [];
-    if (!list.length) {
-      el.innerHTML = '<div class="enroll-empty">No enrollment codes yet</div>';
+    // Only open (pending) codes — used/revoked drop off. Cap at 4 newest.
+    const recent = list.filter((e) => e.status === "pending").slice(0, 4);
+    if (!recent.length) {
+      el.innerHTML = '<div class="enroll-empty">No open enrollment codes</div>';
       return;
     }
-    el.innerHTML = list
-      .slice(0, 12)
+    el.innerHTML = recent
       .map((e) => {
-        const revoke =
-          e.status === "pending"
-            ? `<button type="button" class="link-btn" data-revoke-enroll="${escapeHtml(e.id)}">Revoke</button>`
-            : "";
+        const revoke = `<button type="button" class="link-btn" data-revoke-enroll="${escapeHtml(e.id)}">Revoke</button>`;
         const codeBtn = e.code
           ? `<button type="button" class="link-btn" data-copy-enroll-code="${escapeHtml(e.code)}">Copy code</button>`
           : "";
@@ -491,7 +489,7 @@ async function loadEnrollments() {
           : "";
         return `<div class="enroll-row">
           <span>${escapeHtml(e.label || "—")}${e.code ? `<br><code class="mono">${escapeHtml(e.code)}</code>` : ""}</span>
-          <span class="mono">${escapeHtml(e.status)}${e.deviceId ? " · " + escapeHtml(shortId(e.deviceId)) : ""}</span>
+          <span class="mono">open</span>
           <span>${codeBtn} ${linkBtn} ${revoke}</span>
         </div>`;
       })
@@ -513,17 +511,16 @@ document.getElementById("enroll-issue-form").onsubmit = async (ev) => {
   btn.disabled = true;
   try {
     const label = document.getElementById("enroll-label").value.trim();
-    const ttlHours = Number(document.getElementById("enroll-ttl").value) || 168;
     const body = await api("/api/enrollments", {
       method: "POST",
-      body: JSON.stringify({ label, ttlHours }),
+      body: JSON.stringify({ label }),
     });
     lastEnrollCode = body.enrollmentCode;
     lastEnrollLink = body.installUrl || enrollLink(lastEnrollCode);
     document.getElementById("enroll-code").textContent = lastEnrollCode;
     document.getElementById("enroll-link").textContent = lastEnrollLink;
     document.getElementById("enroll-ttl-note").textContent =
-      `Expires ${fmtTime(body.expiresAt)}. Host opens link → Download WorthyJoin → paste code → Install.`;
+      "Stays valid until the host installs or you revoke it. Host opens link → Download WorthyJoin → paste code → Install.";
     document.getElementById("enroll-pkg-warn").hidden = body.packageReady !== false;
     document.getElementById("enroll-result").hidden = false;
     toast("Install link ready — send it to the host");

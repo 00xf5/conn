@@ -10,25 +10,6 @@ import (
 	"connect/internal/store"
 )
 
-const (
-	defaultEnrollmentTTLHours = 7 * 24 // 7 days
-	minEnrollmentTTLHours     = 1
-	maxEnrollmentTTLHours     = 90 * 24 // 90 days
-)
-
-func enrollmentTTL(hours int) time.Duration {
-	if hours <= 0 {
-		hours = defaultEnrollmentTTLHours
-	}
-	if hours < minEnrollmentTTLHours {
-		hours = minEnrollmentTTLHours
-	}
-	if hours > maxEnrollmentTTLHours {
-		hours = maxEnrollmentTTLHours
-	}
-	return time.Duration(hours) * time.Hour
-}
-
 func (s *Server) issueEnrollment(w http.ResponseWriter, r *http.Request, tenantID, label string, ttlHours int) {
 	code, err := auth.GenerateEnrollmentCode()
 	if err != nil {
@@ -40,9 +21,9 @@ func (s *Server) issueEnrollment(w http.ResponseWriter, r *http.Request, tenantI
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	ttl := enrollmentTTL(ttlHours)
-	exp := time.Now().UTC().Add(ttl)
-	rec, err := s.db.CreateEnrollment(tenantID, label, hash, code, &exp)
+	// No expiry — valid until redeemed or manually revoked.
+	_ = ttlHours
+	rec, err := s.db.CreateEnrollment(tenantID, label, hash, code, nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -51,10 +32,11 @@ func (s *Server) issueEnrollment(w http.ResponseWriter, r *http.Request, tenantI
 	writeJSON(w, map[string]any{
 		"enrollment":     rec,
 		"enrollmentCode": code,
-		"expiresAt":      exp,
-		"ttlHours":       int(ttl / time.Hour),
+		"expiresAt":      nil,
+		"ttlHours":       0,
 		"installUrl":     install,
 		"setupExeUrl":    s.publicBase(r) + "/download/setup.exe",
+		"installZipUrl":  s.publicBase(r) + "/download/install.zip",
 		"setupCmdUrl":    s.publicBase(r) + "/download/setup.cmd?code=" + code,
 		"agentZipUrl":    s.publicBase(r) + "/download/agent.zip",
 		"installCommand": install,

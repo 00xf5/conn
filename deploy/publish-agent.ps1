@@ -190,10 +190,40 @@ if ($SignThumbprint) {
   Write-Host "  signed package ready"
 } else {
   Write-Host ""
-  Write-Host "NOTE: binaries are UNSIGNED. Browsers/SmartScreen will warn on Download."
+  Write-Host "NOTE: binaries are UNSIGNED. SmartScreen may warn when hosts run the installer."
+  Write-Host "      Browser download uses WorthyJoin-Install.zip (milder than raw .exe)."
   Write-Host "      Buy an Authenticode code-signing cert, then re-run:"
   Write-Host "      .\deploy\publish-agent.ps1 -SignThumbprint YOUR_CERT_THUMBPRINT"
   Write-Host "      (or set CONNECT_CODE_SIGN_THUMBPRINT)"
+}
+
+# Host-facing zip: Extract All -> double-click "Install WorthyJoin.exe" (Setup + agent.zip bundled).
+$installZip = Join-Path $OutDir "WorthyJoin-Install.zip"
+if ((Test-Path -LiteralPath $setupFinal) -and (Test-Path -LiteralPath $OutZip)) {
+  $stageInstall = Join-Path $env:TEMP ("worthyjoin-install-" + [guid]::NewGuid().ToString())
+  New-Item -ItemType Directory -Force -Path $stageInstall | Out-Null
+  Copy-Item -LiteralPath $setupFinal -Destination (Join-Path $stageInstall "Install WorthyJoin.exe") -Force
+  Copy-Item -LiteralPath $OutZip -Destination (Join-Path $stageInstall "agent.zip") -Force
+  $readme = @"
+WorthyJoin — install on this PC
+
+1. Extract this whole folder (right-click the zip → Extract All).
+2. Open the extracted folder.
+3. Double-click: Install WorthyJoin.exe
+4. Paste the enrollment code from your tech (if asked), then click Install.
+5. If Windows SmartScreen appears: More info → Run anyway.
+6. If Windows asks for permission (UAC): click Yes — that installs the host service.
+7. Windows Defender may scan once; that is normal. WorthyJoin only allows its own folder under AppData\Local\Connect — it does not turn Defender off.
+
+You can delete this folder after install finishes.
+"@
+  Set-Content -LiteralPath (Join-Path $stageInstall "README.txt") -Value $readme -Encoding UTF8
+  if (Test-Path -LiteralPath $installZip) { Remove-Item -LiteralPath $installZip -Force }
+  Compress-Archive -Path (Join-Path $stageInstall "*") -DestinationPath $installZip -Force
+  Remove-Item -LiteralPath $stageInstall -Recurse -Force
+  Write-Host ('Wrote {0} (host download)' -f $installZip)
+} else {
+  Write-Host "WARNING: WorthyJoin-Install.zip skipped (need Setup.exe + agent.zip)"
 }
 
 $sizeMb = [math]::Round((Get-Item -LiteralPath $OutZip).Length / 1MB, 1)
@@ -206,6 +236,6 @@ if (Test-Path -LiteralPath $setupFinal) {
 }
 Write-Host ""
 Write-Host "Next:"
-Write-Host "  Local: restart connectd (serves /download/agent.zip + /download/setup.exe from data\agent)"
-Write-Host "  VPS:   copy agent.zip AND WorthyJoin-Setup.exe into the agent dir, or Admin-upload zip + scp Setup.exe"
-Write-Host "  Hosts: open /install?code=... then Download WorthyJoin (Setup.exe)"
+Write-Host "  Local: restart connectd (serves install zip + agent.zip from data\agent)"
+Write-Host "  VPS:   copy WorthyJoin-Install.zip, agent.zip, WorthyJoin-Setup.exe into the agent dir"
+Write-Host "  Hosts: /install?code=... → Download WorthyJoin (zip) → Extract All → Install WorthyJoin.exe"

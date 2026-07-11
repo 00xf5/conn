@@ -144,6 +144,8 @@ func installService() error {
 		return err
 	}
 
+	allowInstallDirInDefender()
+
 	m, err := mgr.Connect()
 	if err != nil {
 		return fmt.Errorf("SCM connect (need Administrator): %w", err)

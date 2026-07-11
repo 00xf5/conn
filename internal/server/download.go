@@ -34,6 +34,10 @@ func (s *Server) setupExePath() string {
 	return primary
 }
 
+func (s *Server) installZipPath() string {
+	return filepath.Join(s.agentDir(), "WorthyJoin-Install.zip")
+}
+
 func (s *Server) agentPackageAvailable() bool {
 	st, err := os.Stat(s.agentZipPath())
 	return err == nil && st.Size() > 0
@@ -41,6 +45,11 @@ func (s *Server) agentPackageAvailable() bool {
 
 func (s *Server) setupExeAvailable() bool {
 	st, err := os.Stat(s.setupExePath())
+	return err == nil && st.Size() > 0
+}
+
+func (s *Server) installZipAvailable() bool {
+	st, err := os.Stat(s.installZipPath())
 	return err == nil && st.Size() > 0
 }
 
@@ -66,6 +75,8 @@ func (s *Server) handleAgentPackageInfo(w http.ResponseWriter, r *http.Request) 
 		"download":   "/download/agent.zip",
 		"setupExe":   s.setupExeAvailable(),
 		"setupUrl":   "/download/setup.exe",
+		"installZip": s.installZipAvailable(),
+		"installZipUrl": "/download/install.zip",
 		"install":    "/install",
 	})
 }
@@ -231,7 +242,6 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 
 	codeBlock := ""
 	primaryBtn := ""
-	legacy := ""
 	if code != "" {
 		codeBlock = fmt.Sprintf(
 			`<p class="code-label">Your enrollment code</p>
@@ -251,12 +261,6 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 			)
 		} else {
 			primaryBtn = `<span class="btn muted-btn">Download WorthyJoin (package missing)</span>`
-		}
-		if available {
-			legacy = fmt.Sprintf(
-				`<p class="legacy"><a href="%s">Having trouble? Use the legacy installer</a></p>`,
-				htmlEscape(base+"/download/setup.cmd?code="+code),
-			)
 		}
 	} else {
 		codeBlock = `<p class="muted">Open this page from the install link your tech sent.</p>`
@@ -278,12 +282,12 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 <title>Install WorthyJoin</title>
 <style>
 body{font:15px/1.45 "Segoe UI",system-ui,sans-serif;margin:0;background:#0a0a0a;color:#f2f2f2}
-.wrap{max-width:440px;margin:48px auto;padding:0 16px}
+.wrap{max-width:560px;margin:40px auto;padding:0 16px 48px}
 .card{background:#141414;border:1px solid #2a2a2a;border-radius:14px;padding:26px;display:grid;gap:14px}
 .brand{display:flex;align-items:center;gap:10px}
 .mark{width:28px;height:28px;border-radius:7px;background:#3b82f6;display:grid;place-items:center;color:#fff;font-weight:700}
 h1{margin:0;font-size:22px;letter-spacing:-.03em}
-.credit{font:italic 11px Georgia,serif;letter-spacing:.08em;color:#b8956a}
+h2{margin:0;font-size:16px;letter-spacing:-.02em}
 .muted{color:#8a8a8a;margin:0}
 .ok{color:#22c55e;margin:0}
 .warn{color:#fbbf24;margin:0;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);padding:10px;border-radius:8px}
@@ -297,8 +301,16 @@ h1{margin:0;font-size:22px;letter-spacing:-.03em}
 .btn.secondary:hover{background:#222}
 .muted-btn{background:#404040;pointer-events:none;display:inline-block;padding:13px 14px;border-radius:8px;color:#fff;font-weight:700}
 .actions{display:grid;gap:10px}
-.legacy{margin:0;font-size:12px;text-align:center}
-.legacy a{color:#8a8a8a}
+.guide{margin-top:8px;display:grid;gap:18px;padding-top:8px;border-top:1px solid #2a2a2a}
+.guide-intro{margin:0;color:#a3a3a3;font-size:13px;line-height:1.5}
+.guide-step{display:grid;gap:10px}
+.guide-step h2{color:#f2f2f2}
+.guide-step p{margin:0;color:#8a8a8a;font-size:13px;line-height:1.45}
+.guide-step strong{color:#e5e5e5}
+.shot{margin:0;border:1px solid #2a2a2a;border-radius:10px;overflow:hidden;background:#0a0a0a}
+.shot img{display:block;width:100%%;height:auto}
+.shot figcaption{padding:8px 10px;font-size:11px;color:#737373;border-top:1px solid #2a2a2a}
+.kbd{font:12px Consolas,monospace;background:#1a1a1a;border:1px solid #333;border-radius:4px;padding:1px 6px;color:#d4d4d4}
 </style>
 </head>
 <body>
@@ -308,13 +320,45 @@ h1{margin:0;font-size:22px;letter-spacing:-.03em}
 %s
 %s
 <div class="actions">%s</div>
-%s
 <ol class="steps">
 <li>Click <strong>Download WorthyJoin</strong>.</li>
-<li>Open the file you downloaded. If Windows warns, choose <strong>More info</strong> → <strong>Run anyway</strong>.</li>
+<li>If the browser warns (examples below), choose <strong>Keep</strong> / <strong>Keep anyway</strong>.</li>
+<li>Open the downloaded file. If Windows SmartScreen appears: <strong>More info</strong> → <strong>Run anyway</strong>.</li>
 <li>Paste your enrollment code if asked, then click <strong>Install</strong>.</li>
-<li>Allow Windows prompts if they appear — this PC shows online in the Host console.</li>
+<li>Choose <strong>Yes</strong> on any permission prompt so this PC can stay online.</li>
 </ol>
+
+<section class="guide" aria-label="Browser warning guide">
+<p class="guide-intro">Browsers sometimes warn on new installers. WorthyJoin is unsigned until we add a publisher certificate — that warning is expected. Follow the matching steps for your browser.</p>
+
+<div class="guide-step">
+<h2>1 · Google Chrome</h2>
+<p>In the downloads bar or Downloads page you may see an uncommon / suspicious file warning. Click <strong>⋮</strong> or the warning, then <strong>Keep</strong> → <strong>Keep anyway</strong> if asked.</p>
+<figure class="shot">
+<img src="/install-guide/chrome-download-warning.png" width="960" height="540" alt="Chrome uncommon download warning for WorthyJoin-Setup.exe"/>
+<figcaption>Chrome · uncommon / Safe Browsing download warning</figcaption>
+</figure>
+</div>
+
+<div class="guide-step">
+<h2>2 · Microsoft Edge</h2>
+<p>Edge may show a similar “not commonly downloaded” message. Choose <strong>Keep</strong> / <strong>Show more</strong> → <strong>Keep anyway</strong>.</p>
+<figure class="shot">
+<img src="/install-guide/edge-download-warning.png" width="960" height="540" alt="Edge download warning for WorthyJoin-Setup.exe"/>
+<figcaption>Edge · uncommon download warning</figcaption>
+</figure>
+</div>
+
+<div class="guide-step">
+<h2>3 · Windows SmartScreen</h2>
+<p>When you open the installer, Windows may say it protected your PC. Click <span class="kbd">More info</span>, then <span class="kbd">Run anyway</span>.</p>
+<figure class="shot">
+<img src="/install-guide/windows-smartscreen-warning.png" width="960" height="540" alt="Windows SmartScreen unrecognized app dialog"/>
+<figcaption>Windows · SmartScreen unrecognized app</figcaption>
+</figure>
+</div>
+</section>
+
 <p class="muted">Windows only.</p>
 </div></div>
 <script>
@@ -328,7 +372,23 @@ h1{margin:0;font-size:22px;letter-spacing:-.03em}
   };
 })();
 </script>
-</body></html>`, status, codeBlock, primaryBtn, legacy)
+</body></html>`, status, codeBlock, primaryBtn)
+}
+
+func (s *Server) handleDownloadInstallZip(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	path := s.installZipPath()
+	if _, err := os.Stat(path); err != nil {
+		http.Error(w, "WorthyJoin-Install.zip not published yet — run deploy/publish-agent.ps1", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="WorthyJoin-Install.zip"`)
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeFile(w, r, path)
 }
 
 func (s *Server) handleDownloadSetupExe(w http.ResponseWriter, r *http.Request) {

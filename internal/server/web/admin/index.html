@@ -97,19 +97,6 @@
           </label>
           <form id="enroll-form" class="toolbar-form">
             <input id="enroll-label" placeholder="Label (optional)" />
-            <label class="field field-ttl">
-              <span>TTL</span>
-              <select id="enroll-ttl" title="How long the code stays valid">
-                <option value="1">1 hour</option>
-                <option value="6">6 hours</option>
-                <option value="24">1 day</option>
-                <option value="72">3 days</option>
-                <option value="168" selected>7 days</option>
-                <option value="336">14 days</option>
-                <option value="720">30 days</option>
-                <option value="2160">90 days</option>
-              </select>
-            </label>
             <button type="submit">Issue enrollment code</button>
           </form>
         </div>
@@ -117,7 +104,7 @@
           <strong>Send this install link to the host</strong>
           <code id="issued-enroll-link"></code>
           <button type="button" id="copy-enroll-link" class="btn-secondary">Copy link</button>
-          <span class="hint" id="issued-enroll-ttl">Host opens the link → Download WorthyJoin → paste code → Install.</span>
+          <span class="hint" id="issued-enroll-ttl">Valid until installed or revoked.</span>
           <span class="hint warn" id="issued-enroll-pkg" hidden>Agent package not published — upload it under Admin → Agent package</span>
           <details class="enroll-advanced">
             <summary>Enrollment code</summary>
@@ -138,7 +125,7 @@
       </section>
 
       <section id="tab-package" class="tab">
-        <p class="tab-help">Upload <code>agent.zip</code> from your Windows build PC (<code>publish-agent.ps1</code>). Also copy <code>WorthyJoin-Setup.exe</code> into the same agent folder on the server so hosts get a one-click installer. Hosts never handle the zip.</p>
+        <p class="tab-help">Upload <code>agent.zip</code> from your Windows build PC (<code>publish-agent.ps1</code>). Also copy <code>WorthyJoin-Install.zip</code> and <code>WorthyJoin-Setup.exe</code> into the same agent folder so hosts get the zip download (Extract All → Install WorthyJoin).</p>
         <div id="pkg-status" class="issued">Checking…</div>
         <div class="toolbar">
           <form id="pkg-form" class="toolbar-form">

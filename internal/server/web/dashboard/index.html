@@ -129,16 +129,6 @@
       <p class="modal-help">Send this install link to the host PC. They download WorthyJoin, paste the code, and click Install.</p>
       <form id="enroll-issue-form" class="modal-form">
         <input id="enroll-label" type="text" placeholder="Label (optional)" autocomplete="off" />
-        <select id="enroll-ttl" title="How long the code stays valid" aria-label="TTL">
-          <option value="1">1 hour</option>
-          <option value="6">6 hours</option>
-          <option value="24">1 day</option>
-          <option value="72">3 days</option>
-          <option value="168" selected>7 days</option>
-          <option value="336">14 days</option>
-          <option value="720">30 days</option>
-          <option value="2160">90 days</option>
-        </select>
         <button type="submit" id="enroll-issue-btn">Issue enrollment code</button>
       </form>
       <div id="enroll-result" class="enroll-result" hidden>
@@ -147,7 +137,7 @@
           <code id="enroll-link" class="enroll-cmd"></code>
           <button type="button" class="secondary-btn" id="enroll-copy-link">Copy link</button>
         </div>
-        <p class="modal-note" id="enroll-ttl-note">Host opens the link → Download WorthyJoin → paste code → Install.</p>
+        <p class="modal-note" id="enroll-ttl-note">Stays valid until the host installs or you revoke it.</p>
         <p class="modal-warn" id="enroll-pkg-warn" hidden>Agent package not published on the server yet — ask admin to upload it.</p>
         <details class="enroll-advanced">
           <summary>Advanced</summary>

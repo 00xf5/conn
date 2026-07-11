@@ -81,6 +81,34 @@ func enrolled() bool {
 	return strings.TrimSpace(tid) != ""
 }
 
+// localAgentZip returns agent.zip next to Setup (from WorthyJoin-Install.zip extract).
+func localAgentZip() string {
+	var dirs []string
+	if exe, err := os.Executable(); err == nil && exe != "" {
+		dirs = append(dirs, filepath.Dir(exe))
+	}
+	if cwd, err := os.Getwd(); err == nil && cwd != "" {
+		dirs = append(dirs, cwd)
+	}
+	names := []string{"agent.zip", "WorthyJoin-agent.zip"}
+	seen := map[string]bool{}
+	for _, dir := range dirs {
+		dir = filepath.Clean(dir)
+		if dir == "" || seen[dir] {
+			continue
+		}
+		seen[dir] = true
+		for _, name := range names {
+			p := filepath.Join(dir, name)
+			st, err := os.Stat(p)
+			if err == nil && !st.IsDir() && st.Size() > 1000 {
+				return p
+			}
+		}
+	}
+	return ""
+}
+
 func runInstall(opts InstallOptions, progress ProgressFunc) error {
 	if progress == nil {
 		progress = func(string, string) {}
@@ -100,11 +128,21 @@ func runInstall(opts InstallOptions, progress ProgressFunc) error {
 		return fmt.Errorf("create install folder: %w", err)
 	}
 
-	progress("Downloading", "Getting WorthyJoin…")
-	zipPath := filepath.Join(os.TempDir(), fmt.Sprintf("worthyjoin-setup-%d.zip", time.Now().UnixNano()))
-	defer os.Remove(zipPath)
-	if err := downloadFile(agentURL, zipPath); err != nil {
-		return fmt.Errorf("download failed — check your network or ask your tech to publish the agent package: %w", err)
+	// Clear Mark-of-the-Web from the extracted install bundle (zip download).
+	unblockSetupBundle()
+
+	var zipPath string
+	if local := localAgentZip(); local != "" {
+		progress("Installing", "Using files from your download folder…")
+		zipPath = local
+		unblockPath(local)
+	} else {
+		progress("Downloading", "Getting WorthyJoin…")
+		zipPath = filepath.Join(os.TempDir(), fmt.Sprintf("worthyjoin-setup-%d.zip", time.Now().UnixNano()))
+		defer os.Remove(zipPath)
+		if err := downloadFile(agentURL, zipPath); err != nil {
+			return fmt.Errorf("download failed — check your network or ask your tech to publish the agent package: %w", err)
+		}
 	}
 
 	progress("Preparing", "Stopping any previous agent/service…")
@@ -114,6 +152,7 @@ func runInstall(opts InstallOptions, progress ProgressFunc) error {
 	if err := unzipTo(zipPath, dest); err != nil {
 		return fmt.Errorf("install failed: %w", err)
 	}
+	unblockInstallTree(dest)
 
 	exe := filepath.Join(dest, "connect-agent.exe")
 	if _, err := os.Stat(exe); err != nil {
@@ -142,19 +181,19 @@ func runInstall(opts InstallOptions, progress ProgressFunc) error {
 
 	progress("Shortcuts", "Adding Desktop shortcut…")
 	if err := createHostShortcuts(dest); err != nil {
-		// Non-fatal — Host app may still be launched from the install folder / tray.
 		progress("Shortcuts", "Shortcut skipped — Host app is in the install folder")
 	}
 
-	progress("Starting", "Updating Windows service…")
-	if err := runElevatedInstallService(exe, dest); err != nil {
-		progress("Starting", "Starting agent…")
-		start := exec.Command(exe)
-		start.Dir = dest
-		_ = start.Start()
-	}
+	// Bring the agent online immediately so the tech dashboard updates even if UAC is slow.
+	progress("Starting", "Connecting this PC…")
+	startAgentDetached(exe, dest)
 
-	progress("Done", "This PC is ready. Use the WorthyJoin Host shortcut (ask your tech for the Host key).")
+	// Don't block the installer on the UAC prompt — machine is already linking.
+	progress("Permission", "If Windows asks for permission, click Yes (keeps the agent running after reboot)…")
+	go func() { _ = runElevatedInstallService(exe, dest) }()
+	time.Sleep(800 * time.Millisecond)
+
+	progress("Done", "This PC is ready. You can close this window.")
 	return nil
 }
 
@@ -257,24 +296,32 @@ func tryWriteFile(src io.Reader, target string, mode os.FileMode) error {
 }
 
 func stopExistingAgent() {
-	// Prefer stopping the Windows service cleanly, then force-kill any leftover processes.
+	// Prefer a clean service stop; wait before taskkill so Defender sees less "kill frenzy".
 	_ = exec.Command("sc.exe", "stop", "ConnectAgent").Run()
-	_ = exec.Command("net.exe", "stop", "ConnectAgent", "/y").Run()
 
-	for i := 0; i < 60; i++ {
+	stopped := false
+	for i := 0; i < 80; i++ {
 		out, _ := exec.Command("sc.exe", "query", "ConnectAgent").CombinedOutput()
 		s := string(out)
-		if strings.Contains(s, "STOPPED") || strings.Contains(s, "1060") || (!strings.Contains(s, "RUNNING") && !strings.Contains(s, "STOP_PENDING")) {
+		if strings.Contains(s, "STOPPED") || strings.Contains(s, "1060") {
+			stopped = true
+			break
+		}
+		if !strings.Contains(s, "RUNNING") && !strings.Contains(s, "STOP_PENDING") && !strings.Contains(s, "START_PENDING") {
+			stopped = true
 			break
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
+	if !stopped {
+		_ = exec.Command("net.exe", "stop", "ConnectAgent", "/y").Run()
+		time.Sleep(500 * time.Millisecond)
+	}
 
+	// Only force-kill leftovers after the service had time to exit.
 	_ = exec.Command("taskkill.exe", "/F", "/IM", "connect-agent.exe").Run()
 	_ = exec.Command("taskkill.exe", "/F", "/IM", "WorthyJoin-Host.exe").Run()
-	_ = exec.Command("taskkill.exe", "/F", "/IM", "WorthyJoin-Setup.exe").Run() // no-op if not us
-	// Host GUI is a separate WorthyJoin-Host.exe (legacy: connect-agent.exe -host-ui).
-	time.Sleep(750 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 }
 
 func runElevatedInstallService(exe, dir string) error {
@@ -290,6 +337,16 @@ func runElevatedInstallService(exe, dir string) error {
 	)
 	elev := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps)
 	return elev.Run()
+}
+
+func startAgentDetached(exe, dir string) {
+	start := exec.Command(exe)
+	start.Dir = dir
+	setDetached(start)
+	_ = start.Start()
+	if start.Process != nil {
+		_ = start.Process.Release()
+	}
 }
 
 func powershellQuote(s string) string {
