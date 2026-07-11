@@ -244,9 +244,11 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 	primaryBtn := ""
 	if code != "" {
 		codeBlock = fmt.Sprintf(
-			`<p class="code-label">Your enrollment code</p>
+			`<div class="code-panel">
+<p class="code-label">Your enrollment code</p>
 <code class="big" id="enroll-code">%s</code>
-<button type="button" class="btn secondary" id="copy-code">Copy code</button>`,
+<div class="row"><button type="button" class="btn secondary" id="copy-code">Copy code</button></div>
+</div>`,
 			htmlEscape(code),
 		)
 		if available && setupExe {
@@ -260,10 +262,10 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 				htmlEscape(base+"/download/setup.cmd?code="+code),
 			)
 		} else {
-			primaryBtn = `<span class="btn muted-btn">Download WorthyJoin (package missing)</span>`
+			primaryBtn = `<span class="muted-btn">Download WorthyJoin (package missing)</span>`
 		}
 	} else {
-		codeBlock = `<p class="muted">Open this page from the install link your tech sent.</p>`
+		codeBlock = `<p class="lede">Open this page from the install link your tech sent.</p>`
 		if available && setupExe {
 			primaryBtn = fmt.Sprintf(
 				`<a class="btn" href="%s">Download WorthyJoin</a>`,
@@ -281,86 +283,164 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Install WorthyJoin</title>
 <style>
-body{font:15px/1.45 "Segoe UI",system-ui,sans-serif;margin:0;background:#0a0a0a;color:#f2f2f2}
-.wrap{max-width:560px;margin:40px auto;padding:0 16px 48px}
-.card{background:#141414;border:1px solid #2a2a2a;border-radius:14px;padding:26px;display:grid;gap:14px}
-.brand{display:flex;align-items:center;gap:10px}
-.mark{width:28px;height:28px;border-radius:7px;background:#3b82f6;display:grid;place-items:center;color:#fff;font-weight:700}
-h1{margin:0;font-size:22px;letter-spacing:-.03em}
-h2{margin:0;font-size:16px;letter-spacing:-.02em}
-.muted{color:#8a8a8a;margin:0}
-.ok{color:#22c55e;margin:0}
-.warn{color:#fbbf24;margin:0;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);padding:10px;border-radius:8px}
-.code-label{margin:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8a8a8a}
-.big{font:700 15px Consolas,monospace;word-break:break-all;background:#0a0a0a;border:1px solid #2a2a2a;padding:12px;border-radius:8px;display:block}
-.steps{margin:0;padding-left:18px;color:#a3a3a3}
-.steps li{margin:8px 0}
-.btn{display:inline-block;text-align:center;text-decoration:none;border:0;background:#3b82f6;color:#fff;font:inherit;font-weight:700;padding:13px 14px;border-radius:8px;cursor:pointer}
-.btn:hover{background:#2563eb}
-.btn.secondary{background:#1a1a1a;color:#f2f2f2;border:1px solid #333}
+:root{
+  --bg:#0a0a0a;--pane:#121212;--line:#2a2a2a;--text:#f2f2f2;--muted:#8a8a8a;
+  --accent:#3b82f6;--accent2:#2563eb;--ok:#22c55e;--warn:#fbbf24;
+  --font:"Segoe UI","Helvetica Neue",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%%;font:15px/1.45 var(--font);color:var(--text);background:var(--bg)}
+body{
+  background:
+    radial-gradient(ellipse 90%% 55%% at 50%% -15%%, rgba(59,130,246,.22), transparent 55%%),
+    radial-gradient(ellipse 60%% 40%% at 100%% 100%%, rgba(0,0,0,.35), transparent 50%%),
+    var(--bg);
+}
+.page{max-width:720px;margin:0 auto;padding:36px 20px 56px;display:grid;gap:18px}
+.hero{
+  background:linear-gradient(180deg,#161616 0%%,var(--pane) 100%%);
+  border:1px solid var(--line);border-radius:16px;padding:28px 28px 24px;
+  display:grid;gap:16px;
+  box-shadow:0 18px 50px rgba(0,0,0,.35);
+}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{
+  width:36px;height:36px;border-radius:9px;background:var(--accent);
+  display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px;
+  box-shadow:0 0 0 4px rgba(59,130,246,.15);
+}
+.brand h1{margin:0;font-size:26px;letter-spacing:-.04em;font-weight:700}
+.lede{margin:0;color:var(--muted);font-size:14px;max-width:38em}
+.ok{color:var(--ok);margin:0;font-size:13px;font-weight:600}
+.warn{
+  color:var(--warn);margin:0;font-size:13px;line-height:1.4;
+  background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.22);
+  padding:10px 12px;border-radius:10px;
+}
+.code-panel{display:grid;gap:8px}
+.code-label{margin:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.big{
+  font:700 14px Consolas,ui-monospace,monospace;word-break:break-all;
+  background:#0a0a0a;border:1px solid var(--line);padding:12px 14px;border-radius:10px;display:block;
+}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  text-decoration:none;border:0;background:var(--accent);color:#fff;
+  font:inherit;font-weight:700;padding:13px 18px;border-radius:10px;cursor:pointer;
+  min-height:46px;
+}
+.btn:hover{background:var(--accent2)}
+.btn.secondary{background:#1a1a1a;color:var(--text);border:1px solid #333}
 .btn.secondary:hover{background:#222}
-.muted-btn{background:#404040;pointer-events:none;display:inline-block;padding:13px 14px;border-radius:8px;color:#fff;font-weight:700}
-.actions{display:grid;gap:10px}
-.guide{margin-top:8px;display:grid;gap:18px;padding-top:8px;border-top:1px solid #2a2a2a}
-.guide-intro{margin:0;color:#a3a3a3;font-size:13px;line-height:1.5}
-.guide-step{display:grid;gap:10px}
-.guide-step h2{color:#f2f2f2}
-.guide-step p{margin:0;color:#8a8a8a;font-size:13px;line-height:1.45}
-.guide-step strong{color:#e5e5e5}
-.shot{margin:0;border:1px solid #2a2a2a;border-radius:10px;overflow:hidden;background:#0a0a0a}
-.shot img{display:block;width:100%%;height:auto}
-.shot figcaption{padding:8px 10px;font-size:11px;color:#737373;border-top:1px solid #2a2a2a}
-.kbd{font:12px Consolas,monospace;background:#1a1a1a;border:1px solid #333;border-radius:4px;padding:1px 6px;color:#d4d4d4}
+.muted-btn{
+  background:#333;pointer-events:none;display:inline-flex;align-items:center;
+  padding:13px 18px;border-radius:10px;color:#bbb;font-weight:700;min-height:46px;
+}
+.steps{
+  margin:0;padding:0;list-style:none;display:grid;gap:8px;
+  counter-reset:step;
+}
+.steps li{
+  counter-increment:step;display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;
+  color:#b3b3b3;font-size:13.5px;line-height:1.4;
+}
+.steps li::before{
+  content:counter(step);width:28px;height:28px;border-radius:8px;
+  background:#1a1a1a;border:1px solid var(--line);color:#d4d4d4;
+  display:grid;place-items:center;font-size:12px;font-weight:700;
+}
+.steps strong{color:#eee;font-weight:650}
+.foot{margin:0;color:#666;font-size:12px}
+
+.help{
+  border:1px solid var(--line);border-radius:16px;background:rgba(18,18,18,.92);
+  overflow:hidden;
+}
+.help>summary{
+  list-style:none;cursor:pointer;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-weight:650;font-size:14px;user-select:none;
+}
+.help>summary::-webkit-details-marker{display:none}
+.help>summary .hint{color:var(--muted);font-weight:500;font-size:12.5px}
+.help>summary .chev{color:var(--muted);transition:transform .15s ease}
+.help[open]>summary .chev{transform:rotate(180deg)}
+.help-body{padding:0 20px 20px;display:grid;gap:14px;border-top:1px solid var(--line)}
+.help-intro{margin:14px 0 0;color:var(--muted);font-size:13px;line-height:1.45}
+.grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;
+}
+@media (max-width:720px){
+  .hero{padding:22px 18px}
+  .grid{grid-template-columns:1fr}
+  .brand h1{font-size:22px}
+}
+.tile{
+  background:#0e0e0e;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  display:grid;grid-template-rows:auto 1fr;
+}
+.tile .frame{
+  aspect-ratio:16/10;overflow:hidden;background:#000;border-bottom:1px solid var(--line);
+}
+.tile img{width:100%%;height:100%%;object-fit:cover;object-position:center bottom;display:block}
+.tile .meta{padding:10px 11px 12px;display:grid;gap:4px}
+.tile .meta b{font-size:12.5px;letter-spacing:-.01em}
+.tile .meta span{font-size:12px;color:var(--muted);line-height:1.35}
+.kbd{
+  font:11px Consolas,ui-monospace,monospace;background:#1a1a1a;border:1px solid #333;
+  border-radius:4px;padding:1px 5px;color:#d4d4d4;
+}
 </style>
 </head>
 <body>
-<div class="wrap"><div class="card">
-<div class="brand"><span class="mark">★</span><div><h1>WorthyJoin</h1></div></div>
-<p class="muted">Install on this Windows PC in a few clicks.</p>
-%s
-%s
-<div class="actions">%s</div>
-<ol class="steps">
-<li>Click <strong>Download WorthyJoin</strong>.</li>
-<li>If the browser warns (examples below), choose <strong>Keep</strong> / <strong>Keep anyway</strong>.</li>
-<li>Open the downloaded file. If Windows SmartScreen appears: <strong>More info</strong> → <strong>Run anyway</strong>.</li>
-<li>Paste your enrollment code if asked, then click <strong>Install</strong>.</li>
-<li>Choose <strong>Yes</strong> on any permission prompt so this PC can stay online.</li>
-</ol>
+<main class="page">
+  <section class="hero">
+    <div class="brand"><span class="mark" aria-hidden="true">★</span><h1>WorthyJoin</h1></div>
+    <p class="lede">Install on this Windows PC. Download the installer, open it, and paste your enrollment code when asked.</p>
+    %s
+    %s
+    <div class="row">%s</div>
+    <ol class="steps">
+      <li><span>Click <strong>Download WorthyJoin</strong>.</span></li>
+      <li><span>Open the file. If Windows warns, choose <strong>More info</strong> → <strong>Run anyway</strong>.</span></li>
+      <li><span>Paste the enrollment code if asked, then <strong>Install</strong>. Approve any permission prompt with <strong>Yes</strong>.</span></li>
+    </ol>
+    <p class="foot">Windows only</p>
+  </section>
 
-<section class="guide" aria-label="Browser warning guide">
-<p class="guide-intro">Browsers sometimes warn on new installers. WorthyJoin is unsigned until we add a publisher certificate — that warning is expected. Follow the matching steps for your browser.</p>
-
-<div class="guide-step">
-<h2>1 · Google Chrome</h2>
-<p>In the downloads bar or Downloads page you may see an uncommon / suspicious file warning. Click <strong>⋮</strong> or the warning, then <strong>Keep</strong> → <strong>Keep anyway</strong> if asked.</p>
-<figure class="shot">
-<img src="/install-guide/chrome-download-warning.png" width="960" height="540" alt="Chrome uncommon download warning for WorthyJoin-Setup.exe"/>
-<figcaption>Chrome · uncommon / Safe Browsing download warning</figcaption>
-</figure>
-</div>
-
-<div class="guide-step">
-<h2>2 · Microsoft Edge</h2>
-<p>Edge may show a similar “not commonly downloaded” message. Choose <strong>Keep</strong> / <strong>Show more</strong> → <strong>Keep anyway</strong>.</p>
-<figure class="shot">
-<img src="/install-guide/edge-download-warning.png" width="960" height="540" alt="Edge download warning for WorthyJoin-Setup.exe"/>
-<figcaption>Edge · uncommon download warning</figcaption>
-</figure>
-</div>
-
-<div class="guide-step">
-<h2>3 · Windows SmartScreen</h2>
-<p>When you open the installer, Windows may say it protected your PC. Click <span class="kbd">More info</span>, then <span class="kbd">Run anyway</span>.</p>
-<figure class="shot">
-<img src="/install-guide/windows-smartscreen-warning.png" width="960" height="540" alt="Windows SmartScreen unrecognized app dialog"/>
-<figcaption>Windows · SmartScreen unrecognized app</figcaption>
-</figure>
-</div>
-</section>
-
-<p class="muted">Windows only.</p>
-</div></div>
+  <details class="help">
+    <summary>
+      <span>Browser shows a download warning?</span>
+      <span class="hint">Chrome · Edge · SmartScreen <span class="chev" aria-hidden="true">▾</span></span>
+    </summary>
+    <div class="help-body">
+      <p class="help-intro">New installers are often flagged until we have a publisher certificate. That is expected — keep the file, then run it.</p>
+      <div class="grid">
+        <article class="tile">
+          <div class="frame"><img src="/install-guide/chrome-download-warning.png" alt="Chrome download warning for WorthyJoin-Setup.exe" loading="lazy"/></div>
+          <div class="meta">
+            <b>Chrome</b>
+            <span>Choose <strong>Keep</strong>, then <strong>Keep anyway</strong> if asked.</span>
+          </div>
+        </article>
+        <article class="tile">
+          <div class="frame"><img src="/install-guide/edge-download-warning.png" alt="Edge download warning for WorthyJoin-Setup.exe" loading="lazy"/></div>
+          <div class="meta">
+            <b>Edge</b>
+            <span><strong>Keep</strong> / <strong>Show more</strong> → <strong>Keep anyway</strong>.</span>
+          </div>
+        </article>
+        <article class="tile">
+          <div class="frame"><img src="/install-guide/windows-smartscreen-warning.png" alt="Windows SmartScreen unrecognized app dialog" loading="lazy"/></div>
+          <div class="meta">
+            <b>Windows</b>
+            <span><span class="kbd">More info</span> → <span class="kbd">Run anyway</span>.</span>
+          </div>
+        </article>
+      </div>
+    </div>
+  </details>
+</main>
 <script>
 (function(){
   var btn=document.getElementById('copy-code');
