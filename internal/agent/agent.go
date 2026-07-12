@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"connect/internal/rendezvous"
+
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v4"
 )
@@ -33,6 +35,10 @@ type Agent struct {
 	warmMu     sync.Mutex
 	warming    bool
 	iceServers []webrtc.ICEServer
+
+	invMu    sync.Mutex
+	invCache *rendezvous.HostInventory
+	invAt    time.Time
 
 	// Gentle adaptive bitrate (session-local; manual slider holds it off briefly).
 	abrBitrateK   int

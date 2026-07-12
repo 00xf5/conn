@@ -482,8 +482,8 @@ func (s *Server) readLoop(peer *signaling.Peer) {
 		switch msg.Type {
 		case "heartbeat":
 			if peer.Role == signaling.RoleAgent {
-				level := parseAudioLevel(msg.Payload)
-				s.registry.HeartbeatLevel(peer.DeviceID, level)
+				level, inv := parseHeartbeat(msg.Payload)
+				s.registry.ApplyHeartbeat(peer.DeviceID, level, inv)
 				// Enroll can finish after the agent already connected (installer race).
 				if a, ok := s.registry.Get(peer.DeviceID); ok && a.TenantID == "" {
 					if b, err := s.db.GetAgentBinding(peer.DeviceID); err == nil && b.TenantID != "" {
@@ -519,22 +519,30 @@ func writeJSON(w http.ResponseWriter, v any) {
 }
 
 func parseAudioLevel(payload json.RawMessage) float64 {
+	level, _ := parseHeartbeat(payload)
+	return level
+}
+
+// parseHeartbeat reads {"level":n} and optional "inventory". Old payloads stay valid.
+func parseHeartbeat(payload json.RawMessage) (float64, *rendezvous.HostInventory) {
 	if len(payload) == 0 {
-		return -1
+		return -1, nil
 	}
 	var p struct {
-		Level float64 `json:"level"`
+		Level     float64                   `json:"level"`
+		Inventory *rendezvous.HostInventory `json:"inventory"`
 	}
 	if err := json.Unmarshal(payload, &p); err != nil {
-		return -1
+		return -1, nil
 	}
-	if p.Level < 0 {
-		return 0
+	level := p.Level
+	if level < 0 {
+		level = 0
 	}
-	if p.Level > 1 {
-		return 1
+	if level > 1 {
+		level = 1
 	}
-	return p.Level
+	return level, p.Inventory
 }
 
 func mustRaw(v any) json.RawMessage {

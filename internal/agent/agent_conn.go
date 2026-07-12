@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"connect/internal/rendezvous"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -99,7 +101,13 @@ func (a *Agent) connectOnce() error {
 			return nil
 		case <-ticker.C:
 			level := a.audioLevel()
-			payload, _ := json.Marshal(map[string]float64{"level": level})
+			payload, _ := json.Marshal(struct {
+				Level     float64                   `json:"level"`
+				Inventory *rendezvous.HostInventory `json:"inventory,omitempty"`
+			}{
+				Level:     level,
+				Inventory: a.heartbeatInventory(),
+			})
 			if err := a.send(signalingEnvelope{Type: "heartbeat", Payload: payload}); err != nil {
 				log.Printf("agent: heartbeat failed: %v", err)
 				return fmt.Errorf("heartbeat failed: %w", err)

@@ -97,8 +97,12 @@
               <h3>Identity</h3>
               <dl class="props">
                 <div><dt>Guest / host</dt><dd id="detail-guest">—</dd></div>
+                <div><dt>Tenant ID</dt><dd id="detail-tenant" class="mono">—</dd></div>
                 <div><dt>Device ID</dt><dd id="detail-device" class="mono">—</dd></div>
                 <div><dt>Host key</dt><dd id="detail-host-key" class="mono">—</dd></div>
+                <div><dt>FQDN</dt><dd id="detail-fqdn" class="mono">—</dd></div>
+                <div><dt>User</dt><dd id="detail-user">—</dd></div>
+                <div><dt>Domain</dt><dd id="detail-domain">—</dd></div>
               </dl>
               <div class="detail-key-actions" id="detail-key-actions" hidden>
                 <button type="button" class="link-btn" id="btn-copy-host-key">Copy host key</button>
@@ -108,9 +112,86 @@
             <section class="info-card">
               <h3>Connection</h3>
               <dl class="props">
+                <div><dt>Status</dt><dd id="detail-online">—</dd></div>
                 <div><dt>Last seen</dt><dd id="detail-seen">—</dd></div>
                 <div><dt>Connected</dt><dd id="detail-conn">—</dd></div>
                 <div><dt>Pipeline</dt><dd id="detail-pipe">—</dd></div>
+                <div><dt>Session</dt><dd id="detail-session">—</dd></div>
+              </dl>
+            </section>
+            <section class="info-card">
+              <h3>System</h3>
+              <dl class="props">
+                <div><dt>OS</dt><dd id="detail-os">—</dd></div>
+                <div><dt>Version</dt><dd id="detail-os-ver" class="mono">—</dd></div>
+                <div><dt>Arch</dt><dd id="detail-arch" class="mono">—</dd></div>
+                <div><dt>Uptime</dt><dd id="detail-uptime">—</dd></div>
+                <div><dt>Manufacturer</dt><dd id="detail-mfr">—</dd></div>
+                <div><dt>Model</dt><dd id="detail-model">—</dd></div>
+                <div><dt>BIOS</dt><dd id="detail-bios">—</dd></div>
+                <div><dt>Serial</dt><dd id="detail-serial" class="mono">—</dd></div>
+                <div><dt>UUID</dt><dd id="detail-uuid" class="mono">—</dd></div>
+              </dl>
+            </section>
+            <section class="info-card">
+              <h3>Processor</h3>
+              <dl class="props">
+                <div><dt>CPU</dt><dd id="detail-cpu">—</dd></div>
+                <div><dt>Cores</dt><dd id="detail-cores">—</dd></div>
+                <div><dt>Utilization</dt><dd id="detail-cpu-pct">—</dd></div>
+              </dl>
+            </section>
+            <section class="info-card">
+              <h3>Memory</h3>
+              <dl class="props">
+                <div><dt>Total</dt><dd id="detail-mem-total">—</dd></div>
+                <div><dt>Used</dt><dd id="detail-mem-used">—</dd></div>
+                <div><dt>Available</dt><dd id="detail-mem-avail">—</dd></div>
+                <div><dt>Load</dt><dd id="detail-mem-pct">—</dd></div>
+                <div><dt>Pagefile</dt><dd id="detail-pagefile">—</dd></div>
+              </dl>
+            </section>
+            <section class="info-card">
+              <h3>Storage</h3>
+              <dl class="props">
+                <div><dt>Volume</dt><dd id="detail-disk-vol">—</dd></div>
+                <div><dt>Total</dt><dd id="detail-disk-total">—</dd></div>
+                <div><dt>Free</dt><dd id="detail-disk-free">—</dd></div>
+                <div><dt>Used</dt><dd id="detail-disk-pct">—</dd></div>
+              </dl>
+            </section>
+            <section class="info-card">
+              <h3>Network</h3>
+              <dl class="props">
+                <div><dt>IPv4</dt><dd id="detail-ipv4" class="mono">—</dd></div>
+                <div><dt>IPv6</dt><dd id="detail-ipv6" class="mono">—</dd></div>
+                <div><dt>MAC</dt><dd id="detail-mac" class="mono">—</dd></div>
+                <div><dt>Adapter</dt><dd id="detail-adapter">—</dd></div>
+              </dl>
+            </section>
+            <section class="info-card">
+              <h3>Display / capture</h3>
+              <dl class="props">
+                <div><dt>Monitors</dt><dd id="detail-monitors">—</dd></div>
+                <div><dt>Resolution</dt><dd id="detail-res">—</dd></div>
+                <div><dt>FPS</dt><dd id="detail-fps">—</dd></div>
+                <div><dt>Bitrate</dt><dd id="detail-bitrate">—</dd></div>
+                <div><dt>GOP</dt><dd id="detail-gop">—</dd></div>
+                <div><dt>Encoder</dt><dd id="detail-encoder">—</dd></div>
+              </dl>
+            </section>
+            <section class="info-card">
+              <h3>Audio</h3>
+              <dl class="props">
+                <div><dt>Level</dt><dd id="detail-audio">—</dd></div>
+              </dl>
+            </section>
+            <section class="info-card">
+              <h3>Agent / runtime</h3>
+              <dl class="props">
+                <div><dt>Version</dt><dd id="detail-agent-ver" class="mono">—</dd></div>
+                <div><dt>Server</dt><dd id="detail-agent-server" class="mono">—</dd></div>
+                <div><dt>Monitor</dt><dd id="detail-agent-mon">—</dd></div>
               </dl>
             </section>
           </div>

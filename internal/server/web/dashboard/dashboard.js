@@ -189,6 +189,108 @@ function renderList() {
     .join("");
 }
 
+const DETAIL_PLACEHOLDERS = [
+  "detail-tenant", "detail-fqdn", "detail-user", "detail-domain",
+  "detail-online", "detail-session",
+  "detail-os", "detail-os-ver", "detail-arch", "detail-uptime",
+  "detail-mfr", "detail-model", "detail-bios", "detail-serial", "detail-uuid",
+  "detail-cpu", "detail-cores", "detail-cpu-pct",
+  "detail-mem-total", "detail-mem-used", "detail-mem-avail", "detail-mem-pct", "detail-pagefile",
+  "detail-disk-vol", "detail-disk-total", "detail-disk-free", "detail-disk-pct",
+  "detail-ipv4", "detail-ipv6", "detail-mac", "detail-adapter",
+  "detail-monitors", "detail-res", "detail-fps", "detail-bitrate", "detail-gop", "detail-encoder",
+  "detail-audio",
+  "detail-agent-ver", "detail-agent-server", "detail-agent-mon",
+];
+
+function setDetail(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (value == null || value === "") el.textContent = "—";
+  else el.textContent = String(value);
+}
+
+function resetDetailPlaceholders() {
+  for (const id of DETAIL_PLACEHOLDERS) setDetail(id, null);
+}
+
+function fmtAudioLevel(level) {
+  if (level == null || !(level >= 0)) return "—";
+  return `${Math.round(Number(level) * 100)}%`;
+}
+
+function fmtGB(n) {
+  if (n == null || !(Number(n) >= 0) || n === 0) return "";
+  return `${Number(n).toFixed(1)} GB`;
+}
+
+function fmtPct(n) {
+  if (n == null || !(Number(n) >= 0)) return "";
+  return `${Number(n).toFixed(0)}%`;
+}
+
+function fmtUptime(sec) {
+  const s = Number(sec);
+  if (!s) return "";
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function applyInventory(inv) {
+  if (!inv) return;
+  setDetail("detail-fqdn", inv.fqdn);
+  setDetail("detail-user", inv.user);
+  setDetail("detail-domain", inv.domain);
+  setDetail("detail-os", inv.os);
+  setDetail("detail-os-ver", inv.osVersion);
+  setDetail("detail-arch", inv.arch);
+  setDetail("detail-uptime", fmtUptime(inv.uptimeSec));
+  setDetail("detail-mfr", inv.manufacturer);
+  setDetail("detail-model", inv.model);
+  setDetail("detail-bios", inv.bios);
+  setDetail("detail-serial", inv.serial);
+  setDetail("detail-uuid", inv.uuid);
+  setDetail("detail-cpu", inv.cpu);
+  setDetail("detail-cores", inv.cpuCores || "");
+  setDetail("detail-cpu-pct", fmtPct(inv.cpuPct));
+  setDetail("detail-mem-total", fmtGB(inv.memTotalGb));
+  setDetail("detail-mem-used", fmtGB(inv.memUsedGb));
+  setDetail("detail-mem-avail", fmtGB(inv.memAvailGb));
+  setDetail("detail-mem-pct", fmtPct(inv.memPct));
+  if (inv.pagefileTotalGb || inv.pagefileAvailGb) {
+    setDetail(
+      "detail-pagefile",
+      `${fmtGB(inv.pagefileAvailGb) || "—"} avail / ${fmtGB(inv.pagefileTotalGb) || "—"}`
+    );
+  }
+  setDetail("detail-disk-vol", inv.diskVol);
+  setDetail("detail-disk-total", fmtGB(inv.diskTotalGb));
+  setDetail("detail-disk-free", fmtGB(inv.diskFreeGb));
+  if (inv.diskTotalGb > 0) {
+    const used = ((inv.diskTotalGb - inv.diskFreeGb) / inv.diskTotalGb) * 100;
+    setDetail("detail-disk-pct", fmtPct(used));
+  }
+  setDetail("detail-ipv4", inv.ipv4);
+  setDetail("detail-ipv6", inv.ipv6);
+  setDetail("detail-mac", inv.mac);
+  setDetail("detail-adapter", inv.adapter);
+  setDetail("detail-monitors", inv.monitors || "");
+  if (inv.resolution) setDetail("detail-res", inv.resolution);
+  setDetail("detail-fps", inv.fps || "");
+  setDetail("detail-bitrate", inv.bitrateK ? `${inv.bitrateK} kbps` : "");
+  setDetail("detail-gop", inv.gop || "");
+  if (inv.encoder) setDetail("detail-encoder", inv.encoder);
+  setDetail("detail-agent-ver", inv.agentVersion);
+  setDetail("detail-agent-server", inv.serverUrl);
+  if (inv.monitor != null && inv.monitor !== "") setDetail("detail-agent-mon", inv.monitor);
+  if (inv.sessionActive === true) setDetail("detail-session", "Active");
+  else if (inv.sessionActive === false) setDetail("detail-session", "Idle");
+}
+
 function renderDetail() {
   const empty = document.getElementById("detail-empty");
   const body = document.getElementById("detail-body");
@@ -202,6 +304,7 @@ function renderDetail() {
 
   empty.hidden = true;
   body.hidden = false;
+  resetDetailPlaceholders();
 
   if (a) {
     const on = agentOnline(a);
@@ -209,8 +312,9 @@ function renderDetail() {
     document.getElementById("detail-status").innerHTML = on
       ? `${hostMonitor(true)} <span>Online</span>`
       : `${hostMonitor(false)} <span>Offline</span>`;
-    document.getElementById("detail-guest").textContent = a.hostname || "—";
-    document.getElementById("detail-device").textContent = a.deviceId;
+    setDetail("detail-guest", a.hostname || "—");
+    setDetail("detail-tenant", a.tenantId);
+    setDetail("detail-device", a.deviceId);
     const keyEl = document.getElementById("detail-host-key");
     const keyActions = document.getElementById("detail-key-actions");
     if (a.hostKey) {
@@ -220,10 +324,14 @@ function renderDetail() {
       keyEl.textContent = "—";
       keyActions.hidden = true;
     }
-    document.getElementById("detail-seen").textContent = fmtTime(a.lastSeen);
-    document.getElementById("detail-pipe").textContent =
-      [a.encoder, a.resolution].filter(Boolean).join(" · ") || "—";
-    document.getElementById("detail-conn").textContent = on ? fmtTime(a.connected) : "—";
+    setDetail("detail-online", on ? "Online" : "Offline");
+    setDetail("detail-seen", fmtTime(a.lastSeen));
+    setDetail("detail-conn", on ? fmtTime(a.connected) : "—");
+    setDetail("detail-pipe", [a.encoder, a.resolution].filter(Boolean).join(" · ") || "—");
+    setDetail("detail-res", a.resolution);
+    setDetail("detail-encoder", a.encoder);
+    setDetail("detail-audio", on ? fmtAudioLevel(a.audioLevel) : "—");
+    applyInventory(a.inventory);
     document.getElementById("btn-join").disabled = !on || joining;
     document.getElementById("btn-join").textContent = joining ? "Joining…" : "Join";
     document.getElementById("btn-share").disabled = !on;
@@ -234,13 +342,14 @@ function renderDetail() {
     const sess = sessions.find((s) => s.deviceId === selectedId);
     document.getElementById("detail-name").textContent = sess ? sess.code : "Session";
     document.getElementById("detail-status").textContent = "Ticket";
-    document.getElementById("detail-guest").textContent = shortId(selectedId);
-    document.getElementById("detail-device").textContent = selectedId || "—";
+    setDetail("detail-guest", shortId(selectedId));
+    setDetail("detail-device", selectedId || "—");
     document.getElementById("detail-host-key").textContent = "—";
     document.getElementById("detail-key-actions").hidden = true;
-    document.getElementById("detail-seen").textContent = sess ? fmtTime(sess.expiresAt) : "—";
-    document.getElementById("detail-pipe").textContent = "—";
-    document.getElementById("detail-conn").textContent = sess ? fmtTime(sess.createdAt) : "—";
+    setDetail("detail-online", "Ticket");
+    setDetail("detail-seen", sess ? fmtTime(sess.expiresAt) : "—");
+    setDetail("detail-pipe", "—");
+    setDetail("detail-conn", sess ? fmtTime(sess.createdAt) : "—");
     document.getElementById("btn-join").disabled = !sess || joining;
     document.getElementById("btn-join").textContent = joining ? "Joining…" : "Open";
     document.getElementById("detail-note").textContent = sess

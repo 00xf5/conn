@@ -101,18 +101,26 @@ func systemTimeDelta() uint64 {
 }
 
 func sampleMemory() (usedGB, totalGB, pct float64) {
+	usedGB, totalGB, pct, _, _ = sampleMemoryFull()
+	return usedGB, totalGB, pct
+}
+
+func sampleMemoryFull() (usedGB, totalGB, pct, pageTotGB, pageAvailGB float64) {
 	var st memoryStatusEx
 	st.Length = uint32(unsafe.Sizeof(st))
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
 	proc := kernel32.NewProc("GlobalMemoryStatusEx")
 	r, _, _ := proc.Call(uintptr(unsafe.Pointer(&st)))
 	if r == 0 {
-		return 0, 0, 0
+		return 0, 0, 0, 0, 0
 	}
-	totalGB = float64(st.TotalPhys) / (1024 * 1024 * 1024)
-	usedGB = float64(st.TotalPhys-st.AvailPhys) / (1024 * 1024 * 1024)
+	const gib = 1024 * 1024 * 1024
+	totalGB = float64(st.TotalPhys) / gib
+	usedGB = float64(st.TotalPhys-st.AvailPhys) / gib
 	pct = float64(st.MemoryLoad)
-	return usedGB, totalGB, pct
+	pageTotGB = float64(st.TotalPageFile) / gib
+	pageAvailGB = float64(st.AvailPageFile) / gib
+	return usedGB, totalGB, pct, pageTotGB, pageAvailGB
 }
 
 func sampleDiskC() (freeGB, totalGB float64) {
