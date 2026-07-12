@@ -34,22 +34,44 @@ func (a *Agent) heartbeatInventory() *rendezvous.HostInventory {
 	}
 	a.mu.Unlock()
 
+	// Never block the heartbeat/reconnect loop on registry/NIC sampling.
+	// Return last cache immediately; refresh in the background when stale.
 	a.invMu.Lock()
-	defer a.invMu.Unlock()
-
-	if a.invCache == nil || time.Since(a.invAt) >= inventoryRefresh {
-		inv := collectInventory(in)
-		a.invCache = inv
-		a.invAt = time.Now()
+	cache := a.invCache
+	stale := cache == nil || time.Since(a.invAt) >= inventoryRefresh
+	if stale && !a.invRefresh {
+		a.invRefresh = true
+		a.invMu.Unlock()
+		go a.refreshInventoryAsync(in)
 	} else {
-		refreshLiveInventory(a.invCache)
+		a.invMu.Unlock()
 	}
-	if a.invCache == nil {
+
+	if cache == nil {
+		// First run: kick async refresh (above) and send heartbeat without inventory.
 		return nil
 	}
-	out := *a.invCache
+	out := *cache
 	applyStreamFields(&out, in)
 	return &out
+}
+
+func (a *Agent) refreshInventoryAsync(in invInput) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("agent: inventory refresh panic recovered: %v", r)
+		}
+		a.invMu.Lock()
+		a.invRefresh = false
+		a.invMu.Unlock()
+	}()
+
+	inv := collectInventory(in)
+
+	a.invMu.Lock()
+	defer a.invMu.Unlock()
+	a.invCache = inv
+	a.invAt = time.Now()
 }
 
 func collectInventory(in invInput) *rendezvous.HostInventory {

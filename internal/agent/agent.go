@@ -36,9 +36,10 @@ type Agent struct {
 	warming    bool
 	iceServers []webrtc.ICEServer
 
-	invMu    sync.Mutex
-	invCache *rendezvous.HostInventory
-	invAt    time.Time
+	invMu      sync.Mutex
+	invCache   *rendezvous.HostInventory
+	invAt      time.Time
+	invRefresh bool
 
 	// Gentle adaptive bitrate (session-local; manual slider holds it off briefly).
 	abrBitrateK   int
