@@ -83,8 +83,11 @@ func main() {
 	// Enroll / install-service must run BEFORE the single-instance mutex.
 	// Otherwise a service-relaunched agent holds the mutex and this process
 	// exits 0 without enrolling — install looks successful but dashboard stays empty.
-	if *enroll != "" || *installSvc {
-		// windowsgui builds have no console; attach one so enroll errors are visible.
+	//
+	// Do NOT AllocConsole for installer flows (-quit-after-enroll / -install-service):
+	// that flashed a black terminal open/close during setup. Errors go to enroll.log.
+	// Manual debugging: pass -console.
+	if (*enroll != "" || *installSvc) && *console {
 		enableConsole()
 	}
 	if *enroll != "" {

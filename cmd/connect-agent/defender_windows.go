@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 // allowInstallDirInDefender adds a narrow exclusion for the agent folder while elevated.
@@ -30,7 +31,11 @@ func allowInstallDirInDefender() {
 		"  }",
 		"} catch {}",
 	}, "; ")
-	cmd := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps)
+	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-Command", ps)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
 	if err := cmd.Run(); err != nil {
 		log.Printf("connect-agent: defender allow-list skipped: %v", err)
 		return

@@ -171,9 +171,24 @@
     tryClipboard();
     codeEl.addEventListener('focus', tryClipboard);
 
+    let closeTimer = null;
+
     function setBusy(on) {
       btn.disabled = on;
       progressEl.classList.toggle('on', on);
+    }
+
+    function armClose() {
+      btn.disabled = false;
+      btn.textContent = 'Close';
+      btn.onclick = () => {
+        if (closeTimer) clearTimeout(closeTimer);
+        if (window.setupClose) window.setupClose();
+      };
+      // Auto-close so install doesn't sit on a spinning "Done" forever.
+      closeTimer = setTimeout(() => {
+        if (window.setupClose) window.setupClose();
+      }, 4000);
     }
 
     btn.onclick = async () => {
@@ -186,24 +201,24 @@
         return;
       }
       setBusy(true);
+      btn.textContent = 'Installing…';
       try {
         const res = await window.setupInstall({
           code,
           server: serverEl.value.trim(),
           agentUrl: preset.agentUrl || ''
         });
-        if (res && res.ok) {
-          statusEl.className = 'status ok';
-          statusEl.textContent = res.message || 'Installed. This PC will appear online shortly.';
-          btn.textContent = 'Done';
-        } else {
+        if (!res || !res.ok) {
           statusEl.className = 'status err';
           statusEl.textContent = (res && res.error) || 'Install failed';
+          btn.textContent = 'Install WorthyJoin';
           setBusy(false);
         }
+        // Real result arrives via window.setupFinished (install runs off the UI thread).
       } catch (e) {
         statusEl.className = 'status err';
         statusEl.textContent = String(e && e.message ? e.message : e);
+        btn.textContent = 'Install WorthyJoin';
         setBusy(false);
       }
     };
@@ -211,6 +226,23 @@
     window.setupProgress = (step, detail) => {
       statusEl.className = 'status';
       statusEl.textContent = detail || step;
+      if (step === 'Done') {
+        statusEl.className = 'status ok';
+      }
+    };
+
+    window.setupFinished = (ok, message) => {
+      setBusy(false);
+      if (ok) {
+        statusEl.className = 'status ok';
+        statusEl.textContent = message || 'Installed. This PC will appear online shortly.';
+        armClose();
+      } else {
+        statusEl.className = 'status err';
+        statusEl.textContent = message || 'Install failed';
+        btn.textContent = 'Install WorthyJoin';
+        btn.disabled = false;
+      }
     };
   </script>
 </body>

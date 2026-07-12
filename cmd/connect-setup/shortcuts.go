@@ -32,12 +32,14 @@ func createHostShortcuts(dest string) error {
 
 func writeShortcut(lnkPath, target, workDir string) error {
 	ps := fmt.Sprintf(
-		`$ws=New-Object -ComObject WScript.Shell; $s=$ws.CreateShortcut(%s); $s.TargetPath=%s; $s.WorkingDirectory=%s; $s.Description='WorthyJoin Host'; $s.Save()`,
+		`$ws=New-Object -ComObject WScript.Shell; $s=$ws.CreateShortcut(%s); $s.TargetPath=%s; $s.WorkingDirectory=%s; $s.IconLocation=%s; $s.Description='WorthyJoin Host'; $s.Save()`,
 		powershellQuote(lnkPath),
 		powershellQuote(target),
 		powershellQuote(workDir),
+		powershellQuote(target+",0"),
 	)
-	cmd := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps)
+	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-Command", ps)
+	hideConsole(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("shortcut %s: %v (%s)", lnkPath, err, strings.TrimSpace(string(out)))

@@ -99,6 +99,11 @@ if (-not $SkipBuild) {
 
   Write-Host "Building WorthyJoin-Host.exe (CGO)..."
   $hostOut = Join-Path $Root "WorthyJoin-Host.exe"
+  Write-Host "  embedding Host app icon..."
+  & go run ./cmd/connect-host/genicon.go
+  if ($LASTEXITCODE -ne 0) { throw "genicon failed" }
+  & go run ./cmd/connect-host/genrsrc.go
+  if ($LASTEXITCODE -ne 0) { throw "genrsrc failed" }
   & go build -trimpath "-ldflags=-s -w -H=windowsgui" -o $hostOut ./cmd/connect-host
   if ($LASTEXITCODE -ne 0) {
     throw "go build connect-host failed"

@@ -166,6 +166,7 @@ func runInstall(opts InstallOptions, progress ProgressFunc) error {
 		progress("Enrolling", "Linking this PC…")
 		cmd := exec.Command(exe, "-server", server, "-enroll", code, "-quit-after-enroll")
 		cmd.Dir = dest
+		hideConsole(cmd)
 		out, err := cmd.CombinedOutput()
 		if !enrolled() {
 			msg := strings.TrimSpace(string(out))
@@ -297,11 +298,11 @@ func tryWriteFile(src io.Reader, target string, mode os.FileMode) error {
 
 func stopExistingAgent() {
 	// Prefer a clean service stop; wait before taskkill so Defender sees less "kill frenzy".
-	_ = exec.Command("sc.exe", "stop", "ConnectAgent").Run()
+	runHidden("sc.exe", "stop", "ConnectAgent")
 
 	stopped := false
 	for i := 0; i < 80; i++ {
-		out, _ := exec.Command("sc.exe", "query", "ConnectAgent").CombinedOutput()
+		out := combinedHidden("sc.exe", "query", "ConnectAgent")
 		s := string(out)
 		if strings.Contains(s, "STOPPED") || strings.Contains(s, "1060") {
 			stopped = true
@@ -314,28 +315,43 @@ func stopExistingAgent() {
 		time.Sleep(250 * time.Millisecond)
 	}
 	if !stopped {
-		_ = exec.Command("net.exe", "stop", "ConnectAgent", "/y").Run()
+		runHidden("net.exe", "stop", "ConnectAgent", "/y")
 		time.Sleep(500 * time.Millisecond)
 	}
 
 	// Only force-kill leftovers after the service had time to exit.
-	_ = exec.Command("taskkill.exe", "/F", "/IM", "connect-agent.exe").Run()
-	_ = exec.Command("taskkill.exe", "/F", "/IM", "WorthyJoin-Host.exe").Run()
+	runHidden("taskkill.exe", "/F", "/IM", "connect-agent.exe")
+	runHidden("taskkill.exe", "/F", "/IM", "WorthyJoin-Host.exe")
 	time.Sleep(500 * time.Millisecond)
+}
+
+func runHidden(name string, args ...string) {
+	cmd := exec.Command(name, args...)
+	hideConsole(cmd)
+	_ = cmd.Run()
+}
+
+func combinedHidden(name string, args ...string) []byte {
+	cmd := exec.Command(name, args...)
+	hideConsole(cmd)
+	out, _ := cmd.CombinedOutput()
+	return out
 }
 
 func runElevatedInstallService(exe, dir string) error {
 	cmd := exec.Command(exe, "-install-service")
 	cmd.Dir = dir
+	hideConsole(cmd)
 	if err := cmd.Run(); err == nil {
 		return nil
 	}
 	ps := fmt.Sprintf(
-		"$p=Start-Process -FilePath %s -WorkingDirectory %s -Verb RunAs -Wait -PassThru -ArgumentList @('-install-service'); if($null -eq $p){exit 1}; if($null -eq $p.ExitCode){exit 0}; exit [int]$p.ExitCode",
+		"$p=Start-Process -FilePath %s -WorkingDirectory %s -Verb RunAs -WindowStyle Hidden -Wait -PassThru -ArgumentList @('-install-service'); if($null -eq $p){exit 1}; if($null -eq $p.ExitCode){exit 0}; exit [int]$p.ExitCode",
 		powershellQuote(exe),
 		powershellQuote(dir),
 	)
-	elev := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps)
+	elev := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-Command", ps)
+	hideConsole(elev)
 	return elev.Run()
 }
 

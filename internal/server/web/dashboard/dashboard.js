@@ -104,6 +104,18 @@ function vuBars(level) {
   return `<span class="vu${hot}" aria-hidden="true"><span style="height:${h1}px"></span><span style="height:${h2}px"></span><span style="height:${h3}px"></span><span style="height:${h4}px"></span></span>`;
 }
 
+/** ScreenConnect-style host monitor glyph; .on = online green. */
+function hostMonitor(on) {
+  const title = on ? "Online" : "Offline";
+  return `<span class="host-ico${on ? " on" : ""}" title="${title}" aria-label="${title}">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+      <rect x="2.5" y="3.5" width="19" height="13" rx="2.2" ry="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      <path d="M8 20.5h8M12 16.5v4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+      <rect x="5" y="6" width="14" height="8" rx="0.8" class="host-ico-screen"/>
+    </svg>
+  </span>`;
+}
+
 function renderList() {
   const list = document.getElementById("session-list");
   const empty = document.getElementById("list-empty");
@@ -123,7 +135,7 @@ function renderList() {
         const selected = selectedId === s.deviceId ? " selected" : "";
         const on = agentOnline(agentById(s.deviceId));
         return `<div class="session-row${selected}" role="option" data-device="${escapeHtml(s.deviceId)}" data-session="${escapeHtml(s.code)}" tabindex="0">
-          <span><span class="dot${on ? " on" : ""}" title="${on ? "Online" : "Offline"}"></span></span>
+          ${hostMonitor(on)}
           <span class="listen-cell"></span>
           <span class="name">${escapeHtml(host)}</span>
           <span class="guest mono">${escapeHtml(s.code)}</span>
@@ -164,7 +176,7 @@ function renderList() {
         ? `<button type="button" class="btn-listen${listenCls}" data-listen="${escapeHtml(a.deviceId)}" title="${listenTitle}" aria-pressed="${listening ? "true" : "false"}">${listenLabel}</button>`
         : "";
       return `<div class="session-row${selected}${on ? "" : " offline"}" role="option" data-device="${escapeHtml(a.deviceId)}" tabindex="0">
-        <span><span class="dot${on ? " on" : ""}" title="${on ? "Online" : "Offline"}"></span></span>
+        ${hostMonitor(on)}
         <span class="listen-cell">
           ${on ? vuBars(a.audioLevel) : ""}
           ${listenBtn}
@@ -195,8 +207,8 @@ function renderDetail() {
     const on = agentOnline(a);
     document.getElementById("detail-name").textContent = a.hostname || "host";
     document.getElementById("detail-status").innerHTML = on
-      ? '<span class="dot on"></span> Online'
-      : '<span class="dot"></span> Offline';
+      ? `${hostMonitor(true)} <span>Online</span>`
+      : `${hostMonitor(false)} <span>Offline</span>`;
     document.getElementById("detail-guest").textContent = a.hostname || "—";
     document.getElementById("detail-device").textContent = a.deviceId;
     const keyEl = document.getElementById("detail-host-key");

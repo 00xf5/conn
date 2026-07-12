@@ -11,16 +11,14 @@ import (
 )
 
 // unblockPath clears Mark-of-the-Web so Windows treats extracted files as local.
-// Does not disable Defender — only removes the internet Zone.Identifier stream.
+// Does not disable Defender — only removes the internet Zone.Identifier ADS.
+// No PowerShell: spawning Unblock-File per file was flashing blue consoles.
 func unblockPath(path string) {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return
 	}
 	_ = os.Remove(path + ":Zone.Identifier")
-	cmd := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
-		"Unblock-File -LiteralPath "+powershellQuote(path)+" -ErrorAction SilentlyContinue")
-	_ = cmd.Run()
 }
 
 func unblockInstallTree(dir string) {
@@ -68,7 +66,8 @@ func ensureDefenderAllowsInstallDir(dir string) {
 		"  }",
 		"} catch {}",
 	}, "; ")
-	cmd := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps)
+	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-Command", ps)
+	hideConsole(cmd)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		log.Printf("connect-setup: defender exclusion skipped: %v (%s)", err, strings.TrimSpace(string(out)))
 		return

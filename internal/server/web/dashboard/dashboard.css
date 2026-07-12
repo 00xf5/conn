@@ -327,7 +327,7 @@ body {
 }
 .session-row {
   display: grid;
-  grid-template-columns: 14px minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   grid-template-areas:
     "dot name listen"
     "dot meta listen";
@@ -340,7 +340,7 @@ body {
   user-select: none;
   border: 1px solid transparent;
 }
-.session-row > :nth-child(1) { grid-area: dot; }
+.session-row > :nth-child(1) { grid-area: dot; align-self: center; }
 .session-row .listen-cell { grid-area: listen; justify-self: end; }
 .session-row .name { grid-area: name; }
 .session-row .guest,
@@ -426,6 +426,39 @@ body {
 .dot.on {
   background: var(--online);
   box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+}
+
+/* ScreenConnect-style machine monitor */
+.host-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: #6b7280;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.host-ico svg { display: block; }
+.host-ico .host-ico-screen {
+  fill: currentColor;
+  opacity: 0.18;
+  stroke: none;
+}
+.host-ico.on {
+  color: var(--online);
+  filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.35));
+}
+.host-ico.on .host-ico-screen {
+  opacity: 0.28;
+}
+.session-row.offline .host-ico {
+  color: #4b5563;
+  filter: none;
+}
+.detail-status-line .host-ico {
+  vertical-align: -4px;
+  margin-right: 4px;
 }
 
 .list-empty {

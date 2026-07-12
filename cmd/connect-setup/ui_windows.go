@@ -19,6 +19,11 @@ import (
 //go:embed web/index.html
 var setupHTML string
 
+func jsQuote(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
+}
+
 func runUI(opts InstallOptions) error {
 	runtime.LockOSThread()
 	if err := windows.CoInitializeEx(0, windows.COINIT_APARTMENTTHREADED); err != nil {
@@ -51,6 +56,7 @@ func runUI(opts InstallOptions) error {
 		}
 		return fmt.Errorf("WebView2 is required to show Setup (install Microsoft Edge WebView2 Runtime), or run with -quiet -code …")
 	}
+	defer w.Destroy()
 
 	preset, _ := json.Marshal(map[string]string{
 		"code":     opts.Code,
@@ -59,6 +65,8 @@ func runUI(opts InstallOptions) error {
 	})
 	html := strings.Replace(setupHTML, "const preset = window.__PRESET__ || {};", "const preset = "+string(preset)+";", 1)
 
+	// Install must NOT run on the WebView bind/UI thread — that froze progress
+	// updates and left the spinner running after "Done".
 	_ = w.Bind("setupInstall", func(req map[string]any) map[string]any {
 		code, _ := req["code"].(string)
 		server, _ := req["server"].(string)
@@ -71,14 +79,24 @@ func runUI(opts InstallOptions) error {
 		if o.AgentURL == "" {
 			o.AgentURL = agentURLFromServer(o.Server)
 		}
-		err := runInstall(o, func(step, detail string) {
-			js := fmt.Sprintf("window.setupProgress(%q,%q)", step, detail)
-			w.Dispatch(func() { w.Eval(js) })
-		})
-		if err != nil {
-			return map[string]any{"ok": false, "error": err.Error()}
-		}
-		return map[string]any{"ok": true, "message": "Installed. This PC will appear online shortly."}
+		go func() {
+			err := runInstall(o, func(step, detail string) {
+				js := fmt.Sprintf("window.setupProgress(%s,%s)", jsQuote(step), jsQuote(detail))
+				w.Dispatch(func() { w.Eval(js) })
+			})
+			w.Dispatch(func() {
+				if err != nil {
+					w.Eval(fmt.Sprintf("window.setupFinished(false,%s)", jsQuote(err.Error())))
+					return
+				}
+				w.Eval(fmt.Sprintf("window.setupFinished(true,%s)", jsQuote("Installed. This PC will appear online shortly.")))
+			})
+		}()
+		return map[string]any{"ok": true, "started": true}
+	})
+
+	_ = w.Bind("setupClose", func() {
+		w.Dispatch(func() { w.Terminate() })
 	})
 
 	w.SetHtml(html)

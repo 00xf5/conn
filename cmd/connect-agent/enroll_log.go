@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -18,8 +17,8 @@ func setupEnrollLog() string {
 	if err != nil {
 		return ""
 	}
-	// Keep file open for process lifetime; installer may type this on failure.
-	log.SetOutput(io.MultiWriter(f, os.Stderr))
+	// File only — installer runs a windowsgui agent with no console; don't depend on stderr.
+	log.SetOutput(f)
 	return path
 }
 
