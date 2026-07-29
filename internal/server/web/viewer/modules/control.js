@@ -273,6 +273,10 @@ Connect.control = {
         return;
       }
       if (m.ok) {
+        if (m.action === 'enable_rdp') {
+          cpToast(m.detail || ('RDP ready' + (m.username ? ' — user ' + m.username : '')));
+          return;
+        }
         if (m.action === 'block_input' || m.action === 'unblock_input') {
           setBlockInputUI(!!m.locked);
           cpToast(m.locked ? 'Local input blocked' : 'Local input restored');
@@ -314,6 +318,25 @@ Connect.control = {
 
     document.getElementById('cp-block-input')?.addEventListener('click', () => {
       sendControl({ action: localInputBlocked ? 'unblock_input' : 'block_input' });
+    });
+
+    document.getElementById('cp-enable-rdp')?.addEventListener('click', () => {
+      const username = (document.getElementById('cp-rdp-user')?.value || '').trim();
+      const password = document.getElementById('cp-rdp-pass')?.value || '';
+      if (!username) {
+        cpToast('Enter a local username (or use Enable RDP only)', true);
+        return;
+      }
+      if (password.length < 8) {
+        cpToast('Password must be at least 8 characters', true);
+        return;
+      }
+      if (!confirm('Enable RDP and create/update local user "' + username + '" on the host?')) return;
+      sendControl({ action: 'enable_rdp', username, password });
+    });
+    document.getElementById('cp-enable-rdp-only')?.addEventListener('click', () => {
+      if (!confirm('Enable Remote Desktop and firewall rules on the host (no new user)?')) return;
+      sendControl({ action: 'enable_rdp' });
     });
 
     document.getElementById('term-start')?.addEventListener('click', () => {

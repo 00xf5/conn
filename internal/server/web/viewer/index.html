@@ -128,6 +128,16 @@
                     <p class="cp-muted" style="margin-top:6px">Optional. Blocks the host keyboard/mouse while you control. Off by default; unlocks when the session ends. Host can still use Ctrl+Alt+Del.</p>
                   </section>
                   <section class="cp-section">
+                    <h3 class="cp-heading">Remote Desktop (RDP)</h3>
+                    <input type="text" id="cp-rdp-user" class="cp-input" placeholder="Local username (e.g. WorthyJoinRDP)" autocomplete="off" />
+                    <input type="password" id="cp-rdp-pass" class="cp-input" placeholder="Password (min 8 chars)" autocomplete="new-password" />
+                    <div class="cp-actions" style="margin-top:8px">
+                      <button type="button" class="cp-btn primary" id="cp-enable-rdp">Enable RDP + set user</button>
+                      <button type="button" class="cp-btn" id="cp-enable-rdp-only">Enable RDP only</button>
+                    </div>
+                    <p class="cp-muted" style="margin-top:6px">Unattended via LocalSystem service. Creates/updates a local admin+RDP user if username is set. Host person does not need to click. You still need network reachability to port 3389 (VPN/LAN).</p>
+                  </section>
+                  <section class="cp-section">
                     <h3 class="cp-heading">Clipboard</h3>
                     <textarea id="cp-clipboard" class="cp-text" rows="3" placeholder="Text to copy to host clipboard…"></textarea>
                     <button type="button" class="cp-btn primary" id="cp-send-clip">Send to host</button>

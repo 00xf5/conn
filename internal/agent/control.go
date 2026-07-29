@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 
+	"connect/internal/privops"
+
 	"github.com/pion/webrtc/v4"
 )
 
@@ -24,6 +26,8 @@ type controlMsg struct {
 	Monitor  int    `json:"monitor,omitempty"`
 	Cols     int    `json:"cols,omitempty"`
 	Rows     int    `json:"rows,omitempty"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 func (a *Agent) handleControl(data []byte, dc *webrtc.DataChannel) {
@@ -109,6 +113,22 @@ func (a *Agent) handleControl(data []byte, dc *webrtc.DataChannel) {
 		}
 	case "term_close":
 		err = termClose()
+	case "enable_rdp":
+		resp := privops.Call(privops.Request{
+			Op:       privops.OpEnableRDP,
+			Username: msg.Username,
+			Password: msg.Password,
+		})
+		if !resp.OK {
+			err = errString(resp.Error)
+		}
+		result = map[string]any{}
+		if resp.Detail != "" {
+			result["detail"] = resp.Detail
+		}
+		if resp.Username != "" {
+			result["username"] = resp.Username
+		}
 	default:
 		err = errControlUnknown
 	}

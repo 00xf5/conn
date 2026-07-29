@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"connect/internal/privops"
+
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"
@@ -68,6 +70,8 @@ func (s *connectService) Execute(args []string, r <-chan svc.ChangeRequest, chan
 	}()
 	changes <- svc.Status{State: svc.Running, Accepts: accepts}
 	s.logInfo("Connect Agent service running")
+
+	go privops.ServePipe(stop)
 
 	for c := range r {
 		switch c.Cmd {
