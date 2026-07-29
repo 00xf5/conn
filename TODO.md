@@ -2,33 +2,28 @@
 
 Priority order for upcoming work. Check items off as they land.
 
-## P0 — Stability (investigate now)
+## P0 — Stability
 
-- [x] **Reconnect after network change** — Host stays offline after WiFi switch (seen after inventory/heartbeat work). Agent must recover without manual restart.
-  - Suspect: inventory collection ran on the heartbeat goroutine and could block during NIC churn (`net.Interfaces` / registry).
-  - **Mitigation landed:** inventory refresh is async; heartbeat never waits on sampling. Still verify: rebuild agent → WiFi toggle → machine returns online without manual restart.
-  - Remaining: faster reconnect backoff, tray “reconnecting…”, keepalive review (see connection item below).
-- [ ] **Strengthen signaling connection** — Occasional disconnects mid-session / idle.
-  - Review WS read deadlines, heartbeat cadence, server-side idle drops, NAT/WiFi sleep.
-  - Faster reconnect backoff, clearer agent tray state (“reconnecting…”), optional TCP keepalive.
+- [x] **Reconnect after network change** — Inventory refresh is async; heartbeat never waits on sampling.
+- [x] **Strengthen signaling connection**
+  - Exponential reconnect backoff (1s → 30s), reset after a live session.
+  - Tray state `reconnecting…` while dialing / waiting.
+  - TCP keepalive (30s) on the WebSocket dialer.
+  - Existing: app heartbeat 15s + server WS PingPump 30s + 90s read deadlines (unchanged; already correct).
 
 ## P1 — Remote tools (tech workflow)
 
-- [ ] **Download file from machine** — At least pull a single file for analysis (path → browser download or tech-side save). Authz + size limits + audit log.
-- [ ] **Filesystem browser** — Smooth navigate (drives → folders → files), list/stat, no full-tree dumps; pair with download.
-- [ ] **Seamless remote terminal** — Low-latency interactive shell in the viewer/tech UI; reconnect-safe; clear UX when session drops.
+- [x] **Download file from machine** — `fs_get` + transfer folder.
+- [x] **Filesystem browser** — `fs_roots` / `fs_list`.
+- [x] **Local input lock** — `BlockInput`; unlock on session end.
+- [x] **Remote terminal (ConPTY)** — Full Windows TTY via ConPTY + xterm.js; `term_open` / `term_in` / `term_out` / `term_resize` / `term_close`; killed on session end.
 
-## P2 — Security / abuse
+## P2 — Security / abuse (skipped for now)
 
-- [ ] **Hardening against bots / scrapers / abuse**
-  - Rate limits on public install, enroll, auth, admin login, WS upgrade.
-  - Bot friction where needed (e.g. enroll/install surfaces): CAPTCHA or equivalent without breaking legit host setup.
-  - Tighten CORS, cookies, CSRF on cookie auth; review exposed `/download/*` and `/install*`.
-  - Fail2ban-style / IP throttle notes for VPS deploy docs.
-  - Audit logging for enroll, join, file pull, terminal open.
+- [ ] **Hardening against bots / scrapers / abuse** — deferred by choice; revisit later.
 
 ## Notes
 
 - Inventory on `/api/agents` is **online + in-memory only**; offline machines won’t show live hardware until reconnect.
-- New host inventory requires the rebuilt agent package (`data/agent/agent.zip`) on the machine — old exes won’t send inventory.
+- New host features require a rebuilt agent on the machine — old exes won’t send inventory / ConPTY / fs_* / input lock.
 - Do not expand scope into process kill / arbitrary remote exec without explicit product decision.

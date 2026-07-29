@@ -59,6 +59,8 @@ func runTray(a *agent.Agent, logPath string) {
 					systray.SetTooltip("WorthyJoin — streaming " + st.Session)
 				case "online":
 					systray.SetTooltip("WorthyJoin — online, waiting for viewer")
+				case "reconnecting":
+					systray.SetTooltip("WorthyJoin — reconnecting…")
 				default:
 					systray.SetTooltip("WorthyJoin — offline")
 				}

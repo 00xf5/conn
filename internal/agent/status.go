@@ -2,7 +2,7 @@ package agent
 
 // Status is a snapshot for UI (tray, logs).
 type Status struct {
-	State   string // offline, online, streaming
+	State   string // offline, reconnecting, online, streaming
 	Session string
 	Server  string
 	Host    string

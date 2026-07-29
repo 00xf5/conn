@@ -301,6 +301,9 @@ func (a *Agent) closePeer() {
 }
 
 func (a *Agent) closePeerLocked() {
+	// Always restore host input / tear down remote shell if a prior session left them active.
+	forceUnlockLocalInput()
+	forceTermClose()
 	a.sessGen++
 	a.stopSessionAudioLocked()
 	if a.pc != nil {

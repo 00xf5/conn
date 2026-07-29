@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -23,23 +24,46 @@ func (a *Agent) Run() error {
 			log.Printf("agent: panic recovered: %v", r)
 		}
 	}()
+	backoff := time.Second
+	const maxBackoff = 30 * time.Second
 	for {
 		select {
 		case <-a.closed:
 			return nil
 		default:
 		}
-		if err := a.connectOnce(); err != nil {
-			log.Printf("agent: disconnected: %v; retry in 3s", err)
-			time.Sleep(3 * time.Second)
+		a.setState("reconnecting", "-")
+		lived, err := a.connectOnce()
+		select {
+		case <-a.closed:
+			return nil
+		default:
 		}
+		if err == nil {
+			return nil
+		}
+		if lived {
+			backoff = time.Second
+		}
+		log.Printf("agent: disconnected: %v; retry in %s", err, backoff)
+		a.setState("reconnecting", "-")
+		select {
+		case <-a.closed:
+			return nil
+		case <-time.After(backoff):
+		}
+		next := backoff * 2
+		if next > maxBackoff {
+			next = maxBackoff
+		}
+		backoff = next
 	}
 }
 
-func (a *Agent) connectOnce() error {
+func (a *Agent) connectOnce() (lived bool, err error) {
 	u, err := url.Parse(a.cfg.ServerURL)
 	if err != nil {
-		return err
+		return false, err
 	}
 	q := u.Query()
 	q.Set("role", "agent")
@@ -50,17 +74,22 @@ func (a *Agent) connectOnce() error {
 	}
 	u.RawQuery = q.Encode()
 
-	dialer := websocket.DefaultDialer
+	netDialer := &net.Dialer{
+		Timeout:   15 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+	dialer := *websocket.DefaultDialer
+	dialer.HandshakeTimeout = 15 * time.Second
+	dialer.NetDialContext = netDialer.DialContext
 	if u.Scheme == "wss" && a.cfg.InsecureTLS {
-		dialer = &websocket.Dialer{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // LAN self-signed connectd cert
-		}
+		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // LAN self-signed connectd cert
 	}
 
 	conn, _, err := dialer.Dial(u.String(), nil)
 	if err != nil {
-		return err
+		return false, err
 	}
+	lived = true
 	a.mu.Lock()
 	a.conn = conn
 	a.mu.Unlock()
@@ -96,9 +125,9 @@ func (a *Agent) connectOnce() error {
 		case <-done:
 			a.closePeer()
 			a.setState("offline", "-")
-			return fmt.Errorf("connection closed")
+			return true, fmt.Errorf("connection closed")
 		case <-a.closed:
-			return nil
+			return true, nil
 		case <-ticker.C:
 			level := a.audioLevel()
 			payload, _ := json.Marshal(struct {
@@ -110,7 +139,7 @@ func (a *Agent) connectOnce() error {
 			})
 			if err := a.send(signalingEnvelope{Type: "heartbeat", Payload: payload}); err != nil {
 				log.Printf("agent: heartbeat failed: %v", err)
-				return fmt.Errorf("heartbeat failed: %w", err)
+				return true, fmt.Errorf("heartbeat failed: %w", err)
 			}
 			// Outbound heartbeats keep the socket alive; extend read deadline so we
 			// do not drop when connectd has no inbound traffic between viewers.

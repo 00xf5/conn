@@ -28,9 +28,23 @@ window.ConnectViewer = {
     const taskmgr = Connect.taskmgr.create(ctx);
     const webrtcRef = { getDC: () => null };
     const control = Connect.control.create(() => webrtcRef.getDC());
-    taskmgr.setOnControlView(() => control.refreshFileList());
+    const onControlView = () => {
+      control.refreshFileList();
+      control.refreshFsBrowser?.();
+    };
+    taskmgr.setOnControlView(onControlView);
+    taskmgr.setOnTerminalView(() => {
+      control.onTerminalShown?.();
+    });
 
     const webrtc = Connect.webrtc.create(ctx, { layout, taskmgr, control });
     webrtcRef.getDC = webrtc.getDC;
+
+    if (Connect.profiles?.mobile?.isActive?.()) {
+      Connect.profiles.mobile.init(ctx, {
+        getDC: webrtc.getDC,
+        onControlView,
+      });
+    }
   },
 };

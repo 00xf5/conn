@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/viewer/viewer.css" />
   <link rel="stylesheet" href="/viewer/taskmgr.css" />
   <link rel="stylesheet" href="/viewer/control.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
 </head>
 <body>
   <div id="app">
@@ -51,6 +52,10 @@
               <button type="button" class="tm-nav-item" data-view="control">
                 <span class="tm-nav-icon">⛭</span>
                 <span>Control</span>
+              </button>
+              <button type="button" class="tm-nav-item" data-view="terminal">
+                <span class="tm-nav-icon">&gt;_</span>
+                <span>Terminal</span>
               </button>
             </nav>
             <div class="tm-main">
@@ -117,6 +122,10 @@
                       <button type="button" class="cp-btn warn" data-act="reboot">Restart PC</button>
                       <button type="button" class="cp-btn danger" data-act="shutdown">Shut down</button>
                     </div>
+                    <div class="cp-actions" style="margin-top:8px">
+                      <button type="button" class="cp-btn" id="cp-block-input" aria-pressed="false">Block local input</button>
+                    </div>
+                    <p class="cp-muted" style="margin-top:6px">Optional. Blocks the host keyboard/mouse while you control. Off by default; unlocks when the session ends. Host can still use Ctrl+Alt+Del.</p>
                   </section>
                   <section class="cp-section">
                     <h3 class="cp-heading">Clipboard</h3>
@@ -124,7 +133,18 @@
                     <button type="button" class="cp-btn primary" id="cp-send-clip">Send to host</button>
                   </section>
                   <section class="cp-section">
-                    <h3 class="cp-heading">Files</h3>
+                    <h3 class="cp-heading">Host filesystem</h3>
+                    <div class="cp-file-toolbar">
+                      <button type="button" class="cp-btn sm" id="cp-fs-up" title="Parent folder">Up</button>
+                      <button type="button" class="cp-btn sm" id="cp-fs-roots" title="Drives and shortcuts">Roots</button>
+                      <button type="button" class="cp-btn sm" id="cp-fs-refresh">Refresh</button>
+                    </div>
+                    <div id="cp-fs-path" class="cp-fs-path" title="">Roots</div>
+                    <ul id="cp-fs-list" class="cp-file-list"></ul>
+                    <p class="cp-muted" style="margin-top:6px">Pull for analysis — max 50 MB per file.</p>
+                  </section>
+                  <section class="cp-section">
+                    <h3 class="cp-heading">Transfer folder</h3>
                     <label class="cp-drop" id="cp-drop">
                       <input type="file" id="cp-file-input" hidden />
                       <span>Drop file or click to upload to host Downloads\Connect</span>
@@ -152,6 +172,18 @@
                   <div id="cp-toast" class="cp-toast"></div>
                 </div>
               </div>
+              <div id="view-terminal" class="tm-view">
+                <div class="term-wrap">
+                  <div class="term-toolbar">
+                    <button type="button" class="cp-btn sm" id="term-start">Start shell</button>
+                    <button type="button" class="cp-btn sm" id="term-stop">Stop</button>
+                    <button type="button" class="cp-btn sm" id="term-clear">Clear</button>
+                    <span id="term-status" class="cp-muted">Stopped</span>
+                  </div>
+                  <div id="term-xterm" class="term-xterm"></div>
+                  <p class="cp-muted term-hint">Windows ConPTY — full TTY. Stops when the session ends.</p>
+                </div>
+              </div>
             </div>
           </div>
         </aside>
@@ -159,6 +191,8 @@
     </main>
     <footer id="stats" class="mobile-stats"></footer>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
   <script src="/viewer/modules/util.js"></script>
   <script src="/viewer/modules/charts.js"></script>
   <script src="/viewer/modules/input.js"></script>
@@ -166,6 +200,7 @@
   <script src="/viewer/modules/taskmgr.js"></script>
   <script src="/viewer/modules/control.js"></script>
   <script src="/viewer/modules/webrtc.js"></script>
+  <script src="/viewer/profiles/mobile.js"></script>
   <script src="/viewer/viewer.js"></script>
   <script>
     ConnectViewer.init({ sessionCode: location.pathname.split('/').pop() });

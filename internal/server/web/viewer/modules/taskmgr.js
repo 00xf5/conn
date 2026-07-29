@@ -11,6 +11,7 @@ Connect.taskmgr = {
       viewPerf: document.getElementById('view-performance'),
       viewProc: document.getElementById('view-processes'),
       viewControl: document.getElementById('view-control'),
+      viewTerminal: document.getElementById('view-terminal'),
       panelTitle: document.getElementById('panel-title'),
       perfTitle: document.getElementById('perf-title'),
       perfStats: document.getElementById('perf-stats'),
@@ -35,6 +36,7 @@ Connect.taskmgr = {
     let procSort = { col: 'cpu', asc: false };
     const hist = { cpu: [], mem: [], disk: [], net: [] };
     let onControlView = null;
+    let onTerminalView = null;
 
     function statCell(label, value) {
       return `<div class="tm-stat"><span class="tm-stat-label">${label}</span><span class="tm-stat-value">${value}</span></div>`;
@@ -147,15 +149,22 @@ Connect.taskmgr = {
 
     function setTmView(view) {
       tmView = view;
-      const titles = { performance: 'Task Manager', processes: 'Task Manager', control: 'Control Panel' };
+      const titles = {
+        performance: 'Task Manager',
+        processes: 'Task Manager',
+        control: 'Control Panel',
+        terminal: 'Terminal',
+      };
       document.querySelectorAll('.tm-nav-item').forEach((el) => {
         el.classList.toggle('active', el.dataset.view === view);
       });
       if (tm.viewPerf) tm.viewPerf.classList.toggle('active', view === 'performance');
       if (tm.viewProc) tm.viewProc.classList.toggle('active', view === 'processes');
       if (tm.viewControl) tm.viewControl.classList.toggle('active', view === 'control');
+      if (tm.viewTerminal) tm.viewTerminal.classList.toggle('active', view === 'terminal');
       if (tm.panelTitle) tm.panelTitle.textContent = titles[view] || 'Remote Host';
       if (view === 'control' && onControlView) onControlView();
+      if (view === 'terminal' && onTerminalView) onTerminalView();
     }
 
     function setTmMetric(metric) {
@@ -191,6 +200,7 @@ Connect.taskmgr = {
       renderHostStats,
       renderConnStats,
       setOnControlView(fn) { onControlView = fn; },
+      setOnTerminalView(fn) { onTerminalView = fn; },
     };
   },
 };

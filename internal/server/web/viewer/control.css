@@ -119,6 +119,29 @@
   cursor: pointer;
 }
 
+.cp-fs-path {
+  font-size: 11px;
+  color: var(--tm-muted);
+  margin-bottom: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: #141414;
+  border: 1px solid #222;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+#cp-fs-list {
+  max-height: 220px;
+}
+
+.cp-file-list li.cp-fs-dir .fname {
+  cursor: pointer;
+  color: #9ecbff;
+}
+
 .cp-field label {
   display: flex;
   justify-content: space-between;
@@ -145,3 +168,45 @@
 .cp-toast.show { display: block; }
 .cp-toast.ok { border-color: #059669; }
 .cp-toast.err { border-color: #dc2626; }
+
+.term-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 280px;
+  padding: 10px 12px 12px;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.term-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.term-xterm {
+  flex: 1 1 auto;
+  min-height: 200px;
+  max-height: calc(100vh - 200px);
+  padding: 4px;
+  background: #0c0c0c;
+  border: 1px solid #222;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.term-xterm .xterm {
+  height: 100%;
+  padding: 4px;
+}
+
+.term-xterm .xterm-viewport {
+  overflow-y: auto !important;
+}
+
+.term-hint {
+  margin: 0;
+  flex: 0 0 auto;
+}

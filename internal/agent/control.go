@@ -19,8 +19,11 @@ type controlMsg struct {
 	Idx      int    `json:"idx,omitempty"`
 	Size     int64  `json:"size,omitempty"`
 	Dest     string `json:"dest,omitempty"`
+	Path     string `json:"path,omitempty"`
 	BitrateK int    `json:"bitrateK,omitempty"`
 	Monitor  int    `json:"monitor,omitempty"`
+	Cols     int    `json:"cols,omitempty"`
+	Rows     int    `json:"rows,omitempty"`
 }
 
 func (a *Agent) handleControl(data []byte, dc *webrtc.DataChannel) {
@@ -70,6 +73,42 @@ func (a *Agent) handleControl(data []byte, dc *webrtc.DataChannel) {
 		}
 	case "download_file":
 		err = a.controlSendFile(msg.Name, dc)
+	case "fs_roots":
+		entries, e := controlFsRoots()
+		err = e
+		if err == nil {
+			result = map[string]any{"entries": entries, "path": ""}
+		}
+	case "fs_list":
+		entries, cur, e := controlFsList(msg.Path)
+		err = e
+		if err == nil {
+			result = map[string]any{"entries": entries, "path": cur}
+		}
+	case "fs_get":
+		err = a.controlFsGet(msg.Path, dc)
+	case "block_input":
+		locked, e := controlBlockLocalInput(true)
+		err = e
+		result = map[string]any{"locked": locked}
+	case "unblock_input":
+		locked, e := controlBlockLocalInput(false)
+		err = e
+		result = map[string]any{"locked": locked}
+	case "term_open":
+		err = termOpen(dc, msg.Cols, msg.Rows)
+	case "term_in":
+		err = termWrite(msg.Text)
+		if err == nil {
+			return // silent success — do not ack every keystroke on the DC
+		}
+	case "term_resize":
+		err = termResize(msg.Cols, msg.Rows)
+		if err == nil {
+			return
+		}
+	case "term_close":
+		err = termClose()
 	default:
 		err = errControlUnknown
 	}
