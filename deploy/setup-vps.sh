@@ -41,6 +41,10 @@ banner_success() {
   echo "  Dashboard: https://${DOMAIN}/dashboard/"
   echo "  Health:    https://${DOMAIN}/api/health"
   echo "  Agent WSS: wss://${DOMAIN}/ws"
+  if [[ -n "${NEW_ADMIN_TOKEN:-}" ]]; then
+    echo ""
+    echo "  Admin login token (save this): ${NEW_ADMIN_TOKEN}"
+  fi
   echo ""
   echo "From Windows PC:"
   echo "  curl.exe -sS https://${DOMAIN}/api/health"
@@ -50,24 +54,95 @@ banner_success() {
   echo "========================================"
 }
 
-step "Check deploy/.env"
-if [[ ! -f .env ]]; then
-  cp .env.example .env
-  fail "Created deploy/.env from .env.example — edit DOMAIN, VPS_PUBLIC_IP, TURN_SECRET, then re-run."
+detect_public_ip() {
+  local ip=""
+  ip=$(curl -sf --max-time 6 https://api.ipify.org 2>/dev/null || true)
+  if [[ -z "$ip" ]]; then
+    ip=$(curl -sf --max-time 6 https://ifconfig.me/ip 2>/dev/null || true)
+  fi
+  if [[ -z "$ip" ]]; then
+    ip=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
+  fi
+  echo "$ip"
+}
+
+env_needs_write() {
+  if [[ ! -f .env ]]; then
+    return 0
+  fi
+  # shellcheck disable=SC1091
+  source .env 2>/dev/null || return 0
+  [[ -z "${DOMAIN:-}" ]] && return 0
+  [[ -z "${VPS_PUBLIC_IP:-}" ]] && return 0
+  [[ -z "${TURN_SECRET:-}" ]] && return 0
+  [[ "$TURN_SECRET" == *"generate-a-long"* ]] && return 0
+  [[ ${#TURN_SECRET} -lt 16 ]] && return 0
+  return 1
+}
+
+write_env_auto() {
+  local domain ip turn admin old_turn old_admin
+  domain="worthyjoin.online"
+  ip=""
+  turn=""
+  admin=""
+  old_turn=""
+  old_admin=""
+
+  if [[ -f .env ]]; then
+    old_turn=$(grep -E '^TURN_SECRET=' .env 2>/dev/null | cut -d= -f2- || true)
+    old_admin=$(grep -E '^CONNECT_ADMIN_TOKEN=' .env 2>/dev/null | cut -d= -f2- || true)
+    domain=$(grep -E '^DOMAIN=' .env 2>/dev/null | cut -d= -f2- || true)
+    ip=$(grep -E '^VPS_PUBLIC_IP=' .env 2>/dev/null | cut -d= -f2- || true)
+  fi
+  if [[ -z "$old_turn" ]] && [[ -f coturn.conf ]]; then
+    old_turn=$(grep -E '^static-auth-secret=' coturn.conf 2>/dev/null | cut -d= -f2- || true)
+  fi
+
+  [[ -z "$domain" ]] && domain="worthyjoin.online"
+  [[ -z "$ip" ]] && ip=$(detect_public_ip)
+  [[ -z "$ip" ]] && fail "Could not detect VPS public IP — set VPS_PUBLIC_IP in .env manually"
+
+  if [[ -n "$old_turn" ]] && [[ ${#old_turn} -ge 16 ]] && [[ "$old_turn" != *"generate"* ]] && [[ "$old_turn" != "CHANGE_ME"* ]]; then
+    turn="$old_turn"
+  else
+    turn=$(openssl rand -hex 24)
+  fi
+
+  if [[ -n "$old_admin" ]] && [[ ${#old_admin} -ge 16 ]] && [[ "$old_admin" != *"generate"* ]]; then
+    admin="$old_admin"
+  else
+    admin=$(openssl rand -hex 24)
+    NEW_ADMIN_TOKEN="$admin"
+  fi
+
+  cat > .env <<EOF
+DOMAIN=${domain}
+VPS_PUBLIC_IP=${ip}
+TURN_SECRET=${turn}
+CONNECT_ADMIN_TOKEN=${admin}
+EOF
+  ok "AUTO wrote .env (DOMAIN=${domain} IP=${ip})"
+}
+
+step "Ensure deploy/.env"
+if env_needs_write; then
+  write_env_auto
+else
+  ok ".env already configured"
 fi
-ok ".env exists"
 
 # shellcheck disable=SC1091
 source .env
 
 for var in DOMAIN VPS_PUBLIC_IP TURN_SECRET; do
   if [[ -z "${!var:-}" ]]; then
-    fail "Missing $var in deploy/.env"
+    fail "Missing $var in deploy/.env after auto-setup"
   fi
 done
 
 if [[ "$TURN_SECRET" == *"generate-a-long"* ]] || [[ ${#TURN_SECRET} -lt 16 ]]; then
-  fail "Set a strong TURN_SECRET in deploy/.env (16+ chars, not the placeholder)"
+  fail "TURN_SECRET still invalid after auto-setup"
 fi
 ok "DOMAIN=$DOMAIN VPS_PUBLIC_IP=$VPS_PUBLIC_IP"
 
