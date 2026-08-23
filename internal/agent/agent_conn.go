@@ -104,6 +104,9 @@ func (a *Agent) connectOnce() (lived bool, err error) {
 	}()
 
 	log.Printf("agent: connected as %s (%s)", a.cfg.DeviceID, a.cfg.Hostname)
+	if w := installHealthWarn(); w != "" {
+		log.Printf("agent: install check: %s", w)
+	}
 	a.setState("online", "-")
 	a.ensureAmbientMic()
 

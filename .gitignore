@@ -1,8 +1,46 @@
-data/
+# Build outputs
 *.exe
 *.dll
 *.obj
 *.lib
+*.a
+*.syso
+
+# Local runtime / secrets (keep agent dir placeholder)
+/data/
+!/data/agent/
+/data/agent/*
+!/data/agent/.gitkeep
+*.log
 *.db
 *.db-wal
 *.db-shm
+*.crt
+*.key
+*.secret
+device.id
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Temp / junk
+*.tmp
+*.jpg
+*.jpeg
+/agent.zip
+/*.zip
+!deploy/**/*.zip
+*.png
+!internal/**/*.png
+!cmd/**/*.png
+
+# Go
+/vendor/
+
+# Legacy scratch
+daa/

@@ -287,6 +287,17 @@ function applyInventory(inv) {
   setDetail("detail-agent-ver", inv.agentVersion);
   setDetail("detail-agent-server", inv.serverUrl);
   if (inv.monitor != null && inv.monitor !== "") setDetail("detail-agent-mon", inv.monitor);
+  const warnEl = document.getElementById("detail-install-warn");
+  const warnRow = document.getElementById("detail-install-warn-row");
+  if (warnEl) {
+    if (inv.installWarn) {
+      warnEl.textContent = inv.installWarn;
+      if (warnRow) warnRow.hidden = false;
+    } else {
+      warnEl.textContent = "";
+      if (warnRow) warnRow.hidden = true;
+    }
+  }
   if (inv.sessionActive === true) setDetail("detail-session", "Active");
   else if (inv.sessionActive === false) setDetail("detail-session", "Idle");
 }

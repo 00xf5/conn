@@ -32,7 +32,7 @@ func DefaultStreamProfile() StreamProfile {
 		GOP:          40,
 		KeyIntMin:    20,
 		WarmPrime:    1200 * time.Millisecond,
-		StallTimeout: 15 * time.Second,
+		StallTimeout: 45 * time.Second,
 		BitrateMin:   1200,
 		BitrateMax:   15000,
 	}

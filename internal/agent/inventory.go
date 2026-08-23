@@ -80,6 +80,7 @@ func collectInventory(in invInput) *rendezvous.HostInventory {
 		AgentVersion: agentVersionString(),
 		ServerURL:    in.cfg.ServerURL,
 		Monitor:      in.cfg.Monitor,
+		InstallWarn:  installHealthWarn(),
 	}
 	if host, err := os.Hostname(); err == nil {
 		inv.FQDN = host

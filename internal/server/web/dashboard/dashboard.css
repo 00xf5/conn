@@ -673,6 +673,11 @@ body {
   min-height: 1.2em;
 }
 
+.detail-body .warn {
+  color: #f59e0b;
+  font-size: 12px;
+}
+
 .toast {
   position: fixed;
   right: 16px;

@@ -140,9 +140,11 @@ Connect.taskmgr = {
       renderProcessTable(m);
     }
 
-    function renderConnStats(rtt, loss, frames) {
+    function renderConnStats(rtt, loss, frames, dcState, pcState) {
       connStats = { rtt, loss, frames };
-      const line = `rtt ${(rtt * 1000).toFixed(0)} ms · loss ${(loss * 100).toFixed(1)}% · decoded ${frames}`;
+      let line = `rtt ${(rtt * 1000).toFixed(0)} ms · loss ${(loss * 100).toFixed(1)}% · decoded ${frames}`;
+      if (pcState) line += ` · pc ${pcState}`;
+      if (dcState) line += ` · input ${dcState}`;
       if (statsEl) statsEl.textContent = line;
       if (lastHost) renderHostStats(lastHost);
     }

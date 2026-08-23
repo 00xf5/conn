@@ -161,8 +161,18 @@ func (a *Agent) pumpVideoTrack(track *webrtc.TrackLocalStaticSample, sessionCode
 				return
 			}
 			if len(frame.Data) == 0 {
-				// DXGI pause (e.g. lock screen): keep waiting; stall timer may end the
-				// viewer session, but the agent process/WS stay up.
+				// DXGI pause (lock screen, idle desktop): keep waiting. Before the first
+				// sent frame, reset stall so slow encoder startup on weak hosts does not
+				// kill the session at ~15–45s.
+				if sent == 0 {
+					if !stall.Stop() {
+						select {
+						case <-stall.C:
+						default:
+						}
+					}
+					stall.Reset(prof.StallTimeout)
+				}
 				continue
 			}
 			if !acceptVideoFrame(frame) {

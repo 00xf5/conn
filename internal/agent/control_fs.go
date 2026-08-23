@@ -1,8 +1,6 @@
 package agent
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,10 +8,7 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-const (
-	fsMaxGetBytes   = 50 << 20 // 50 MiB
-	fsMaxListEntries = 500
-)
+const fsMaxListEntries = 500
 
 type fsEntry struct {
 	Name  string `json:"name"`
@@ -28,48 +23,7 @@ func (a *Agent) controlFsGet(path string, dc *webrtc.DataChannel) error {
 	if err != nil {
 		return err
 	}
-	info, err := os.Stat(clean)
-	if err != nil {
-		return err
-	}
-	if info.IsDir() {
-		return errString("path is a directory")
-	}
-	if info.Size() > fsMaxGetBytes {
-		return errString("file too large (max 50 MB)")
-	}
-	data, err := os.ReadFile(clean)
-	if err != nil {
-		return err
-	}
-	const chunk = 48 * 1024
-	base := filepath.Base(clean)
-	sendPart := func(i, off, end int, done bool) error {
-		part := map[string]any{
-			"type":   "control_result",
-			"action": "fs_get",
-			"name":   base,
-			"path":   clean,
-			"idx":    i,
-			"done":   done,
-			"data":   base64.StdEncoding.EncodeToString(data[off:end]),
-		}
-		raw, _ := json.Marshal(part)
-		return dc.SendText(string(raw))
-	}
-	if len(data) == 0 {
-		return sendPart(0, 0, 0, true)
-	}
-	for i, off := 0, 0; off < len(data); i, off = i+1, off+chunk {
-		end := off + chunk
-		if end > len(data) {
-			end = len(data)
-		}
-		if err := sendPart(i, off, end, end >= len(data)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return dcStreamFileToDC(dc, "fs_get", filepath.Base(clean), clean)
 }
 
 func sanitizeFsPath(path string) (string, error) {

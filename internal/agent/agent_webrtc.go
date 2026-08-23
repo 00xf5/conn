@@ -39,8 +39,10 @@ func (a *Agent) startSession(sessionCode string, audioOnly bool) {
 	if a.activeSess == sessionCode && a.pc != nil {
 		switch a.pc.ConnectionState() {
 		case webrtc.PeerConnectionStateConnected, webrtc.PeerConnectionStateConnecting:
-			log.Printf("agent: session %s new viewer — restarting WebRTC", sessionCode)
-			a.closePeerLocked()
+			// Duplicate incoming-viewer (refresh, Listen overlap) must not tear down a live session.
+			log.Printf("agent: session %s already active (%s) — ignoring duplicate viewer", sessionCode, a.pc.ConnectionState())
+			a.mu.Unlock()
+			return
 		}
 	}
 	if a.activeSess != "" && a.activeSess != sessionCode {

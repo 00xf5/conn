@@ -2,7 +2,6 @@ package agent
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,35 +26,15 @@ func (a *Agent) controlSendFile(name string, dc *webrtc.DataChannel) error {
 	if err != nil {
 		return err
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	const chunk = 48 * 1024
-	for i, off := 0, 0; off < len(data); i, off = i+1, off+chunk {
-		end := off + chunk
-		if end > len(data) {
-			end = len(data)
-		}
-		part := map[string]any{
-			"type":   "control_result",
-			"action": "download_file",
-			"name":   filepath.Base(path),
-			"idx":    i,
-			"done":   end >= len(data),
-			"data":   base64.StdEncoding.EncodeToString(data[off:end]),
-		}
-		raw, _ := json.Marshal(part)
-		if err := dc.SendText(string(raw)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return dcStreamFileToDC(dc, "download_file", filepath.Base(path), path)
 }
 
 func controlFileBegin(name string, size int64) error {
 	if name == "" {
 		return errControlInvalid
+	}
+	if size < 0 || size > dcMaxFileBytes {
+		return errString("file too large (max 1 GB)")
 	}
 	name = filepath.Base(strings.ReplaceAll(name, `\`, `/`))
 	dir, err := connectTransferDir()

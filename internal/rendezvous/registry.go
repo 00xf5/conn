@@ -46,6 +46,7 @@ type HostInventory struct {
 	ServerURL      string  `json:"serverUrl,omitempty"`
 	Monitor        int     `json:"monitor"`
 	SessionActive  *bool   `json:"sessionActive,omitempty"`
+	InstallWarn    string  `json:"installWarn,omitempty"`
 }
 
 type AgentInfo struct {

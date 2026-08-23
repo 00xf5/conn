@@ -2,11 +2,11 @@ window.Connect = window.Connect || {};
 
 Connect.control = {
   create(getDC) {
-    let downloadChunks = [];
     let downloadName = '';
-    let fsChunks = [];
     let fsName = '';
     let fsPath = '';
+    let fsDl = null; // { parts, bytes, total, writable }
+    let transferDl = null;
     let localInputBlocked = false;
     let termOpen = false;
     let xterm = null;
@@ -22,13 +22,15 @@ Connect.control = {
       dc.send(JSON.stringify({ type: 'control', ...payload }));
     }
 
-    function cpToast(msg, err) {
+    function cpToast(msg, err, persist) {
       const el = document.getElementById('cp-toast');
       if (!el) return;
       el.textContent = msg;
       el.className = 'cp-toast show ' + (err ? 'err' : 'ok');
       clearTimeout(cpToast._t);
-      cpToast._t = setTimeout(() => { el.classList.remove('show'); }, 3500);
+      if (!persist) {
+        cpToast._t = setTimeout(() => { el.classList.remove('show'); }, 3500);
+      }
     }
 
     function setBlockInputUI(locked) {
@@ -88,6 +90,7 @@ Connect.control = {
 
     function formatSize(n) {
       if (n == null || n < 0) return '';
+      if (n >= 1073741824) return (n / 1073741824).toFixed(2) + ' GB';
       if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
       if (n >= 1024) return Math.round(n / 1024) + ' KB';
       return n + ' B';
@@ -134,10 +137,9 @@ Connect.control = {
       ul.querySelectorAll('[data-fs-get]').forEach((btn) => {
         btn.addEventListener('click', (ev) => {
           ev.stopPropagation();
-          fsName = btn.dataset.fsName || 'download';
-          fsChunks = [];
-          cpToast('Downloading…');
-          sendControl({ action: 'fs_get', path: btn.dataset.fsGet });
+          startPull('fs', btn.dataset.fsName || 'download', () => {
+            sendControl({ action: 'fs_get', path: btn.dataset.fsGet });
+          });
         });
       });
     }
@@ -159,18 +161,112 @@ Connect.control = {
       else sendControl({ action: 'fs_list', path: fsPath });
     }
 
-    function assembleDownload(chunks, name) {
-      const parts = chunks.map((b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
-      const total = parts.reduce((s, p) => s + p.length, 0);
-      const bin = new Uint8Array(total);
-      let off = 0;
-      parts.forEach((p) => { bin.set(p, off); off += p.length; });
-      const blob = new Blob([bin]);
+    function b64ToU8(b64) {
+      if (!b64) return new Uint8Array(0);
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+
+    function saveBlobParts(parts, name) {
+      const blob = new Blob(parts, { type: 'application/octet-stream' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = name || 'download';
       a.click();
-      URL.revokeObjectURL(a.href);
+      setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
+    }
+
+    async function openSaveWritable(name) {
+      if (typeof window.showSaveFilePicker !== 'function') return null;
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: name || 'download',
+          excludeAcceptAllOption: false,
+        });
+        return await handle.createWritable();
+      } catch (e) {
+        // User cancel → AbortError; treat as abort. Other failures fall back to Blob.
+        if (e && (e.name === 'AbortError' || e.name === 'NotAllowedError')) throw e;
+        return null;
+      }
+    }
+
+    function newDlState() {
+      return { parts: [], bytes: 0, total: 0, writable: null, name: '', queue: Promise.resolve() };
+    }
+
+    async function abortDl(state) {
+      if (!state) return;
+      try { await state.writable?.abort?.(); } catch (_) {}
+      state.writable = null;
+      state.parts = [];
+    }
+
+    async function startPull(kind, name, sendFn) {
+      const state = newDlState();
+      state.name = name || 'download';
+      try {
+        state.writable = await openSaveWritable(state.name);
+      } catch (_) {
+        cpToast('Download cancelled');
+        return;
+      }
+      if (kind === 'fs') {
+        await abortDl(fsDl);
+        fsName = state.name;
+        fsDl = state;
+      } else {
+        await abortDl(transferDl);
+        downloadName = state.name;
+        transferDl = state;
+      }
+      cpToast('Downloading…', false, true);
+      sendFn();
+    }
+
+    function onFileChunk(kind, m) {
+      const state = kind === 'fs' ? fsDl : transferDl;
+      if (!state) return;
+      const u8 = b64ToU8(typeof m.data === 'string' ? m.data : '');
+      if (typeof m.size === 'number' && m.size >= 0) state.total = m.size;
+      state.bytes += u8.length;
+      const idx = m.idx | 0;
+      if (m.done || idx === 0 || (idx % 32) === 0) {
+        if (state.total > 0) {
+          const pct = Math.min(100, Math.round((100 * state.bytes) / state.total));
+          cpToast('Downloading… ' + pct + '% (' + formatSize(state.bytes) + ')', false, true);
+        } else {
+          cpToast('Downloading… ' + formatSize(state.bytes), false, true);
+        }
+      }
+
+      // Serialize async writes so chunks stay ordered for the file picker stream.
+      state.queue = state.queue.then(async () => {
+        if (state.writable) {
+          if (u8.length) await state.writable.write(u8);
+          if (m.done) {
+            await state.writable.close();
+            state.writable = null;
+            if (kind === 'fs') fsDl = null;
+            else transferDl = null;
+            cpToast('Saved ' + formatSize(state.bytes));
+          }
+          return;
+        }
+        state.parts.push(u8);
+        if (m.done) {
+          saveBlobParts(state.parts, state.name || m.name || 'download');
+          if (kind === 'fs') fsDl = null;
+          else transferDl = null;
+          cpToast('Download started');
+        }
+      }).catch((err) => {
+        if (kind === 'fs') fsDl = null;
+        else transferDl = null;
+        cpToast(err?.message || 'Download failed', true);
+      });
     }
 
     function renderFileList(files) {
@@ -186,9 +282,9 @@ Connect.control = {
       }).join('');
       ul.querySelectorAll('[data-dl]').forEach((btn) => {
         btn.onclick = () => {
-          downloadName = btn.dataset.dl;
-          downloadChunks = [];
-          sendControl({ action: 'download_file', name: downloadName });
+          startPull('dl', btn.dataset.dl || 'download', () => {
+            sendControl({ action: 'download_file', name: btn.dataset.dl });
+          });
         };
       });
     }
@@ -197,15 +293,42 @@ Connect.control = {
       sendControl({ action: 'list_files' });
     }
 
+    async function waitDcSend(dc) {
+      // Pace uploads so the browser SCTP buffer does not overflow mid-file.
+      while (dc && dc.readyState === 'open' && dc.bufferedAmount > 256 * 1024) {
+        await new Promise((r) => setTimeout(r, 15));
+      }
+    }
+
     async function uploadFile(file) {
       if (!file) return;
+      if (file.size > 1024 * 1024 * 1024) {
+        cpToast('File too large (max 1 GB)', true);
+        return;
+      }
+      const dc = getDC();
+      if (!dc || dc.readyState !== 'open') {
+        cpToast('Not connected', true);
+        return;
+      }
       const status = document.getElementById('cp-upload-status');
       if (status) status.textContent = 'Uploading…';
-      const chunkSize = 48 * 1024;
+      // Keep base64+JSON under typical 64 KiB data-channel message limits.
+      const chunkSize = 24 * 1024;
       sendControl({ action: 'file_begin', name: file.name, size: file.size });
       for (let idx = 0, off = 0; off < file.size; idx++, off += chunkSize) {
+        await waitDcSend(dc);
+        if (dc.readyState !== 'open') {
+          if (status) status.textContent = '';
+          cpToast('Upload failed: disconnected', true);
+          return;
+        }
         const buf = await file.slice(off, off + chunkSize).arrayBuffer();
         sendControl({ action: 'file_chunk', idx, data: Connect.util.bufToB64(buf) });
+        if (file.size > 0 && status) {
+          const pct = Math.min(100, Math.round((100 * Math.min(off + chunkSize, file.size)) / file.size));
+          status.textContent = 'Uploading… ' + pct + '%';
+        }
       }
       sendControl({ action: 'file_end' });
       if (status) status.textContent = file.name + ' sent';
@@ -254,22 +377,12 @@ Connect.control = {
         renderFsList(m.entries);
         return;
       }
-      if (m.action === 'fs_get' && m.data) {
-        fsChunks.push(m.data);
-        if (m.done) {
-          assembleDownload(fsChunks, fsName || m.name || 'download');
-          fsChunks = [];
-          cpToast('Download started');
-        }
+      if (m.action === 'fs_get' && typeof m.data === 'string') {
+        onFileChunk('fs', m);
         return;
       }
-      if (m.action === 'download_file' && m.data) {
-        downloadChunks.push(m.data);
-        if (m.done) {
-          assembleDownload(downloadChunks, downloadName || m.name || 'download');
-          downloadChunks = [];
-          cpToast('Download started');
-        }
+      if (m.action === 'download_file' && typeof m.data === 'string') {
+        onFileChunk('dl', m);
         return;
       }
       if (m.ok) {
@@ -290,6 +403,12 @@ Connect.control = {
       } else {
         if (m.action === 'block_input' || m.action === 'unblock_input') {
           setBlockInputUI(!!m.locked);
+        }
+        if (m.action === 'fs_get') {
+          abortDl(fsDl); fsDl = null;
+        }
+        if (m.action === 'download_file') {
+          abortDl(transferDl); transferDl = null;
         }
         cpToast(m.error || 'Action failed', true);
       }

@@ -329,7 +329,7 @@ Connect.webrtc = {
             frames = s.framesDecoded || 0;
           }
         });
-        taskmgr.renderConnStats(rtt, loss, frames);
+        taskmgr.renderConnStats(rtt, loss, frames, dc?.readyState, pc.connectionState);
         if (frames === 0 && pc.connectionState === 'connected') {
           status.textContent = 'connected — waiting for video decode…';
         } else if (frames > 0 && status.textContent.includes('waiting for video')) {
