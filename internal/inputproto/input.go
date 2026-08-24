@@ -15,6 +15,7 @@ const (
 	MsgKeyDown   byte = 0x04
 	MsgKeyUp     byte = 0x05
 	MsgWheel     byte = 0x06
+	MsgText      byte = 0x07
 )
 
 const MouseLeft = 0
@@ -53,6 +54,19 @@ func EncodeKey(down bool, vk uint16) []byte {
 	return b
 }
 
+func EncodeText(s string) []byte {
+	if s == "" {
+		return nil
+	}
+	if len(s) > 2048 {
+		s = s[:2048]
+	}
+	b := make([]byte, 1+len(s))
+	b[0] = MsgText
+	copy(b[1:], s)
+	return b
+}
+
 func EncodeWheel(delta int16, x, y uint16) []byte {
 	b := make([]byte, 7)
 	b[0] = MsgWheel
@@ -69,6 +83,7 @@ type Event struct {
 	Y      uint16
 	VK     uint16
 	Delta  int16
+	Text   string
 }
 
 func Decode(data []byte) (Event, error) {
@@ -102,6 +117,11 @@ func Decode(data []byte) (Event, error) {
 		ev.X = binary.LittleEndian.Uint16(data[1:3])
 		ev.Y = binary.LittleEndian.Uint16(data[3:5])
 		ev.Delta = int16(binary.LittleEndian.Uint16(data[5:7]))
+	case MsgText:
+		ev.Text = string(data[1:])
+		if ev.Text == "" {
+			return Event{}, fmt.Errorf("empty text")
+		}
 	default:
 		return Event{}, fmt.Errorf("unknown input kind: %d", ev.Kind)
 	}

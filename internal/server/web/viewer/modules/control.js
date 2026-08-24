@@ -8,6 +8,8 @@ Connect.control = {
     let fsDl = null; // { parts, bytes, total, writable }
     let transferDl = null;
     let localInputBlocked = false;
+    let lastLanIPs = [];
+    let hostMicOn = false;
     let termOpen = false;
     let xterm = null;
     let fitAddon = null;
@@ -33,7 +35,31 @@ Connect.control = {
       }
     }
 
-    function setBlockInputUI(locked) {
+    
+    function updateRdpInfo(ips) {
+      if (Array.isArray(ips) && ips.length) lastLanIPs = ips.slice();
+      const box = document.getElementById('cp-rdp-info');
+      const ipEl = document.getElementById('cp-rdp-ip');
+      if (!box || !ipEl) return;
+      if (!lastLanIPs.length) { box.hidden = true; return; }
+      ipEl.textContent = lastLanIPs.join(', ');
+      box.hidden = false;
+    }
+
+    function setHostMicUI(on, detail) {
+      hostMicOn = !!on;
+      const btn = document.getElementById('btn-host-mic');
+      if (!btn) return;
+      btn.classList.toggle('mic-on', hostMicOn);
+      btn.classList.toggle('mic-off', !hostMicOn);
+      btn.setAttribute('aria-pressed', hostMicOn ? 'true' : 'false');
+      btn.textContent = hostMicOn ? 'Host Mic On' : 'Host Mic';
+      btn.title = hostMicOn
+        ? ('Host mic → you' + (detail ? ' — ' + detail : ''))
+        : 'Host mic is off — click to hear the remote PC';
+    }
+
+function setBlockInputUI(locked) {
       localInputBlocked = !!locked;
       const btn = document.getElementById('cp-block-input');
       if (!btn) return;
@@ -346,7 +372,22 @@ Connect.control = {
         return;
       }
       if (m.action === 'term_open') {
-        if (m.ok) {
+          if (m.action === 'host_mic') {
+          if (m.ok) {
+            setHostMicUI(!!m.enabled, m.detail || '');
+            cpToast(m.enabled ? 'Host microphone on' : 'Host microphone off');
+          } else {
+            setHostMicUI(false, m.detail || m.error || '');
+            cpToast(m.detail || m.error || 'Host mic failed', true);
+          }
+          return;
+        }
+        if (m.action === 'type_text') {
+          if (m.ok) cpToast('Typed on host');
+          else cpToast(m.error || 'Type failed', true);
+          return;
+        }
+      if (m.ok) {
           setTermStatus('Running', true);
           ensureXterm()?.focus();
         } else {
@@ -387,7 +428,9 @@ Connect.control = {
       }
       if (m.ok) {
         if (m.action === 'enable_rdp') {
-          cpToast(m.detail || ('RDP ready' + (m.username ? ' — user ' + m.username : '')));
+          if (m.lanIPs) updateRdpInfo(m.lanIPs);
+          cpToast(m.detail || ('RDP ready' + (m.username ? ' — user ' + m.username : '') +
+            (lastLanIPs[0] ? (' · ' + lastLanIPs[0] + ':3389') : '')));
           return;
         }
         if (m.action === 'block_input' || m.action === 'unblock_input') {
@@ -426,6 +469,11 @@ Connect.control = {
 
     document.getElementById('cp-send-clip')?.addEventListener('click', () => {
       sendControl({ action: 'clipboard', text: document.getElementById('cp-clipboard')?.value || '' });
+    });
+    document.getElementById('cp-type-send')?.addEventListener('click', () => {
+      const text = document.getElementById('cp-type-text')?.value || '';
+      if (!text) { cpToast('Enter text to type', true); return; }
+      sendControl({ action: 'type_text', text });
     });
     document.getElementById('cp-open-url')?.addEventListener('click', () => {
       sendControl({ action: 'open_url', url: document.getElementById('cp-url')?.value || '' });
@@ -505,8 +553,34 @@ Connect.control = {
       brTimer = setTimeout(() => sendControl({ action: 'set_bitrate', bitrateK: parseInt(br.value, 10) }), 300);
     });
 
+    
+    document.getElementById('cp-rdp-copy')?.addEventListener('click', async () => {
+      const ip = lastLanIPs[0];
+      if (!ip) { cpToast('No LAN IP yet — wait for host stats or enable RDP', true); return; }
+      try { await navigator.clipboard.writeText(ip); cpToast('Copied ' + ip); }
+      catch (_) { cpToast(ip); }
+    });
+    document.getElementById('cp-rdp-download')?.addEventListener('click', () => {
+      const ip = lastLanIPs[0];
+      if (!ip) { cpToast('No LAN IP yet — wait for host stats or enable RDP', true); return; }
+      const user = (document.getElementById('cp-rdp-user')?.value || '').trim();
+      let body = 'full address:s:' + ip + ':3389\r\nprompt for credentials:i:1\r\n';
+      if (user) body += 'username:s:' + user + '\r\n';
+      const blob = new Blob([body], { type: 'application/rdp' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = (user || 'host') + '.rdp';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    document.getElementById('btn-host-mic')?.addEventListener('click', () => {
+      sendControl({ action: 'host_mic', enabled: !hostMicOn });
+    });
+    setHostMicUI(false);
+
     return {
       handleControlResult,
+      noteLanIPs: updateRdpInfo,
       refreshFileList,
       refreshFsBrowser: () => fsNavigate(fsPath || ''),
       onTerminalShown() {

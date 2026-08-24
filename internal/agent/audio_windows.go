@@ -88,11 +88,12 @@ func pcmRMSLevel(samples []int16) float64 {
 func (a *Agent) ensureAmbientMic() {
 	a.mu.Lock()
 	rt := a.ensureAudioRuntimeLocked()
-	if rt.micStarted {
+	if rt.micStarted || rt.micStarting {
 		a.mu.Unlock()
 		return
 	}
-	rt.micStarted = true
+	rt.micStarting = true
+	rt.micErr = ""
 	stop := rt.ambientStop
 	a.mu.Unlock()
 
@@ -100,10 +101,60 @@ func (a *Agent) ensureAmbientMic() {
 	go a.pumpAudioLevels(stop)
 }
 
+func (a *Agent) setHostMic(enabled bool) (bool, string, error) {
+	a.mu.Lock()
+	rt := a.ensureAudioRuntimeLocked()
+	// Allow retry after a previous open failure.
+	if enabled && !rt.micStarted && !rt.micStarting && rt.micErr != "" {
+		rt.micErr = ""
+	}
+	rt.hostMicSend = enabled
+	needStart := enabled && !rt.micStarted && !rt.micStarting
+	a.mu.Unlock()
+	if needStart {
+		a.ensureAmbientMic()
+	} else if enabled {
+		a.ensureAmbientMic()
+	}
+	for i := 0; i < 40; i++ {
+		a.mu.Lock()
+		rt = a.audio
+		var starting, started bool
+		var errMsg string
+		if rt != nil {
+			starting = rt.micStarting
+			started = rt.micStarted
+			errMsg = rt.micErr
+			enabled = rt.hostMicSend
+		}
+		a.mu.Unlock()
+		if !starting {
+			if enabled && errMsg != "" {
+				return false, errMsg, errString(errMsg)
+			}
+			return enabled && started, errMsg, nil
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.audio == nil {
+		return false, "", nil
+	}
+	return a.audio.hostMicSend && a.audio.micStarted, a.audio.micErr, nil
+}
+
 func (a *Agent) runAmbientMic(stop <-chan struct{}) {
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, nil)
 	if err != nil {
 		log.Printf("agent: audio mic context: %v (voice send disabled)", err)
+		a.mu.Lock()
+		if a.audio != nil {
+			a.audio.micStarting = false
+			a.audio.micStarted = false
+			a.audio.micErr = err.Error()
+		}
+		a.mu.Unlock()
 		return
 	}
 	defer func() {
@@ -147,13 +198,34 @@ func (a *Agent) runAmbientMic(stop <-chan struct{}) {
 	dev, err := malgo.InitDevice(ctx.Context, cfg, malgo.DeviceCallbacks{Data: onRecv})
 	if err != nil {
 		log.Printf("agent: audio mic device: %v (voice send disabled)", err)
+		a.mu.Lock()
+		if a.audio != nil {
+			a.audio.micStarting = false
+			a.audio.micStarted = false
+			a.audio.micErr = err.Error()
+		}
+		a.mu.Unlock()
 		return
 	}
 	defer dev.Uninit()
 	if err := dev.Start(); err != nil {
 		log.Printf("agent: audio mic start: %v (voice send disabled)", err)
+		a.mu.Lock()
+		if a.audio != nil {
+			a.audio.micStarting = false
+			a.audio.micStarted = false
+			a.audio.micErr = err.Error()
+		}
+		a.mu.Unlock()
 		return
 	}
+	a.mu.Lock()
+	if a.audio != nil {
+		a.audio.micStarted = true
+		a.audio.micStarting = false
+		a.audio.micErr = ""
+	}
+	a.mu.Unlock()
 	log.Printf("agent: host mic capture started (%d Hz PCMU)", audioSampleRate)
 	<-stop
 }
@@ -194,7 +266,8 @@ func (a *Agent) attachHostMicTrack(track *webrtc.TrackLocalStaticSample, gen uin
 					return
 				}
 				var frame []int16
-				if rt != nil {
+				send := rt != nil && rt.hostMicSend && rt.micStarted
+				if send {
 					rt.capMu.Lock()
 					if len(rt.pending) >= audioFramePCM {
 						frame = append([]int16(nil), rt.pending[:audioFramePCM]...)
@@ -204,6 +277,13 @@ func (a *Agent) attachHostMicTrack(track *webrtc.TrackLocalStaticSample, gen uin
 					}
 					rt.capMu.Unlock()
 				} else {
+					if rt != nil {
+						rt.capMu.Lock()
+						if len(rt.pending) > audioFramePCM*8 {
+							rt.pending = rt.pending[len(rt.pending)-audioFramePCM*2:]
+						}
+						rt.capMu.Unlock()
+					}
 					frame = make([]int16, audioFramePCM)
 				}
 				if err := track.WriteSample(media.Sample{

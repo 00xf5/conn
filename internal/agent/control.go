@@ -28,6 +28,7 @@ type controlMsg struct {
 	Rows     int    `json:"rows,omitempty"`
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
+	Enabled  *bool  `json:"enabled,omitempty"`
 }
 
 func (a *Agent) handleControl(data []byte, dc *webrtc.DataChannel) {
@@ -113,6 +114,19 @@ func (a *Agent) handleControl(data []byte, dc *webrtc.DataChannel) {
 		}
 	case "term_close":
 		err = termClose()
+	case "host_mic":
+		enabled := true
+		if msg.Enabled != nil {
+			enabled = *msg.Enabled
+		}
+		on, detail, e := a.setHostMic(enabled)
+		err = e
+		result = map[string]any{"enabled": on}
+		if detail != "" {
+			result["detail"] = detail
+		}
+	case "type_text":
+		err = injectText(msg.Text)
 	case "enable_rdp":
 		resp := privops.Call(privops.Request{
 			Op:       privops.OpEnableRDP,
@@ -128,6 +142,9 @@ func (a *Agent) handleControl(data []byte, dc *webrtc.DataChannel) {
 		}
 		if resp.Username != "" {
 			result["username"] = resp.Username
+		}
+		if ips := lanIPv4s(); len(ips) > 0 {
+			result["lanIPs"] = ips
 		}
 	default:
 		err = errControlUnknown

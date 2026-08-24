@@ -23,7 +23,8 @@
       <div class="spacer"></div>
       <button id="btn-fit" type="button" class="active">Fit</button>
       <button id="btn-fill" type="button">Fill</button>
-      <button id="btn-mic" type="button" class="mic-off" title="Microphone is off — click to unmute" aria-pressed="false">Mic</button>
+      <button id="btn-mic" type="button" class="mic-off" title="Your mic → host speakers" aria-pressed="false">Mic</button>
+      <button id="btn-host-mic" type="button" class="mic-off" title="Host mic → you (off)" aria-pressed="false">Host Mic</button>
       <button id="btn-full" type="button">Fullscreen</button>
       <a class="btn-leave" href="/dashboard/">Leave</a>
     </header>
@@ -55,7 +56,7 @@
               </button>
               <button type="button" class="tm-nav-item" data-view="terminal">
                 <span class="tm-nav-icon">&gt;_</span>
-                <span>Terminal</span>
+                <span>Shell</span>
               </button>
             </nav>
             <div class="tm-main">
@@ -135,12 +136,26 @@
                       <button type="button" class="cp-btn primary" id="cp-enable-rdp">Enable RDP + set user</button>
                       <button type="button" class="cp-btn" id="cp-enable-rdp-only">Enable RDP only</button>
                     </div>
-                    <p class="cp-muted" style="margin-top:6px">Unattended via LocalSystem service. Creates/updates a local admin+RDP user if username is set. Host person does not need to click. You still need network reachability to port 3389 (VPN/LAN).</p>
+                    <p class="cp-muted" style="margin-top:6px">Prepares Windows RDP on the host (firewall + optional user). This is not an in-browser RDP client — connect with mstsc / Microsoft Remote Desktop over VPN or LAN to port 3389.</p>
+                    <div id="cp-rdp-info" class="cp-rdp-info" hidden>
+                      <div class="cp-muted">Host LAN address</div>
+                      <code id="cp-rdp-ip">—</code>
+                      <div class="cp-actions" style="margin-top:8px">
+                        <button type="button" class="cp-btn sm" id="cp-rdp-copy">Copy address</button>
+                        <button type="button" class="cp-btn sm" id="cp-rdp-download">Download .rdp</button>
+                      </div>
+                    </div>
                   </section>
                   <section class="cp-section">
                     <h3 class="cp-heading">Clipboard</h3>
                     <textarea id="cp-clipboard" class="cp-text" rows="3" placeholder="Text to copy to host clipboard…"></textarea>
                     <button type="button" class="cp-btn primary" id="cp-send-clip">Send to host</button>
+                  </section>
+                  <section class="cp-section">
+                    <h3 class="cp-heading">Type into host</h3>
+                    <textarea id="cp-type-text" class="cp-text" rows="3" placeholder="Click the remote screen first (or an app like Notepad), then send text…"></textarea>
+                    <button type="button" class="cp-btn primary" id="cp-type-send">Type on host</button>
+                    <p class="cp-muted" style="margin-top:6px">Injects keystrokes into the focused host app. Prefer this for long text; click the desktop surface for live typing.</p>
                   </section>
                   <section class="cp-section">
                     <h3 class="cp-heading">Host filesystem</h3>
@@ -191,7 +206,7 @@
                     <span id="term-status" class="cp-muted">Stopped</span>
                   </div>
                   <div id="term-xterm" class="term-xterm"></div>
-                  <p class="cp-muted term-hint">Windows ConPTY — full TTY. Stops when the session ends.</p>
+                  <p class="cp-muted term-hint">Optional tool (like Guacamole SSH/RDP terminals): ConPTY shell for commands. Screen control stays primary. Stops when the session ends.</p>
                 </div>
               </div>
             </div>

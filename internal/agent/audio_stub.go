@@ -8,6 +8,10 @@ import (
 
 func (a *Agent) ensureAmbientMic() {}
 
+func (a *Agent) setHostMic(enabled bool) (bool, string, error) {
+	return false, "unsupported", errString("host mic unsupported on this platform")
+}
+
 func (a *Agent) stopAmbientMicLocked() {}
 
 func (a *Agent) stopSessionAudioLocked() {}

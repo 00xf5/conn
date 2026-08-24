@@ -7,6 +7,9 @@ type audioRuntime struct {
 	ambientStop chan struct{}
 	ambientOnce sync.Once
 	micStarted  bool
+	micStarting bool
+	hostMicSend bool
+	micErr      string
 
 	capMu   sync.Mutex
 	pending []int16

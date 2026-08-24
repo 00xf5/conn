@@ -28,6 +28,7 @@ const (
 	eventMouseMiddleUp   = 0x0040
 	eventMouseWheel      = 0x0800
 	eventKeyUp           = 0x0002
+	eventKeyUnicode      = 0x0004
 
 	smCXScreen = 0
 	smCYScreen = 1
@@ -84,6 +85,8 @@ func injectEvent(ev inputproto.Event, capW, capH int) {
 		}
 	case inputproto.MsgKeyDown, inputproto.MsgKeyUp:
 		sendKey(ev.VK, ev.Kind == inputproto.MsgKeyUp)
+	case inputproto.MsgText:
+		sendUnicode(ev.Text)
 	case inputproto.MsgWheel:
 		px, py := normToPixel(ev.X, ev.Y, capW, capH)
 		sendMouseMove(px, py, capW, capH)
@@ -156,6 +159,49 @@ func sendWheel(delta int) {
 type keyboardInput struct {
 	inputType uint32
 	ki        keybdInput
+}
+
+func sendUnicode(s string) {
+	for _, r := range s {
+		if r == 0 {
+			continue
+		}
+		if r > 0xFFFF {
+			hi := uint16(0xD800 + ((r - 0x10000) >> 10))
+			lo := uint16(0xDC00 + ((r - 0x10000) & 0x3FF))
+			sendUnicodeUnit(hi, false)
+			sendUnicodeUnit(lo, false)
+			sendUnicodeUnit(lo, true)
+			sendUnicodeUnit(hi, true)
+			continue
+		}
+		u := uint16(r)
+		sendUnicodeUnit(u, false)
+		sendUnicodeUnit(u, true)
+	}
+}
+
+func sendUnicodeUnit(unit uint16, up bool) {
+	flags := uint32(eventKeyUnicode)
+	if up {
+		flags |= eventKeyUp
+	}
+	in := keyboardInput{
+		inputType: inputKeyboard,
+		ki:        keybdInput{wScan: unit, dwFlags: flags},
+	}
+	procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
+}
+
+func injectText(s string) error {
+	if s == "" {
+		return errControlInvalid
+	}
+	if len(s) > 2048 {
+		s = s[:2048]
+	}
+	sendUnicode(s)
+	return nil
 }
 
 func sendKey(vk uint16, up bool) {

@@ -122,6 +122,7 @@ Connect.taskmgr = {
       if (!m || m.type !== 'host') return;
       lastHost = m;
       if (tm.hostName) tm.hostName.textContent = m.hostname || 'Host';
+      if (m.lanIPs && typeof Connect !== 'undefined' && Connect._rdpNoteLanIPs) Connect._rdpNoteLanIPs(m.lanIPs);
       const diskUsedPct = m.diskTotalGb > 0 ? ((m.diskTotalGb - m.diskFreeGb) / m.diskTotalGb) * 100 : 0;
       pushHist(hist.cpu, m.cpu);
       pushHist(hist.mem, m.memPct);
@@ -155,7 +156,7 @@ Connect.taskmgr = {
         performance: 'Task Manager',
         processes: 'Task Manager',
         control: 'Control Panel',
-        terminal: 'Terminal',
+        terminal: 'Shell',
       };
       document.querySelectorAll('.tm-nav-item').forEach((el) => {
         el.classList.toggle('active', el.dataset.view === view);
@@ -167,6 +168,10 @@ Connect.taskmgr = {
       if (tm.panelTitle) tm.panelTitle.textContent = titles[view] || 'Remote Host';
       if (view === 'control' && onControlView) onControlView();
       if (view === 'terminal' && onTerminalView) onTerminalView();
+      if (view !== 'terminal') {
+        const ov = document.getElementById('overlay');
+        try { ov && ov.focus({ preventScroll: true }); } catch (_) { if (ov) ov.focus(); }
+      }
     }
 
     function setTmMetric(metric) {

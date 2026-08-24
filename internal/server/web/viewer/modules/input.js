@@ -30,8 +30,16 @@ Connect.input = (function () {
       new DataView(b.buffer).setUint16(1, vk, true);
       return b;
     },
+    encText(s) {
+      if (!s) return null;
+      const enc = new TextEncoder().encode(s.slice(0, 2048));
+      const b = new Uint8Array(1 + enc.length);
+      b[0] = 0x07; // MsgText
+      b.set(enc, 1);
+      return b;
+    },
     bindOverlay(overlay, video, getStreamSize, sendBinary, queueMove, isCover) {
-      const { encMouseMove, encMouseBtn, encKey } = Connect.input;
+      const { encMouseMove, encMouseBtn, encKey, encText } = Connect.input;
 
       function mapPointer(clientX, clientY) {
         const vr = video.getBoundingClientRect();
@@ -88,13 +96,45 @@ Connect.input = (function () {
         const [x, y] = mapPointer(t.clientX, t.clientY);
         sendBinary(encMouseBtn(false, 0, x, y));
       }, { passive: false });
+      const focusOverlay = () => { try { overlay.focus({ preventScroll: true }); } catch (_) { overlay.focus(); } };
+      const { encText } = Connect.input;
+
+      // Keep keyboard target on the desktop surface (Guacamole-style).
+      overlay.addEventListener('pointerdown', () => focusOverlay());
+      overlay.addEventListener('click', () => focusOverlay());
+      overlay.addEventListener('mousedown', () => focusOverlay());
+
       overlay.addEventListener('keydown', (e) => {
-        sendBinary(encKey(true, e.keyCode));
+        if (e.ctrlKey || e.altKey || e.metaKey) {
+          sendBinary(encKey(true, e.keyCode || e.which || 0));
+          e.preventDefault();
+          return;
+        }
+        // Printable characters: Unicode path (works for Notepad / IME / mobile).
+        if (e.key && e.key.length === 1 && !e.repeat) {
+          const tb = encText(e.key);
+          if (tb) sendBinary(tb);
+          e.preventDefault();
+          return;
+        }
+        sendBinary(encKey(true, e.keyCode || e.which || 0));
         e.preventDefault();
       });
       overlay.addEventListener('keyup', (e) => {
-        sendBinary(encKey(false, e.keyCode));
+        if (e.key && e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+          e.preventDefault();
+          return;
+        }
+        sendBinary(encKey(false, e.keyCode || e.which || 0));
         e.preventDefault();
+      });
+      overlay.addEventListener('paste', (e) => {
+        const text = e.clipboardData && e.clipboardData.getData('text');
+        if (text) {
+          const tb = encText(text);
+          if (tb) sendBinary(tb);
+          e.preventDefault();
+        }
       });
     },
   };

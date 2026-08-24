@@ -28,6 +28,7 @@ window.ConnectViewer = {
     const taskmgr = Connect.taskmgr.create(ctx);
     const webrtcRef = { getDC: () => null };
     const control = Connect.control.create(() => webrtcRef.getDC());
+  if (control.noteLanIPs) Connect._rdpNoteLanIPs = control.noteLanIPs;
     const onControlView = () => {
       control.refreshFileList();
       control.refreshFsBrowser?.();

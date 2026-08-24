@@ -179,7 +179,7 @@ Connect.webrtc = {
 
     function setupInput(channel) {
       dc = channel;
-      overlay.focus();
+      try { overlay.focus({ preventScroll: true }); } catch (_) { overlay.focus(); }
       Connect.input.bindOverlay(overlay, video, () => layout.getStreamSize(), sendBinary, queueMove, () => layout.isCover());
 
       channel.onmessage = (ev) => {

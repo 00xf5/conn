@@ -40,12 +40,12 @@ button {
   border-radius: 6px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 0.85rem;
 }
 button.active { border-color: var(--accent); color: #c9dbff; background: rgba(47, 111, 237, 0.14); }
-#btn-mic.mic-on {
+#btn-mic, #btn-host-mic.mic-on {
   border-color: #3d9a5f;
   color: #b8f0cc;
   background: rgba(61, 154, 95, 0.16);
 }
-#btn-mic.mic-off {
+#btn-mic, #btn-host-mic.mic-off {
   color: var(--muted);
 }
 #remote-audio { display: none; }

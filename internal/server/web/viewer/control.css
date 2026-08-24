@@ -210,3 +210,18 @@
   margin: 0;
   flex: 0 0 auto;
 }
+
+.cp-rdp-info {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.2);
+}
+.cp-rdp-info code {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  word-break: break-all;
+}
+.term-wrap .term-hint { opacity: 0.75; }

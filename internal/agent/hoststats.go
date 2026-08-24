@@ -24,6 +24,7 @@ type HostSnapshot struct {
 	FPS         int               `json:"fps"`
 	BitrateK    int               `json:"bitrateK"`
 	Processes   []ProcessSnapshot `json:"processes"`
+	LanIPs      []string          `json:"lanIPs,omitempty"`
 }
 
 func buildHostSnapshot(cfg Config, encoderName string) HostSnapshot {
@@ -51,6 +52,7 @@ func buildHostSnapshot(cfg Config, encoderName string) HostSnapshot {
 		FPS:         cfg.FPS,
 		BitrateK:    cfg.BitrateK,
 		Processes:   m.Processes,
+		LanIPs:      lanIPv4s(),
 	}
 }
 
