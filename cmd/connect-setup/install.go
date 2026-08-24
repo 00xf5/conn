@@ -146,7 +146,15 @@ func runInstall(opts InstallOptions, progress ProgressFunc) error {
 	}
 
 	progress("Preparing", "Stopping any previous agent/service…")
+	writeInstallPause(dest)
+	defer clearInstallPause(dest)
+	time.Sleep(2200 * time.Millisecond) // one supervisor tick so it will not relaunch
 	stopExistingAgent()
+	if serviceStillRunning() {
+		progress("Preparing", "Windows may ask for permission to stop the old agent…")
+		stopServiceElevated()
+		stopExistingAgent()
+	}
 
 	progress("Installing", "Updating WorthyJoin files (enrollment kept)…")
 	if err := unzipTo(zipPath, dest); err != nil {
@@ -249,7 +257,7 @@ func unzipTo(zipPath, dest string) error {
 			return err
 		}
 		writeErr := writeFileReplace(rc, target, f.Mode())
-		rc.Close()
+		_ = rc.Close()
 		if writeErr != nil {
 			return writeErr
 		}
@@ -257,30 +265,71 @@ func unzipTo(zipPath, dest string) error {
 	return nil
 }
 
-// writeFileReplace writes target; if the file is locked (running exe), renames it aside first.
+// writeFileReplace stages src to a temp file, then replaces target. Staging is
+// required so retries do not re-read an already-consumed zip stream.
 func writeFileReplace(src io.Reader, target string, mode os.FileMode) error {
-	if err := tryWriteFile(src, target, mode); err == nil {
-		return nil
-	}
-
-	// Windows often allows renaming a locked executable.
-	old := target + ".old"
-	_ = os.Remove(old)
-	if err := os.Rename(target, old); err != nil {
-		// Still locked for rename — one more stop attempt then retry rename.
-		stopExistingAgent()
-		_ = os.Remove(old)
-		if err2 := os.Rename(target, old); err2 != nil {
-			return fmt.Errorf("open %s: file in use — close WorthyJoin / ConnectAgent and try again", target)
+	stage, err := os.CreateTemp(filepath.Dir(target), ".wj-write-*")
+	if err != nil {
+		stage, err = os.CreateTemp("", ".wj-write-*")
+		if err != nil {
+			return err
 		}
 	}
-
-	if err := tryWriteFile(src, target, mode); err != nil {
-		_ = os.Rename(old, target) // best-effort rollback
-		return err
+	stagePath := stage.Name()
+	_, copyErr := io.Copy(stage, src)
+	closeErr := stage.Close()
+	defer os.Remove(stagePath)
+	if copyErr != nil {
+		return copyErr
 	}
-	_ = os.Remove(old) // may fail if still mapped; leftover .old is harmless
-	return nil
+	if closeErr != nil {
+		return closeErr
+	}
+
+	var last error
+	for attempt := 0; attempt < 12; attempt++ {
+		if attempt > 0 {
+			stopExistingAgent()
+			if attempt == 2 && serviceStillRunning() {
+				stopServiceElevated()
+				stopExistingAgent()
+			}
+			time.Sleep(400 * time.Millisecond)
+		}
+		in, err := os.Open(stagePath)
+		if err != nil {
+			return err
+		}
+		err = tryWriteFile(in, target, mode)
+		_ = in.Close()
+		if err == nil {
+			return nil
+		}
+		last = err
+
+		// Windows often allows renaming a locked executable (service still mapped).
+		old := target + ".old"
+		_ = os.Remove(old)
+		if err := os.Rename(target, old); err != nil {
+			last = err
+			continue
+		}
+		in, err = os.Open(stagePath)
+		if err != nil {
+			_ = os.Rename(old, target)
+			return err
+		}
+		err = tryWriteFile(in, target, mode)
+		_ = in.Close()
+		if err != nil {
+			_ = os.Rename(old, target)
+			last = err
+			continue
+		}
+		_ = os.Remove(old)
+		return nil
+	}
+	return fmt.Errorf("open %s: file in use — close WorthyJoin / ConnectAgent and try again (%v)", target, last)
 }
 
 func tryWriteFile(src io.Reader, target string, mode os.FileMode) error {
@@ -296,33 +345,60 @@ func tryWriteFile(src io.Reader, target string, mode os.FileMode) error {
 	return closeErr
 }
 
+func installPausePath(dir string) string {
+	return filepath.Join(dir, ".worthyjoin-updating")
+}
+
+func writeInstallPause(dir string) {
+	_ = os.WriteFile(installPausePath(dir), []byte("1"), 0o644)
+}
+
+func clearInstallPause(dir string) {
+	_ = os.Remove(installPausePath(dir))
+}
+
+func serviceStillRunning() bool {
+	s := string(combinedHidden("sc.exe", "query", "ConnectAgent"))
+	return strings.Contains(s, "RUNNING") || strings.Contains(s, "START_PENDING") || strings.Contains(s, "STOP_PENDING")
+}
+
+var elevatedStopAttempted bool
+
+func stopServiceElevated() {
+	if elevatedStopAttempted {
+		return
+	}
+	elevatedStopAttempted = true
+	// Friend PCs: ConnectAgent runs as SYSTEM from the same exe. Unelevated
+	// sc stop / taskkill cannot release that lock. One UAC prompt is enough.
+	ps := `$ErrorActionPreference='SilentlyContinue'; ` +
+		`Start-Process -FilePath 'sc.exe' -ArgumentList @('stop','ConnectAgent') -Verb RunAs -WindowStyle Hidden -Wait; ` +
+		`Start-Sleep -Milliseconds 400; ` +
+		`Get-Process connect-agent,WorthyJoin-Host -ErrorAction SilentlyContinue | Stop-Process -Force`
+	elev := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-Command", ps)
+	hideConsole(elev)
+	_ = elev.Run()
+	time.Sleep(800 * time.Millisecond)
+}
+
 func stopExistingAgent() {
-	// Prefer a clean service stop; wait before taskkill so Defender sees less "kill frenzy".
+	writeInstallPause(connectDir())
 	runHidden("sc.exe", "stop", "ConnectAgent")
 
-	stopped := false
-	for i := 0; i < 80; i++ {
-		out := combinedHidden("sc.exe", "query", "ConnectAgent")
-		s := string(out)
-		if strings.Contains(s, "STOPPED") || strings.Contains(s, "1060") {
-			stopped = true
-			break
-		}
-		if !strings.Contains(s, "RUNNING") && !strings.Contains(s, "STOP_PENDING") && !strings.Contains(s, "START_PENDING") {
-			stopped = true
+	for i := 0; i < 40; i++ {
+		if !serviceStillRunning() {
 			break
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
-	if !stopped {
+	if serviceStillRunning() {
 		runHidden("net.exe", "stop", "ConnectAgent", "/y")
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(400 * time.Millisecond)
 	}
 
-	// Only force-kill leftovers after the service had time to exit.
 	runHidden("taskkill.exe", "/F", "/IM", "connect-agent.exe")
 	runHidden("taskkill.exe", "/F", "/IM", "WorthyJoin-Host.exe")
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(400 * time.Millisecond)
 }
 
 func runHidden(name string, args ...string) {

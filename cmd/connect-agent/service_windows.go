@@ -107,6 +107,10 @@ func (s *connectService) supervise(stop <-chan struct{}) {
 		case <-ticker.C:
 		}
 
+		if installPauseActive(exe) {
+			continue
+		}
+
 		if interactiveAgentRunning() {
 			continue
 		}
@@ -122,6 +126,22 @@ func (s *connectService) supervise(stop <-chan struct{}) {
 		}
 		s.logInfo("launched interactive agent in session %d", sessionID)
 	}
+}
+
+// installPauseActive is written by WorthyJoin-Setup next to the agent exe so
+// this supervisor does not relaunch the host while files are being replaced.
+// Stale flags (crashed Setup) expire after 5 minutes so the agent cannot stay dead.
+func installPauseActive(exe string) bool {
+	path := filepath.Join(filepath.Dir(exe), ".worthyjoin-updating")
+	st, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	if time.Since(st.ModTime()) > 5*time.Minute {
+		_ = os.Remove(path)
+		return false
+	}
+	return true
 }
 
 func serviceInstalled() bool {
