@@ -67,6 +67,19 @@ button.active { border-color: var(--accent); color: #c9dbff; background: rgba(47
 
 #layout.fill-mode #video-pane { flex: 1 1 100%; width: auto !important; }
 
+/* Fullscreen: pane holds video + overlay and must fill the screen. */
+#video-pane:fullscreen,
+#video-pane:-webkit-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  flex: none !important;
+  background: #000;
+}
+#video-pane:fullscreen #video,
+#video-pane:-webkit-full-screen #video { width: 100%; height: 100%; }
+#video-pane:fullscreen #overlay,
+#video-pane:-webkit-full-screen #overlay { inset: 0; }
+
 @media (min-width: 901px) {
   #layout.fill-mode .tm-shell { display: none; }
   #stats.mobile-stats { display: none; }
@@ -128,7 +141,7 @@ body.viewer-mobile .mobile-backdrop {
   z-index: 35;
   background: rgba(0, 0, 0, 0.55);
 }
-body.viewer-mobile .mobile-keys {
+body.viewer-mobile .mobile-keys-legacy {
   display: flex;
   gap: 6px;
   padding: 6px 10px;
@@ -163,4 +176,105 @@ body.viewer-mobile.mobile-panel-open .mobile-keys {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+/* ---- Floating on-screen keyboard (all viewports) ---- */
+.fkb-fab {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 55;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--accent);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fkb-fab.hidden { display: none; }
+.fkb-fab:active { transform: scale(0.96); }
+
+.fkb {
+  position: fixed;
+  z-index: 60;
+  width: min(420px, calc(100vw - 16px));
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  overflow: hidden;
+}
+.fkb-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: grab;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border);
+}
+.fkb-header:active { cursor: grabbing; }
+.fkb-grip { color: var(--muted); letter-spacing: -3px; font-size: 14px; }
+.fkb-title { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
+.fkb-close {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 18px; line-height: 1;
+  cursor: pointer;
+}
+.fkb-type { padding: 8px 10px 4px; }
+.fkb-field {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 16px; /* >=16px avoids iOS zoom-on-focus */
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.fkb-field:focus { outline: none; border-color: var(--accent); }
+.fkb-keys { padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 6px; }
+.fkb-row { display: flex; gap: 6px; }
+.fkb-key {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  padding: 6px 4px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #1b2230;
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.fkb-key:active { background: #232c3d; }
+.fkb-key.wide { flex: 1.6 1 0; }
+.fkb-key.on { border-color: var(--accent); color: #c9dbff; }
+.fkb-mod.armed { border-color: var(--accent); background: #23407a; color: #dbe7ff; }
+.fkb-mod.locked { border-color: #f0a53d; background: #5a3f14; color: #ffe6bd; }
+.fkb-fn {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  padding: 0 8px 8px;
+}
+.fkb-fnkey { min-height: 40px; font-size: 13px; }
+
+@media (max-width: 380px) {
+  .fkb-key { font-size: 13px; min-height: 42px; }
 }

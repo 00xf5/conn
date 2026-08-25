@@ -41,6 +41,8 @@ window.ConnectViewer = {
     const webrtc = Connect.webrtc.create(ctx, { layout, taskmgr, control });
     webrtcRef.getDC = webrtc.getDC;
 
+    Connect.floatkb?.create?.(webrtc.getDC);
+
     if (Connect.profiles?.mobile?.isActive?.()) {
       Connect.profiles.mobile.init(ctx, {
         getDC: webrtc.getDC,

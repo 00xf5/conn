@@ -17,7 +17,6 @@ Connect.profiles.mobile = {
 
     document.body.classList.add("viewer-mobile");
     const panel = document.getElementById("host-panel");
-    const getDC = hooks.getDC;
 
     const backdrop = document.createElement("div");
     backdrop.id = "panel-backdrop";
@@ -41,27 +40,8 @@ Connect.profiles.mobile = {
     const titlebar = panel?.querySelector(".tm-titlebar");
     if (titlebar) titlebar.appendChild(closeBtn);
 
-    const keysBar = document.createElement("div");
-    keysBar.className = "mobile-keys";
-    keysBar.setAttribute("role", "toolbar");
-    keysBar.setAttribute("aria-label", "Remote keys");
-    const keys = [
-      { label: "Ctrl", vk: 0x11 },
-      { label: "Alt", vk: 0x12 },
-      { label: "Tab", vk: 0x09 },
-      { label: "Esc", vk: 0x1b },
-      { label: "⌫", vk: 0x08 },
-      { label: "Enter", vk: 0x0d },
-    ];
-    for (const k of keys) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = k.label;
-      b.addEventListener("click", () => tapKey(k.vk, getDC));
-      keysBar.appendChild(b);
-    }
-    const stats = document.getElementById("stats");
-    document.getElementById("app").insertBefore(keysBar, stats);
+    // On-screen keys are provided by the floating keyboard (Connect.floatkb),
+    // which works on every viewport and is draggable/closable.
 
     function setOpen(open) {
       document.body.classList.toggle("mobile-panel-open", open);
@@ -80,12 +60,3 @@ Connect.profiles.mobile = {
     });
   },
 };
-
-function tapKey(vk, getDC) {
-  const dc = getDC?.();
-  if (!dc || dc.readyState !== "open" || !Connect.input?.encKey) return;
-  dc.send(Connect.input.encKey(true, vk));
-  setTimeout(() => {
-    if (dc.readyState === "open") dc.send(Connect.input.encKey(false, vk));
-  }, 80);
-}
