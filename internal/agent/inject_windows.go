@@ -156,9 +156,14 @@ func sendWheel(delta int) {
 	sendInputs(in)
 }
 
+// keyboardInput must be the same size as the Windows INPUT union (40 bytes on
+// amd64). SendInput fails outright if cbSize != sizeof(INPUT), so the trailing
+// pad is required or no key/text events are injected at all.
 type keyboardInput struct {
 	inputType uint32
+	_         [4]byte
 	ki        keybdInput
+	_         [8]byte
 }
 
 func sendUnicode(s string) {

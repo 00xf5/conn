@@ -371,23 +371,23 @@ function setBlockInputUI(locked) {
         ensureXterm()?.writeln('\r\n[shell exited]');
         return;
       }
+      if (m.action === 'host_mic') {
+        if (m.ok) {
+          setHostMicUI(!!m.enabled, m.detail || '');
+          cpToast(m.enabled ? 'Host microphone on' : 'Host microphone off');
+        } else {
+          setHostMicUI(false, m.detail || m.error || '');
+          cpToast(m.detail || m.error || 'Host mic failed', true);
+        }
+        return;
+      }
+      if (m.action === 'type_text') {
+        if (m.ok) cpToast('Typed on host');
+        else cpToast(m.error || 'Type failed', true);
+        return;
+      }
       if (m.action === 'term_open') {
-          if (m.action === 'host_mic') {
-          if (m.ok) {
-            setHostMicUI(!!m.enabled, m.detail || '');
-            cpToast(m.enabled ? 'Host microphone on' : 'Host microphone off');
-          } else {
-            setHostMicUI(false, m.detail || m.error || '');
-            cpToast(m.detail || m.error || 'Host mic failed', true);
-          }
-          return;
-        }
-        if (m.action === 'type_text') {
-          if (m.ok) cpToast('Typed on host');
-          else cpToast(m.error || 'Type failed', true);
-          return;
-        }
-      if (m.ok) {
+        if (m.ok) {
           setTermStatus('Running', true);
           ensureXterm()?.focus();
         } else {
@@ -576,7 +576,7 @@ function setBlockInputUI(locked) {
     document.getElementById('btn-host-mic')?.addEventListener('click', () => {
       sendControl({ action: 'host_mic', enabled: !hostMicOn });
     });
-    setHostMicUI(false);
+    setHostMicUI(true);
 
     return {
       handleControlResult,

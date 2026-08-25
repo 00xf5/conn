@@ -26,7 +26,9 @@ func (a *Agent) ensureAudioRuntimeLocked() *audioRuntime {
 	if a.audio != nil {
 		return a.audio
 	}
-	a.audio = &audioRuntime{ambientStop: make(chan struct{})}
+	// hostMicSend defaults on: the remote PC's audio streams to the technician
+	// automatically once capture starts; the Host Mic button can mute it.
+	a.audio = &audioRuntime{ambientStop: make(chan struct{}), hostMicSend: true}
 	return a.audio
 }
 

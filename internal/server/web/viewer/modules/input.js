@@ -97,7 +97,6 @@ Connect.input = (function () {
         sendBinary(encMouseBtn(false, 0, x, y));
       }, { passive: false });
       const focusOverlay = () => { try { overlay.focus({ preventScroll: true }); } catch (_) { overlay.focus(); } };
-      const { encText } = Connect.input;
 
       // Keep keyboard target on the desktop surface (Guacamole-style).
       overlay.addEventListener('pointerdown', () => focusOverlay());
