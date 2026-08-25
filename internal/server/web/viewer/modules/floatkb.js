@@ -199,27 +199,60 @@ Connect.floatkb = {
       }
     }
 
-    // ---- text field: forward typing to host ----
-    field.addEventListener('beforeinput', (e) => {
-      const t = e.inputType || '';
-      if (t === 'insertText' && e.data) {
-        const mods = activeModVks();
-        const vk = charToVK(e.data);
-        if (mods.length && vk) pressVK(vk);
-        else { sendText(e.data); if (mods.length) clearArmed(); }
-      } else if (t === 'insertLineBreak' || t === 'insertParagraph') {
-        pressVK(VK.enter);
-      } else if (t.indexOf('deleteContent') === 0) {
-        pressVK(VK.back);
-      } else if (t === 'insertFromPaste' && e.data) {
-        sendText(e.data);
+    // ---- text field: a compose box that mirrors typing to the host ----
+    // You SEE what you type here; each change is forwarded to the remote PC.
+    let prev = '';
+    let composing = false;
+
+    function flushDiff() {
+      const val = field.value;
+      if (val === prev) return;
+      if (val.length > prev.length && val.startsWith(prev)) {
+        sendText(val.slice(prev.length));
+      } else if (val.length < prev.length && prev.startsWith(val)) {
+        for (let i = 0; i < prev.length - val.length; i++) pressVK(VK.back);
       } else {
-        return; // let composition etc. proceed
+        // Non-linear edit (autocorrect, mid-line): re-sync best effort.
+        for (let i = 0; i < prev.length; i++) pressVK(VK.back);
+        if (val) sendText(val);
       }
-      e.preventDefault();
+      prev = val;
+    }
+
+    // Modifier + letter (e.g. armed Ctrl + "c") = real VK combo, not text.
+    field.addEventListener('beforeinput', (e) => {
+      if ((e.inputType || '') === 'insertText' && e.data) {
+        const vk = charToVK(e.data);
+        if (activeModVks().length && vk) {
+          e.preventDefault();
+          pressVK(vk); // clears armed mods
+        }
+      }
     });
-    // Belt-and-suspenders: keep the field empty so it never grows.
-    field.addEventListener('input', () => { if (field.value) field.value = ''; });
+    field.addEventListener('compositionstart', () => { composing = true; });
+    field.addEventListener('compositionend', () => { composing = false; flushDiff(); });
+    field.addEventListener('input', () => { if (!composing) flushDiff(); });
+    field.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        pressVK(VK.enter);
+        field.value = '';
+        prev = '';
+      } else if (e.key === 'Backspace' && field.value === '') {
+        // Let backspace reach the host even when the compose box is empty.
+        e.preventDefault();
+        pressVK(VK.back);
+      }
+    });
+
+    const btnClear = document.createElement('button');
+    btnClear.type = 'button';
+    btnClear.className = 'fkb-clear';
+    btnClear.title = 'Clear box (does not affect host)';
+    btnClear.textContent = 'Clear';
+    btnClear.addEventListener('pointerdown', (e) => e.preventDefault());
+    btnClear.addEventListener('click', () => { field.value = ''; prev = ''; try { field.focus(); } catch (_) {} });
+    typeRow.appendChild(btnClear);
 
     // ---- FAB toggle ----
     const fab = document.createElement('button');
@@ -299,6 +332,8 @@ Connect.floatkb = {
       wrap.hidden = false;
       fab.classList.add('hidden');
       restorePos();
+      field.value = '';
+      prev = '';
       try { field.focus({ preventScroll: true }); } catch (_) { field.focus(); }
       try { localStorage.setItem('fkb.open', '1'); } catch (_) {}
     }

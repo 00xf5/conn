@@ -235,9 +235,10 @@ body.viewer-mobile.mobile-panel-open .mobile-keys {
   font-size: 18px; line-height: 1;
   cursor: pointer;
 }
-.fkb-type { padding: 8px 10px 4px; }
+.fkb-type { padding: 8px 10px 4px; display: flex; gap: 6px; align-items: stretch; }
 .fkb-field {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 10px 12px;
   font-size: 16px; /* >=16px avoids iOS zoom-on-focus */
   border-radius: 8px;
@@ -246,6 +247,18 @@ body.viewer-mobile.mobile-panel-open .mobile-keys {
   color: var(--text);
 }
 .fkb-field:focus { outline: none; border-color: var(--accent); }
+.fkb-clear {
+  flex: 0 0 auto;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #1b2230;
+  color: var(--text);
+  cursor: pointer;
+}
+.fkb-clear:active { background: #232c3d; }
 .fkb-keys { padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 6px; }
 .fkb-row { display: flex; gap: 6px; }
 .fkb-key {
